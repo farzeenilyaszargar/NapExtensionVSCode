@@ -7,11 +7,12 @@ import {
   NapMode,
   NapModelOption,
   NapSecurityMode,
+  NapSessionRecord,
   NapSessionSummary
 } from '../shared/protocol';
 import { NapDaemonClient } from '../nap/client';
 import {
-  NapSessionRecord,
+  NapSessionRecord as DaemonSessionRecord,
   SessionMessageDeltaEvent,
   SessionMessageDoneEvent
 } from '../nap/protocol';
@@ -33,11 +34,13 @@ export interface NapPromptStream {
 export interface INapCliService extends vscode.Disposable {
   ensureInteractiveTerminal(): void;
   sendSlashCommand(command: string): void;
+  login(): Promise<NapAuthState>;
   getModels(defaultModelId: string): Promise<NapModelOption[]>;
   getAuthState(): Promise<NapAuthState>;
   getMcpState(): Promise<NapMcpState>;
   listSessions(): Promise<NapSessionSummary[]>;
   getSession(sessionId: string): Promise<NapSessionRecord>;
+  saveSession(session: NapSessionRecord): void;
   streamPrompt(request: NapPromptRequest, stream: NapPromptStream, token: vscode.CancellationToken): Promise<void>;
 }
 
@@ -68,14 +71,17 @@ export class NapDaemonService implements INapCliService {
 
   sendSlashCommand(command: string): void {
     if (command === '/login') {
-      void this.client.login().then(
-        auth => this.output.appendLine(`[Nap] Auth: ${auth.label}`),
-        error => this.output.appendLine(`[Nap] Auth request failed: ${getErrorMessage(error)}`)
-      );
+      void this.login();
       return;
     }
 
     this.output.appendLine(`[Nap] Unsupported daemon command: ${command}`);
+  }
+
+  async login(): Promise<NapAuthState> {
+    const auth = await this.client.login();
+    this.output.appendLine(`[Nap] Auth: ${auth.label}`);
+    return auth;
   }
 
   async getModels(defaultModelId: string): Promise<NapModelOption[]> {
@@ -100,10 +106,19 @@ export class NapDaemonService implements INapCliService {
   }
 
   async getSession(sessionId: string): Promise<NapSessionRecord> {
-    return this.client.getSession(sessionId);
+    return toSharedSessionRecord(await this.client.getSession(sessionId));
+  }
+
+  saveSession(_session: NapSessionRecord): void {
+    // Session persistence is daemon-owned in the active architecture.
   }
 
   async streamPrompt(request: NapPromptRequest, stream: NapPromptStream, token: vscode.CancellationToken): Promise<void> {
+    const auth = await this.client.authStatus();
+    if (auth.status !== 'authenticated') {
+      throw new Error('Sign in with Nap CLI before using chat.');
+    }
+
     await this.client.createSession({
       sessionId: request.sessionId,
       mode: request.mode,
@@ -163,7 +178,7 @@ export class NapDaemonService implements INapCliService {
   }
 }
 
-function toSessionSummary(session: NapSessionRecord): NapSessionSummary {
+function toSessionSummary(session: DaemonSessionRecord): NapSessionSummary {
   const firstUserMessage = session.messages.find(message => message.role === 'user')?.content.trim() ?? '';
   const preview = firstUserMessage || session.messages[0]?.content.trim() || '';
   const title = session.title?.trim() || truncateText(preview, 42) || 'New Chat';
@@ -173,6 +188,21 @@ function toSessionSummary(session: NapSessionRecord): NapSessionSummary {
     title,
     preview: truncateText(preview, 84),
     messageCount: session.messages.length,
+    updatedAt: session.updatedAt
+  };
+}
+
+function toSharedSessionRecord(session: DaemonSessionRecord): NapSessionRecord {
+  return {
+    id: session.id,
+    workspaceRoot: session.workspaceRoot,
+    title: session.title,
+    mode: session.mode,
+    modelId: session.modelId,
+    debugMode: session.debugMode,
+    securityMode: session.securityMode,
+    messages: session.messages,
+    createdAt: session.createdAt,
     updatedAt: session.updatedAt
   };
 }

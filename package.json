@@ -38,10 +38,6 @@
     "onCommand:nap.openSettings"
   ],
   "main": "./out/extension.js",
-  "bin": {
-    "nap": "./out/nap/cli.js",
-    "napd": "./out/nap/daemon/server.js"
-  },
   "extensionKind": [
     "workspace"
   ],
@@ -124,7 +120,7 @@
       },
       {
         "command": "nap.openAccounts",
-        "title": "Accounts",
+        "title": "Profile",
         "category": "Nap",
         "icon": "$(account)"
       },
@@ -179,8 +175,8 @@
       "properties": {
         "nap.cliPath": {
           "type": "string",
-          "default": "gemini",
-          "description": "Provider executable used internally by napd for the current local model adapter."
+          "default": "nap",
+          "description": "Nap CLI command name for users who also install npm i -g @nap-ai/cli. The VS Code extension talks to napd over JSON-RPC."
         },
         "nap.accentColor": {
           "type": "string",

@@ -51,9 +51,25 @@ export interface NapSessionSummary {
   updatedAt: number;
 }
 
+export interface NapSessionRecord {
+  id: string;
+  workspaceRoot?: string;
+  title: string;
+  mode: NapMode;
+  modelId: string;
+  debugMode: boolean;
+  securityMode: NapSecurityMode;
+  messages: NapMessage[];
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface NapAuthState {
   status: 'mock' | 'unknown' | 'authenticated' | 'signedOut';
   label: string;
+  accountName?: string;
+  accountEmail?: string;
+  avatarUrl?: string;
 }
 
 export interface NapMcpServerState {
@@ -87,6 +103,8 @@ export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'sendPrompt'; prompt: string }
   | { type: 'stopGeneration' }
+  | { type: 'authLogin' }
+  | { type: 'refreshSessions' }
   | { type: 'newSession' }
   | { type: 'clearSession' }
   | { type: 'openSession'; sessionId: string }
@@ -103,7 +121,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'modelsChanged'; models: NapModelOption[]; selectedModelId: string }
   | { type: 'sessionsChanged'; sessions: NapSessionSummary[] }
   | { type: 'authStateChanged'; auth: NapAuthState }
-  | { type: 'mcpStateChanged'; mcp: NapMcpState };
+  | { type: 'mcpStateChanged'; mcp: NapMcpState }
+  | { type: 'showProfile' };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -121,6 +140,8 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
   switch (value.type) {
     case 'ready':
     case 'stopGeneration':
+    case 'authLogin':
+    case 'refreshSessions':
     case 'newSession':
     case 'clearSession':
     case 'openSettings':

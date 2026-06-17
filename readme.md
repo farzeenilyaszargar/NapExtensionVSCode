@@ -16,9 +16,10 @@ Nap Chat For VS Code brings a focused AI agent chat experience into your editor.
 ## Getting Started
 
 1. Install the extension.
-2. Open **Nap Chat** from the Activity Bar.
-3. For a Copilot-style layout, run **Nap: Move Chat To Right** from the Command Palette and choose **Secondary Side Bar**.
-4. Describe what you want to build in the chat box.
+2. Install the Nap CLI with `npm i -g @nap-ai/cli`.
+3. Open **Nap Chat** from the Activity Bar and sign in from the auth button.
+4. For a Copilot-style layout, run **Nap: Move Chat To Right** from the Command Palette and choose **Secondary Side Bar**.
+5. Describe what you want to build in the chat box.
 
 ## What You Can Do
 

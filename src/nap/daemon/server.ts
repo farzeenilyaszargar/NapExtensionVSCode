@@ -29,7 +29,7 @@ import {
 import { attachWebSocketUpgrade, MinimalWsConnection } from '../ws';
 import { clearRuntimeInfo, ensureNapDataDir, writeRuntimeInfo } from '../runtimePaths';
 import { DaemonStorage } from './storage';
-import { GeminiProviderAdapter, ProviderAdapter } from './provider';
+import { NapBackendProviderAdapter, ProviderAdapter } from './provider';
 import {
   NapAuthState,
   NapLogEvent,
@@ -56,7 +56,7 @@ export class NapDaemon {
   private authState: NapAuthState = { status: 'unknown', label: 'Unknown' };
 
   constructor(options: { provider?: ProviderAdapter; token?: string } = {}) {
-    this.provider = options.provider ?? new GeminiProviderAdapter(process.env.NAP_GEMINI_CLI ?? 'gemini');
+    this.provider = options.provider ?? new NapBackendProviderAdapter();
     this.token = options.token ?? crypto.randomBytes(24).toString('hex');
   }
 

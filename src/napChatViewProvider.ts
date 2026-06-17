@@ -8,11 +8,10 @@ import {
   NapLogEvent,
   NapMessage,
   NapMode,
+  NapSessionRecord,
   NapSessionState,
-  NapSessionSummary,
   WebviewToExtensionMessage
 } from './shared/protocol';
-import { NapSessionRecord } from './nap/protocol';
 
 export class NapChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'nap.chatView';
@@ -90,6 +89,23 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     this.publishState();
   }
 
+  async login(): Promise<void> {
+    const auth = await this.cliService.login();
+    this.state = {
+      ...this.state,
+      auth
+    };
+    this.post({ type: 'authStateChanged', auth });
+    this.log('info', auth.label);
+    this.publishState();
+  }
+
+  async openProfile(): Promise<void> {
+    await this.refreshEnvironment();
+    this.publishState();
+    this.post({ type: 'showProfile' });
+  }
+
   stopGeneration(): void {
     if (this.currentCancellation && !this.currentCancellation.token.isCancellationRequested) {
       this.currentCancellation.cancel();
@@ -109,6 +125,12 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'stopGeneration':
         this.stopGeneration();
+        return;
+      case 'authLogin':
+        await this.login();
+        return;
+      case 'refreshSessions':
+        await this.refreshSessions();
         return;
       case 'newSession':
         await this.newSession();
@@ -139,6 +161,13 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
     if (this.state.status === 'streaming') {
       this.post({ type: 'error', message: 'Nap is already streaming a response.' });
+      return;
+    }
+
+    await this.refreshEnvironment();
+    if (this.state.auth.status !== 'authenticated') {
+      this.post({ type: 'error', message: 'Sign in with Nap CLI before using chat.' });
+      this.publishState();
       return;
     }
 
@@ -183,15 +212,18 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
       this.finishAssistantMessage(assistantMessage.id, 'complete');
       this.state = { ...this.state, status: 'idle' };
+      this.cliService.saveSession(this.toCurrentSessionRecord());
       this.post({ type: 'messageDone', messageId: assistantMessage.id, status: 'complete' });
     } catch (error) {
       if (error instanceof vscode.CancellationError || cancellation.token.isCancellationRequested) {
         this.finishAssistantMessage(assistantMessage.id, 'stopped');
         this.state = { ...this.state, status: 'stopped' };
+        this.cliService.saveSession(this.toCurrentSessionRecord());
         this.post({ type: 'messageDone', messageId: assistantMessage.id, status: 'stopped' });
       } else {
         this.finishAssistantMessage(assistantMessage.id, 'error');
         this.state = { ...this.state, status: 'error' };
+        this.cliService.saveSession(this.toCurrentSessionRecord());
         this.reportError(error);
         this.post({ type: 'messageDone', messageId: assistantMessage.id, status: 'error' });
       }
@@ -246,15 +278,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async refreshSessions(): Promise<void> {
-    const currentSummary = this.createCurrentSessionSummary();
-
     try {
-      const daemonSessions = await this.cliService.listSessions();
-      const sessions = [
-        currentSummary,
-        ...daemonSessions.filter(session => session.id !== this.state.sessionId)
-      ];
-
+      const sessions = await this.cliService.listSessions();
       this.state = {
         ...this.state,
         sessions
@@ -264,7 +289,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       this.output.appendLine(`[warn] Failed to refresh sessions: ${error instanceof Error ? error.message : String(error)}`);
       this.state = {
         ...this.state,
-        sessions: [currentSummary]
+        sessions: []
       };
       this.post({ type: 'sessionsChanged', sessions: this.state.sessions });
     }
@@ -371,21 +396,6 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     };
   }
 
-  private createCurrentSessionSummary(): NapSessionSummary {
-    const firstUserMessage = this.state.messages.find(message => message.role === 'user')?.content.trim() ?? '';
-    const preview = firstUserMessage || this.state.messages[0]?.content.trim() || '';
-    const title = truncateText(preview, 42) || 'New Chat';
-    const updatedAt = this.state.messages[this.state.messages.length - 1]?.createdAt ?? Date.now();
-
-    return {
-      id: this.state.sessionId,
-      title,
-      preview: truncateText(preview, 84),
-      messageCount: this.state.messages.length,
-      updatedAt
-    };
-  }
-
   private toSessionState(session: NapSessionRecord): NapSessionState {
     return {
       ...this.state,
@@ -397,6 +407,22 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       securityMode: session.securityMode,
       messages: session.messages,
       logs: []
+    };
+  }
+
+  private toCurrentSessionRecord(): NapSessionRecord {
+    const now = Date.now();
+    const firstUserMessage = this.state.messages.find(message => message.role === 'user')?.content.trim() ?? '';
+    return {
+      id: this.state.sessionId,
+      title: truncateText(firstUserMessage, 42) || 'New Chat',
+      mode: this.state.mode,
+      modelId: this.state.modelId,
+      debugMode: this.state.debugMode,
+      securityMode: this.state.securityMode,
+      messages: this.state.messages,
+      createdAt: this.state.messages[0]?.createdAt ?? now,
+      updatedAt: this.state.messages[this.state.messages.length - 1]?.createdAt ?? now
     };
   }
 

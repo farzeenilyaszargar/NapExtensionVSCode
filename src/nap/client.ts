@@ -93,6 +93,10 @@ export class NapDaemonClient {
     return this.request('daemon.health', {});
   }
 
+  async shutdown(): Promise<{ ok: true }> {
+    return this.request('daemon.shutdown', {});
+  }
+
   async createSession(params: Omit<SessionCreateParams, 'clientId' | 'workspaceRoot'> = {}): Promise<NapSessionRecord> {
     return this.request('sessions.create', this.withEnvelope(params));
   }

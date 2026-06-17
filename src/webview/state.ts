@@ -26,7 +26,7 @@ export const initialViewState: NapViewState = {
     servers: []
   },
   config: {
-    cliPath: 'gemini',
+    cliPath: 'nap',
     accentColor: NAP_DEFAULT_ACCENT,
     defaultModel: 'auto',
     debugMode: false,
@@ -107,5 +107,7 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
         ...state,
         mcp: message.mcp
       };
+    case 'showProfile':
+      return state;
   }
 }

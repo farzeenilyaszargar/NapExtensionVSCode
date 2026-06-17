@@ -32,6 +32,9 @@ async function main(): Promise<void> {
       case 'health':
         console.log(JSON.stringify(await client.health(), null, 2));
         break;
+      case 'shutdown':
+        console.log(JSON.stringify(await client.shutdown(), null, 2));
+        break;
       default:
         printHelp();
     }
@@ -82,7 +85,8 @@ function printHelp(): void {
     '  nap models',
     '  nap mcp',
     '  nap index [reindex]',
-    '  nap health'
+    '  nap health',
+    '  nap shutdown'
   ].join('\n'));
 }
 

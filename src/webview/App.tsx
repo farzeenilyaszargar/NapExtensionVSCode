@@ -11,7 +11,8 @@ import {
   SquareTerminal,
   Square,
   ThumbsDown,
-  ThumbsUp
+  ThumbsUp,
+  UserRound
 } from 'lucide-react';
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { WebviewToExtensionMessage } from '../shared/protocol';
@@ -54,6 +55,7 @@ export function App() {
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
   const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,10 @@ export function App() {
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
+      if (event.data?.type === 'showProfile') {
+        setSessionsOpen(false);
+        setProfileOpen(true);
+      }
       dispatch({ type: 'extensionMessage', message: event.data });
     };
     window.addEventListener('message', listener);
@@ -136,20 +142,15 @@ export function App() {
     ? state.models
     : [{ id: state.modelId, label: state.modelId, description: 'Current model' }];
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
-  const sessions = state.sessions.length > 0
-    ? state.sessions
-    : [{
-      id: state.sessionId,
-      title: 'New Chat',
-      preview: '',
-      messageCount: state.messages.length,
-      updatedAt: Date.now()
-    }];
+  const isAuthenticated = state.auth.status === 'authenticated';
+  const sessions = state.sessions;
+  const accountName = state.auth.accountName || (isAuthenticated ? state.auth.label : 'Not signed in');
+  const accountInitial = accountName.trim().charAt(0).toUpperCase() || 'N';
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const prompt = draft.trim();
-    if (!prompt || isStreaming) {
+    if (!prompt || isStreaming || !isAuthenticated) {
       return;
     }
     post({ type: 'sendPrompt', prompt });
@@ -185,7 +186,11 @@ export function App() {
             <span>Sessions</span>
           </header>
           <div className="sessions-list">
-            {sessions.map(session => (
+            {sessions.length === 0 ? (
+              <div className="sessions-empty">
+                <span>No daemon sessions yet</span>
+              </div>
+            ) : sessions.map(session => (
               <button
                 key={session.id}
                 type="button"
@@ -206,27 +211,76 @@ export function App() {
         </section>
       ) : null}
 
-      {!sessionsOpen ? (
+      {profileOpen ? (
+        <section className="profile-page" aria-label="Nap profile">
+          <header className="profile-page-header">
+            <button type="button" aria-label="Back to chat" onClick={() => setProfileOpen(false)}>
+              <ChevronLeft size={16} />
+            </button>
+            <span>Profile</span>
+          </header>
+          <div className="profile-content">
+            <div className="profile-avatar" aria-hidden="true">
+              {state.auth.avatarUrl ? (
+                <img src={state.auth.avatarUrl} alt="" />
+              ) : isAuthenticated ? (
+                <span>{accountInitial}</span>
+              ) : (
+                <UserRound size={28} />
+              )}
+            </div>
+            <div className="profile-copy">
+              <span className={`profile-status profile-status--${state.auth.status}`}>
+                {isAuthenticated ? 'Logged in' : 'Signed out'}
+              </span>
+              <strong>{accountName}</strong>
+              {state.auth.accountEmail ? <span>{state.auth.accountEmail}</span> : null}
+              <p>{state.auth.label}</p>
+            </div>
+            {!isAuthenticated ? (
+              <button type="button" className="profile-auth-button" onClick={() => post({ type: 'authLogin' })}>
+                <Lock size={12} />
+                <span>Sign in with Nap</span>
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {!sessionsOpen && !profileOpen ? (
         <button
           className="sessions-toggle"
           type="button"
           title="Sessions"
           aria-label="Show sessions"
           aria-expanded={sessionsOpen}
-          onClick={() => setSessionsOpen(true)}
+          onClick={() => {
+            post({ type: 'refreshSessions' });
+            setSessionsOpen(true);
+          }}
         >
           <ChevronLeft size={16} />
         </button>
       ) : null}
 
-      {!sessionsOpen ? (
+      {!sessionsOpen && !profileOpen ? (
         <main className="timeline" ref={timelineRef} aria-label="Nap conversation">
         {state.messages.length === 0 ? (
           <div className="empty-state">
             {window.__NAP_LOGO_URI__ ? (
               <img className="empty-state-logo" src={window.__NAP_LOGO_URI__} alt="Nap" />
             ) : null}
-            <p>Start a Nap Chat below</p>
+            {isAuthenticated ? (
+              <p>Start a Nap Chat below</p>
+            ) : (
+              <div className="auth-gate">
+                <Lock size={16} />
+                <p>Sign in to start Nap Chat</p>
+                <button type="button" onClick={() => post({ type: 'authLogin' })}>
+                  Sign in with Nap CLI
+                </button>
+              </div>
+            )}
           </div>
         ) : state.messages.map(message => (
           <article key={message.id} className={`message message--${message.role}`} data-message-id={message.id}>
@@ -270,14 +324,14 @@ export function App() {
         </main>
       ) : null}
 
-      {!sessionsOpen ? (
+      {!sessionsOpen && !profileOpen ? (
         <section className="log-strip" aria-label="Nap log">
         <span className={`log-dot log-dot--${latestLog?.level ?? 'trace'}`} />
         <span className="log-text">{latestLog ? latestLog.message : 'Session idle'}</span>
         </section>
       ) : null}
 
-      {!sessionsOpen ? (
+      {!sessionsOpen && !profileOpen ? (
         <footer className="composer-panel" ref={composerPanelRef}>
         <form className="composer" onSubmit={onSubmit}>
           <div className="composer-input">
@@ -289,6 +343,7 @@ export function App() {
               placeholder="Describe what you want to build"
               rows={2}
               aria-label="Message Nap"
+              disabled={!isAuthenticated}
             />
             <div className="composer-actions">
               <div className="floating-dropdown model-dropdown">
@@ -324,7 +379,7 @@ export function App() {
                   <Square size={13} />
                 </button>
               ) : (
-                <button className="send-button" type="submit" title="Send" aria-label="Send" disabled={!draft.trim()}>
+                <button className="send-button" type="submit" title={isAuthenticated ? 'Send' : 'Sign in required'} aria-label="Send" disabled={!draft.trim() || !isAuthenticated}>
                   <ArrowUp size={15} />
                 </button>
               )}
@@ -333,6 +388,12 @@ export function App() {
         </form>
 
         <div className="composer-options" aria-label="Nap run options">
+          {!isAuthenticated ? (
+            <button type="button" className="auth-inline-button" onClick={() => post({ type: 'authLogin' })}>
+              <Lock size={12} />
+              <span>Auth</span>
+            </button>
+          ) : null}
           <div className="floating-dropdown">
             <button type="button" className="floating-select" aria-label="Runtime target" aria-expanded={openMenu === 'runtime'} onClick={() => setOpenMenu(openMenu === 'runtime' ? undefined : 'runtime')}>
               <RuntimeIcon size={13} />

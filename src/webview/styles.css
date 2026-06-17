@@ -63,19 +63,23 @@ button {
 }
 
 .sessions-toggle:hover,
-.sessions-page-header button:hover {
+.sessions-page-header button:hover,
+.profile-page-header button:hover {
   color: var(--vscode-foreground);
   background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 }
 
 .sessions-toggle:focus-visible,
 .sessions-page-header button:focus-visible,
+.profile-page-header button:focus-visible,
+.profile-auth-button:focus-visible,
 .session-item:focus-visible {
   outline: 1px solid #4a4a4a;
   outline-offset: 1px;
 }
 
-.sessions-page {
+.sessions-page,
+.profile-page {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
@@ -84,7 +88,8 @@ button {
   background: var(--nap-surface);
 }
 
-.sessions-page-header {
+.sessions-page-header,
+.profile-page-header {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -96,7 +101,8 @@ button {
   font-weight: 600;
 }
 
-.sessions-page-header button {
+.sessions-page-header button,
+.profile-page-header button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -108,6 +114,95 @@ button {
   color: #868686;
   background: transparent;
   cursor: pointer;
+}
+
+.profile-content {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 14px;
+  min-height: 0;
+  padding: 32px 16px 16px;
+  text-align: center;
+}
+
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  width: 70px;
+  height: 70px;
+  overflow: hidden;
+  border: 1px solid #2f2f2f;
+  border-radius: 999px;
+  color: #868686;
+  background: #1c1c1c;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.profile-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-copy {
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  color: #868686;
+  font-size: 11px;
+}
+
+.profile-copy strong,
+.profile-copy span,
+.profile-copy p {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-copy strong {
+  color: var(--vscode-foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.profile-copy p {
+  margin: 0;
+}
+
+.profile-status {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.profile-status--authenticated {
+  color: var(--vscode-testing-iconPassed, #89d185);
+}
+
+.profile-auth-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #2f2f2f;
+  border-radius: 6px;
+  color: var(--vscode-foreground);
+  background: #1c1c1c;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.profile-auth-button:hover {
+  background: #262626;
 }
 
 .sessions-list {
@@ -123,6 +218,14 @@ button {
 
 .sessions-list::-webkit-scrollbar {
   display: none;
+}
+
+.sessions-empty {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  color: #868686;
+  font-size: 11px;
 }
 
 .session-item {
@@ -261,6 +364,45 @@ textarea::-webkit-scrollbar,
   width: min(120px, 42%);
   height: auto;
   opacity: 0.3;
+}
+
+.auth-gate {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: #868686;
+}
+
+.auth-gate p {
+  margin: 0;
+  font-size: 12px;
+}
+
+.auth-gate button,
+.auth-inline-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid #2f2f2f;
+  border-radius: 6px;
+  color: var(--vscode-foreground);
+  background: #1c1c1c;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.auth-gate button:hover,
+.auth-inline-button:hover {
+  background: #262626;
+}
+
+.auth-gate button:focus-visible,
+.auth-inline-button:focus-visible {
+  outline: 1px solid #4a4a4a;
+  outline-offset: 1px;
 }
 
 .message {
@@ -592,6 +734,11 @@ textarea {
   overflow-y: hidden;
 }
 
+textarea:disabled {
+  opacity: 0.64;
+  cursor: not-allowed;
+}
+
 .composer-actions {
   position: absolute;
   right: 8px;
@@ -674,6 +821,11 @@ textarea {
   overflow: visible;
   background: transparent;
   border: 0;
+}
+
+.auth-inline-button {
+  flex: 0 0 auto;
+  margin-right: 8px;
 }
 
 .floating-dropdown {

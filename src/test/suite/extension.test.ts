@@ -27,7 +27,7 @@ suite('Nap extension', () => {
     assert.equal(packageJson.contributes.viewsContainers.activitybar[0].id, 'nap');
 
     const config = vscode.workspace.getConfiguration('nap');
-    assert.equal(config.get('cliPath'), 'gemini');
+    assert.equal(config.get('cliPath'), 'nap');
     assert.equal(config.get('defaultModel'), 'auto');
     assert.equal(config.get('debugMode'), false);
     assert.equal(config.get('securityMode'), 'standard');
