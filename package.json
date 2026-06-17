@@ -1,0 +1,212 @@
+{
+  "name": "nap",
+  "displayName": "Nap Chat For VS Code",
+  "description": "An AI coding agent chat experience for VS Code with a polished Nap sidebar interface.",
+  "version": "0.0.16",
+  "publisher": "NapCode",
+  "icon": "icon.png",
+  "license": "MIT",
+  "homepage": "https://www.nap-code.com/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/farzeenilyaszargar/NapExtensionVSCode.git"
+  },
+  "engines": {
+    "vscode": "^1.92.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "keywords": [
+    "nap",
+    "nap agent",
+    "ai agent",
+    "coding agent",
+    "vscode ai",
+    "chat",
+    "mcp"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:nap.chatView",
+    "onCommand:nap.openChat",
+    "onCommand:nap.moveChatToRight",
+    "onCommand:nap.newChat",
+    "onCommand:nap.clearChat",
+    "onCommand:nap.openAccounts",
+    "onCommand:nap.openSettings"
+  ],
+  "main": "./out/extension.js",
+  "bin": {
+    "nap": "./out/nap/cli.js",
+    "napd": "./out/nap/daemon/server.js"
+  },
+  "extensionKind": [
+    "workspace"
+  ],
+  "scripts": {
+    "compile": "tsc -p ./tsconfig.json",
+    "watch": "tsc -watch -p ./tsconfig.json",
+    "build:webview": "vite build",
+    "watch:webview": "vite build --watch",
+    "package": "npm run compile && npm run build:webview",
+    "test:unit": "vitest run",
+    "test:integration": "npm run compile && node ./out/test/runTest.js",
+    "test": "npm run test:unit && npm run test:integration",
+    "vsix": "npm run package && vsce package --no-dependencies",
+    "vscode:prepublish": "npm run package"
+  },
+  "dependencies": {
+    "markdown-it": "^14.2.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.11",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/vscode": "^1.92.0",
+    "@vscode/test-electron": "^2.4.1",
+    "@vscode/vsce": "^3.2.1",
+    "mocha": "^10.8.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "nap",
+          "title": "Nap Chat",
+          "icon": "resources/nap.svg"
+        }
+      ]
+    },
+    "views": {
+      "nap": [
+        {
+          "id": "nap.chatView",
+          "type": "webview",
+          "name": "Nap Chat",
+          "icon": "resources/nap.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "nap.openChat",
+        "title": "Open Chat",
+        "category": "Nap",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "nap.moveChatToRight",
+        "title": "Move Chat To Right",
+        "category": "Nap",
+        "icon": "$(layout-sidebar-right)"
+      },
+      {
+        "command": "nap.newChat",
+        "title": "New Chat",
+        "category": "Nap",
+        "icon": "$(add)"
+      },
+      {
+        "command": "nap.clearChat",
+        "title": "Clear Chat",
+        "category": "Nap",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "nap.openAccounts",
+        "title": "Accounts",
+        "category": "Nap",
+        "icon": "$(account)"
+      },
+      {
+        "command": "nap.openSettings",
+        "title": "Open Settings",
+        "category": "Nap",
+        "icon": "$(settings-gear)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "nap.newChat",
+          "when": "view == nap.chatView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "nap.openAccounts",
+          "when": "view == nap.chatView",
+          "group": "navigation@2"
+        },
+        {
+          "command": "nap.openSettings",
+          "when": "view == nap.chatView",
+          "group": "navigation@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "nap.openChat"
+        },
+        {
+          "command": "nap.moveChatToRight"
+        },
+        {
+          "command": "nap.newChat"
+        },
+        {
+          "command": "nap.clearChat"
+        },
+        {
+          "command": "nap.openAccounts"
+        },
+        {
+          "command": "nap.openSettings"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Nap",
+      "properties": {
+        "nap.cliPath": {
+          "type": "string",
+          "default": "gemini",
+          "description": "Provider executable used internally by napd for the current local model adapter."
+        },
+        "nap.accentColor": {
+          "type": "string",
+          "default": "",
+          "description": "Optional CSS color used as the Nap accent in the chat view. Leave empty to use VS Code theme colors only."
+        },
+        "nap.defaultModel": {
+          "type": "string",
+          "default": "auto",
+          "description": "Default Nap model id used by the chat shell."
+        },
+        "nap.debugMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug-oriented UI state for Nap."
+        },
+        "nap.securityMode": {
+          "type": "string",
+          "enum": [
+            "standard",
+            "strict"
+          ],
+          "default": "standard",
+          "description": "Security posture Nap should prefer when the real CLI bridge is enabled."
+        }
+      }
+    }
+  }
+}

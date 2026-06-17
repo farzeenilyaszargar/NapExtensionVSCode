@@ -1,0 +1,108 @@
+import { describe, expect, it } from 'vitest';
+import { applyExtensionMessage, initialViewState } from './state';
+import { NapSessionState } from '../shared/protocol';
+
+describe('Nap webview state reducer', () => {
+  it('replaces state from the extension host', () => {
+    const nextState: NapSessionState = {
+      ...initialViewState,
+      sessionId: 'session-1',
+      modelId: 'nap-fast'
+    };
+
+    expect(applyExtensionMessage(initialViewState, { type: 'sessionState', state: nextState })).toBe(nextState);
+  });
+
+  it('streams assistant deltas into the matching message', () => {
+    const state = {
+      ...initialViewState,
+      messages: [
+        {
+          id: 'assistant-1',
+          role: 'assistant' as const,
+          content: 'Hel',
+          status: 'streaming' as const,
+          createdAt: 1
+        }
+      ]
+    };
+
+    const nextState = applyExtensionMessage(state, {
+      type: 'messageDelta',
+      messageId: 'assistant-1',
+      delta: 'lo'
+    });
+
+    expect(nextState.messages[0].content).toBe('Hello');
+  });
+
+  it('updates status when a stream completes or stops', () => {
+    const state = {
+      ...initialViewState,
+      status: 'streaming' as const,
+      messages: [
+        {
+          id: 'assistant-1',
+          role: 'assistant' as const,
+          content: 'done',
+          status: 'streaming' as const,
+          createdAt: 1
+        }
+      ]
+    };
+
+    const nextState = applyExtensionMessage(state, {
+      type: 'messageDone',
+      messageId: 'assistant-1',
+      status: 'complete'
+    });
+
+    expect(nextState.status).toBe('idle');
+    expect(nextState.messages[0].status).toBe('complete');
+  });
+
+  it('updates session summaries from the extension host', () => {
+    const sessions = [{
+      id: 'session-1',
+      title: 'Build a sidebar',
+      preview: 'Build a sidebar',
+      messageCount: 2,
+      updatedAt: 100
+    }];
+
+    const nextState = applyExtensionMessage(initialViewState, {
+      type: 'sessionsChanged',
+      sessions
+    });
+
+    expect(nextState.sessions).toBe(sessions);
+  });
+
+  it('keeps recent log events bounded', () => {
+    const state = {
+      ...initialViewState,
+      logs: Array.from({ length: 80 }, (_, index) => ({
+        id: `log-${index}`,
+        level: 'info' as const,
+        message: `event ${index}`,
+        source: 'extension' as const,
+        createdAt: index
+      }))
+    };
+
+    const nextState = applyExtensionMessage(state, {
+      type: 'logEvent',
+      event: {
+        id: 'log-new',
+        level: 'info',
+        message: 'new',
+        source: 'nap-cli',
+        createdAt: 100
+      }
+    });
+
+    expect(nextState.logs).toHaveLength(80);
+    expect(nextState.logs[0].id).toBe('log-1');
+    expect(nextState.logs[79].id).toBe('log-new');
+  });
+});

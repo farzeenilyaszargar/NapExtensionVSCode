@@ -1,0 +1,16 @@
+.vscode/**
+.vscode-test/**
+.vscodeignore
+.gitignore
+src/**
+node_modules/**
+out/test/**
+out/**/*.map
+dist/**/*.map
+*.vsix
+tsconfig.json
+vite.config.ts
+vitest.config.ts
+package-lock.json
+resources/Screenshot*.png
+resources/demo.png
