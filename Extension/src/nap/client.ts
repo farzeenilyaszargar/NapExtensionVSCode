@@ -13,6 +13,7 @@ import {
   JsonRpcSuccess,
   McpChangedEvent,
   ModelListResult,
+  NAP_DAEMON_PROTOCOL_VERSION,
   NapJobRecord,
   NapRpcEvent,
   NapRpcMethod,
@@ -52,11 +53,20 @@ export class NapDaemonClient {
       workspaceRoot?: string;
       daemonEntry?: string;
       nodePath?: string;
+      cliPath?: string;
+      extensionVersion?: string;
       spawnDaemon?: boolean;
     } = {}
   ) {}
 
   async dispose(): Promise<void> {
+    if (this.connection) {
+      try {
+        await this.shutdown();
+      } catch {
+        // Best-effort cleanup. Closing the socket is still safe if shutdown fails.
+      }
+    }
     this.connection?.close();
     this.connection = undefined;
     this.pending.clear();
@@ -255,12 +265,17 @@ export class NapDaemonClient {
   private async getOrStartRuntime(): Promise<DaemonRuntimeInfo> {
     const existing = readRuntimeInfo();
     if (existing) {
-      try {
-        const connection = await connectWebSocket(existing.port, existing.token);
-        connection.close();
-        return existing;
-      } catch {
+      if (existing.version !== NAP_DAEMON_PROTOCOL_VERSION) {
+        this.stopStaleRuntime(existing);
         clearRuntimeInfo();
+      } else {
+        try {
+          const connection = await connectWebSocket(existing.port, existing.token);
+          connection.close();
+          return existing;
+        } catch {
+          clearRuntimeInfo();
+        }
       }
     }
 
@@ -274,6 +289,11 @@ export class NapDaemonClient {
       await delay(150);
       const runtime = readRuntimeInfo();
       if (runtime) {
+        if (runtime.version !== NAP_DAEMON_PROTOCOL_VERSION) {
+          this.stopStaleRuntime(runtime);
+          clearRuntimeInfo();
+          continue;
+        }
         try {
           const connection = await connectWebSocket(runtime.port, runtime.token);
           connection.close();
@@ -293,9 +313,21 @@ export class NapDaemonClient {
     const child = spawn(nodePath, [daemonEntry], {
       detached: true,
       stdio: 'ignore',
-      env: process.env
+      env: {
+        ...process.env,
+        NAP_CLI: this.options.cliPath ?? process.env.NAP_CLI,
+        NAP_EXTENSION_VERSION: this.options.extensionVersion ?? process.env.NAP_EXTENSION_VERSION
+      }
     });
     child.unref();
+  }
+
+  private stopStaleRuntime(runtime: DaemonRuntimeInfo): void {
+    try {
+      process.kill(runtime.pid);
+    } catch {
+      // Best-effort cleanup; clearing metadata is enough for the new daemon to start.
+    }
   }
 }
 

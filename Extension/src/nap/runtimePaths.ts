@@ -7,6 +7,7 @@ const APP_DIR = 'Nap';
 const RUNTIME_FILE = 'napd.json';
 const STATE_FILE = 'napd-state.json';
 const SQLITE_FILE = 'napd.sqlite';
+const LOG_FILE = 'napd.log';
 
 export function getNapDataDir(): string {
   const base = process.env.XDG_STATE_HOME
@@ -34,6 +35,19 @@ export function getStatePath(): string {
 
 export function getSqlitePath(): string {
   return path.join(getNapDataDir(), SQLITE_FILE);
+}
+
+export function getDaemonLogPath(): string {
+  return path.join(getNapDataDir(), LOG_FILE);
+}
+
+export function appendDaemonLog(message: string): void {
+  try {
+    ensureNapDataDir();
+    fs.appendFileSync(getDaemonLogPath(), `${new Date().toISOString()} ${message}\n`);
+  } catch {
+    // Logging must never break daemon startup or chat streaming.
+  }
 }
 
 export function readRuntimeInfo(): DaemonRuntimeInfo | undefined {

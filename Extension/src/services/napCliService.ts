@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { getNapConfiguration } from '../configuration';
 import {
   NapAuthState,
   NapLogEvent,
@@ -13,6 +14,7 @@ import {
 import { NapDaemonClient } from '../nap/client';
 import {
   NapSessionRecord as DaemonSessionRecord,
+  SessionActivityEvent,
   SessionMessageDeltaEvent,
   SessionMessageDoneEvent
 } from '../nap/protocol';
@@ -28,6 +30,7 @@ export interface NapPromptRequest {
 
 export interface NapPromptStream {
   onDelta(delta: string): void;
+  onActivity(text: string | undefined): void;
   onLog(event: NapLogEvent): void;
 }
 
@@ -40,6 +43,7 @@ export interface INapCliService extends vscode.Disposable {
   getMcpState(): Promise<NapMcpState>;
   listSessions(): Promise<NapSessionSummary[]>;
   getSession(sessionId: string): Promise<NapSessionRecord>;
+  deleteSession(sessionId: string): Promise<void>;
   saveSession(session: NapSessionRecord): void;
   streamPrompt(request: NapPromptRequest, stream: NapPromptStream, token: vscode.CancellationToken): Promise<void>;
 }
@@ -53,7 +57,9 @@ export class NapDaemonService implements INapCliService {
   ) {
     this.client = new NapDaemonClient({
       workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
-      daemonEntry: path.join(extensionUri.fsPath, 'out', 'nap', 'daemon', 'server.js')
+      daemonEntry: path.join(extensionUri.fsPath, 'out', 'nap', 'daemon', 'server.js'),
+      cliPath: getNapConfiguration().cliPath,
+      extensionVersion: vscode.extensions.getExtension('NapCode.nap')?.packageJSON?.version
     });
   }
 
@@ -109,6 +115,10 @@ export class NapDaemonService implements INapCliService {
     return toSharedSessionRecord(await this.client.getSession(sessionId));
   }
 
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.client.deleteSession(sessionId);
+  }
+
   saveSession(_session: NapSessionRecord): void {
     // Session persistence is daemon-owned in the active architecture.
   }
@@ -129,11 +139,17 @@ export class NapDaemonService implements INapCliService {
 
     let jobId: string | undefined;
     let doneStatus: SessionMessageDoneEvent['status'] | undefined;
+    let cleanupActivity: (() => void) | undefined;
     let cleanupDelta: (() => void) | undefined;
     let cleanupDone: (() => void) | undefined;
     let cleanupClose: (() => void) | undefined;
 
     const done = new Promise<void>((resolve, reject) => {
+      cleanupActivity = this.client.on<SessionActivityEvent>('session.activity', event => {
+        if (event.sessionId === request.sessionId && (!jobId || event.jobId === jobId)) {
+          stream.onActivity(event.text);
+        }
+      });
       cleanupDelta = this.client.on<SessionMessageDeltaEvent>('session.message.delta', event => {
         if (event.sessionId === request.sessionId && (!jobId || event.jobId === jobId)) {
           stream.onDelta(event.delta);
@@ -170,6 +186,7 @@ export class NapDaemonService implements INapCliService {
         throw new vscode.CancellationError();
       }
     } finally {
+      cleanupActivity?.();
       cleanupDelta?.();
       cleanupDone?.();
       cleanupClose?.();

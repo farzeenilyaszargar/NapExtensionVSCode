@@ -109,8 +109,22 @@ function createSocketConnection(socket: net.Socket, maskOutgoing: boolean): Mini
   const messageHandlers = new Set<WsMessageHandler>();
   const closeHandlers = new Set<WsCloseHandler>();
   let buffer: Buffer = Buffer.alloc(0);
+  let closed = false;
+
+  const notifyClosed = () => {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    for (const handler of closeHandlers) {
+      handler();
+    }
+  };
 
   const parse = (chunk: Buffer) => {
+    if (closed) {
+      return;
+    }
     buffer = Buffer.concat([buffer, chunk]);
     buffer = Buffer.from(parseFrames(buffer, payload => {
       for (const handler of messageHandlers) {
@@ -120,17 +134,23 @@ function createSocketConnection(socket: net.Socket, maskOutgoing: boolean): Mini
   };
 
   socket.on('data', parse);
-  socket.on('close', () => {
-    for (const handler of closeHandlers) {
-      handler();
-    }
-  });
+  socket.on('close', notifyClosed);
+  socket.on('error', notifyClosed);
 
   const connection: MinimalWsConnection = {
     send(message) {
-      socket.write(encodeFrame(message, maskOutgoing));
+      if (closed || socket.destroyed || !socket.writable) {
+        notifyClosed();
+        return;
+      }
+      try {
+        socket.write(encodeFrame(message, maskOutgoing));
+      } catch {
+        notifyClosed();
+      }
     },
     close() {
+      closed = true;
       socket.end();
       socket.destroy();
     },

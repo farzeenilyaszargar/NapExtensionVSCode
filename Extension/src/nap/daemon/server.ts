@@ -20,6 +20,7 @@ import {
   NapRpcMethod,
   NapSessionRecord,
   SessionCreateParams,
+  SessionActivityEvent,
   SessionMessageDeltaEvent,
   SessionMessageDoneEvent,
   SessionSendMessageParams,
@@ -27,9 +28,9 @@ import {
   WorkspaceIndexStatus
 } from '../protocol';
 import { attachWebSocketUpgrade, MinimalWsConnection } from '../ws';
-import { clearRuntimeInfo, ensureNapDataDir, writeRuntimeInfo } from '../runtimePaths';
+import { appendDaemonLog, clearRuntimeInfo, ensureNapDataDir, writeRuntimeInfo } from '../runtimePaths';
 import { DaemonStorage } from './storage';
-import { NapBackendProviderAdapter, ProviderAdapter } from './provider';
+import { NapCliProviderAdapter, ProviderAdapter } from './provider';
 import {
   NapAuthState,
   NapLogEvent,
@@ -53,11 +54,13 @@ export class NapDaemon {
   private readonly token: string;
   private readonly activeJobs = new Map<string, ActiveJob>();
   private mcpState: NapMcpState = { status: 'disabled', servers: [] };
-  private authState: NapAuthState = { status: 'unknown', label: 'Unknown' };
+  private authState: NapAuthState;
 
   constructor(options: { provider?: ProviderAdapter; token?: string } = {}) {
-    this.provider = options.provider ?? new NapBackendProviderAdapter();
+    this.provider = options.provider ?? new NapCliProviderAdapter(process.env.NAP_CLI ?? 'nap', process.env.NAP_EXTENSION_VERSION ?? '0.1.1');
     this.token = options.token ?? crypto.randomBytes(24).toString('hex');
+    this.authState = this.storage.getAuthState();
+    this.storage.markInterruptedJobs('napd restarted before this job completed.');
   }
 
   async start(): Promise<void> {
@@ -95,6 +98,7 @@ export class NapDaemon {
     });
 
     await this.refreshAuthState();
+    appendDaemonLog(`[napd] listening pid=${process.pid}`);
     this.log('info', `napd listening on 127.0.0.1:${address.port}`);
   }
 
@@ -102,6 +106,7 @@ export class NapDaemon {
     for (const { abort } of this.activeJobs.values()) {
       abort.abort();
     }
+    this.provider.dispose?.();
     for (const client of this.clients) {
       client.close();
     }
@@ -175,10 +180,12 @@ export class NapDaemon {
         return this.refreshAuthState();
       case 'auth.login':
         this.authState = await this.provider.login();
+        this.storage.setAuthState(this.authState);
         this.broadcast('auth.changed', this.authEvent(undefined));
         return this.authState;
       case 'auth.logout':
         this.authState = await this.provider.logout();
+        this.storage.clearAuthState();
         this.broadcast('auth.changed', this.authEvent(undefined));
         return this.authState;
       case 'mcp.listServers':
@@ -250,6 +257,9 @@ export class NapDaemon {
     };
     const updatedSession: NapSessionRecord = {
       ...session,
+      title: session.messages.length === 0 || session.title === 'New Chat'
+        ? titleFromPrompt(params.prompt)
+        : session.title,
       mode: params.mode,
       modelId: params.modelId,
       debugMode: params.debugMode,
@@ -276,6 +286,7 @@ export class NapDaemon {
     this.storage.upsertJob(job);
     this.broadcast('job.created', this.jobEvent(job));
 
+    appendDaemonLog(`[job:${job.id}] created session=${updatedSession.id}`);
     void this.runChatJob(updatedSession, assistantMessage.id, job, params, abort);
     return { jobId: job.id, session: updatedSession, assistantMessageId: assistantMessage.id };
   }
@@ -288,15 +299,18 @@ export class NapDaemon {
     abort: AbortController
   ): Promise<void> {
     try {
+      appendDaemonLog(`[job:${job.id}] provider stream starting`);
       await this.provider.streamPrompt({
         prompt: params.prompt,
         mode: params.mode,
         modelId: params.modelId,
         debugMode: params.debugMode,
         securityMode: params.securityMode,
+        sessionId: session.id,
         workspaceRoot: params.workspaceRoot
       }, {
         onDelta: delta => {
+          appendDaemonLog(`[job:${job.id}] delta bytes=${Buffer.byteLength(delta)}`);
           this.appendAssistantDelta(session.id, assistantMessageId, delta);
           job.progress = Math.min(95, job.progress + 5);
           job.updatedAt = Date.now();
@@ -304,9 +318,13 @@ export class NapDaemon {
           this.broadcast('session.message.delta', this.deltaEvent(session, assistantMessageId, job.id, delta));
           this.broadcast('job.progress', this.jobEvent(job));
         },
+        onActivity: text => {
+          this.broadcast('session.activity', this.activityEvent(session, job.id, text));
+        },
         onLog: message => this.log('info', message, params.workspaceRoot, session.id, job.id)
       }, abort.signal);
 
+      appendDaemonLog(`[job:${job.id}] provider stream complete`);
       this.finishAssistant(session.id, assistantMessageId, 'complete');
       job.status = 'done';
       job.progress = 100;
@@ -315,6 +333,7 @@ export class NapDaemon {
       this.broadcast('session.message.done', this.doneEvent(session, assistantMessageId, job.id, 'complete'));
       this.broadcast('job.done', this.jobEvent(job));
     } catch (error) {
+      appendDaemonLog(`[job:${job.id}] provider stream failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       const cancelled = abort.signal.aborted;
       this.finishAssistant(session.id, assistantMessageId, cancelled ? 'stopped' : 'error');
       job.status = cancelled ? 'cancelled' : 'error';
@@ -348,7 +367,14 @@ export class NapDaemon {
   }
 
   private async refreshAuthState(): Promise<NapAuthState> {
-    this.authState = await this.provider.authStatus();
+    const providerAuth = await this.provider.authStatus();
+    if (providerAuth.status === 'authenticated') {
+      this.authState = providerAuth;
+      this.storage.setAuthState(providerAuth);
+    } else if (this.authState.status !== 'authenticated') {
+      this.authState = providerAuth;
+      this.storage.setAuthState(providerAuth);
+    }
     return this.authState;
   }
 
@@ -442,6 +468,18 @@ export class NapDaemon {
     };
   }
 
+  private activityEvent(session: NapSessionRecord, jobId: string, text: string | undefined): SessionActivityEvent {
+    return {
+      eventId: createNapId('event'),
+      createdAt: Date.now(),
+      workspaceRoot: session.workspaceRoot,
+      sessionId: session.id,
+      clientId: 'napd',
+      jobId,
+      text
+    };
+  }
+
   private jobEvent(job: NapJobRecord): JobEvent {
     return {
       eventId: createNapId('event'),
@@ -516,6 +554,18 @@ function requireParam(params: unknown, key: string): string {
     throw new Error(`Missing parameter: ${key}`);
   }
   return value;
+}
+
+function titleFromPrompt(prompt: string): string {
+  const cleaned = prompt
+    .replace(/[`*_#[\](){}<>]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) {
+    return 'New Chat';
+  }
+  const sentence = cleaned.split(/[.!?\n]/)[0]?.trim() || cleaned;
+  return sentence.length > 42 ? `${sentence.slice(0, 39).trimEnd()}...` : sentence;
 }
 
 export async function startNapDaemon(): Promise<NapDaemon> {

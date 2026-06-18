@@ -31,8 +31,7 @@ export function activate(context: vscode.ExtensionContext): void {
       provider.clearSession();
     }),
     vscode.commands.registerCommand('nap.openAccounts', async () => {
-      await vscode.commands.executeCommand(`${NapChatViewProvider.viewType}.focus`);
-      await provider.openProfile();
+      await vscode.env.openExternal(vscode.Uri.parse('https://www.nap-code.com/dashboard'));
     }),
     vscode.commands.registerCommand('nap.openSettings', async () => {
       await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:NapCode.nap');

@@ -8,12 +8,14 @@ export type NapViewState = NapSessionState;
 
 export const initialViewState: NapViewState = {
   sessionId: 'pending',
+  title: 'New Chat',
   status: 'idle',
   mode: 'chat',
   modelId: 'auto',
   debugMode: false,
   securityMode: 'standard',
   messages: [],
+  activityText: undefined,
   logs: [],
   models: [],
   sessions: [],
@@ -51,13 +53,20 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
     case 'messageDelta':
       return {
         ...state,
+        activityText: undefined,
         messages: state.messages.map(item => item.id === message.messageId
           ? { ...item, content: item.content + message.delta, status: 'streaming' }
           : item)
       };
+    case 'activityTextChanged':
+      return {
+        ...state,
+        activityText: message.text
+      };
     case 'messageDone':
       return {
         ...state,
+        activityText: undefined,
         status: message.status === 'complete' ? 'idle' : message.status,
         messages: state.messages.map(item => item.id === message.messageId
           ? { ...item, status: message.status }
@@ -107,7 +116,5 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
         ...state,
         mcp: message.mcp
       };
-    case 'showProfile':
-      return state;
   }
 }

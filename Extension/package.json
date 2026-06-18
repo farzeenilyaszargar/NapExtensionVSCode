@@ -2,7 +2,7 @@
   "name": "nap",
   "displayName": "Nap Chat For VS Code",
   "description": "An AI coding agent chat experience for VS Code with a polished Nap sidebar interface.",
-  "version": "0.0.16",
+  "version": "1.3.1",
   "publisher": "NapCode",
   "icon": "icon.png",
   "license": "MIT",
@@ -54,23 +54,24 @@
     "vscode:prepublish": "npm run package"
   },
   "dependencies": {
+    "@nap-ai/cli": "^0.0.25",
     "markdown-it": "^14.2.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-react": "^4.3.4",
-    "lucide-react": "^0.468.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "vite": "^5.4.11",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/vscode": "^1.92.0",
+    "@vitejs/plugin-react": "^4.3.4",
     "@vscode/test-electron": "^2.4.1",
     "@vscode/vsce": "^3.2.1",
+    "lucide-react": "^0.468.0",
     "mocha": "^10.8.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "typescript": "^5.7.2",
+    "vite": "^5.4.11",
     "vitest": "^2.1.8"
   },
   "contributes": {
@@ -132,23 +133,6 @@
       }
     ],
     "menus": {
-      "view/title": [
-        {
-          "command": "nap.newChat",
-          "when": "view == nap.chatView",
-          "group": "navigation@1"
-        },
-        {
-          "command": "nap.openAccounts",
-          "when": "view == nap.chatView",
-          "group": "navigation@2"
-        },
-        {
-          "command": "nap.openSettings",
-          "when": "view == nap.chatView",
-          "group": "navigation@3"
-        }
-      ],
       "commandPalette": [
         {
           "command": "nap.openChat"
@@ -176,7 +160,7 @@
         "nap.cliPath": {
           "type": "string",
           "default": "nap",
-          "description": "Nap CLI command name for users who also install npm i -g @nap-ai/cli. The VS Code extension talks to napd over JSON-RPC."
+          "description": "Nap CLI command used as a fallback when the bundled @nap-ai/cli app-server is unavailable. Install with npm i -g @nap-ai/cli."
         },
         "nap.accentColor": {
           "type": "string",

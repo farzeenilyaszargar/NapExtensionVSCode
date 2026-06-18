@@ -12,7 +12,7 @@ import {
   Square,
   ThumbsDown,
   ThumbsUp,
-  UserRound
+  Trash2
 } from 'lucide-react';
 import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { WebviewToExtensionMessage } from '../shared/protocol';
@@ -55,7 +55,6 @@ export function App() {
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
   const [sessionsOpen, setSessionsOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -70,10 +69,6 @@ export function App() {
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
-      if (event.data?.type === 'showProfile') {
-        setSessionsOpen(false);
-        setProfileOpen(true);
-      }
       dispatch({ type: 'extensionMessage', message: event.data });
     };
     window.addEventListener('message', listener);
@@ -120,6 +115,27 @@ export function App() {
     return () => window.removeEventListener('pointerdown', closeOnOutsideClick);
   }, [openMenu]);
 
+  useEffect(() => {
+    const latestStreamingAssistant = [...state.messages].reverse().find(message =>
+      message.role === 'assistant' && message.status === 'streaming'
+    );
+    if (!latestStreamingAssistant) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const timeline = timelineRef.current;
+      if (!timeline) {
+        return;
+      }
+
+      timeline.scrollTo({
+        top: timeline.scrollHeight,
+        behavior: latestStreamingAssistant.content ? 'auto' : 'smooth'
+      });
+    });
+  }, [state.messages]);
+
   const resizeComposer = useCallback(() => {
     const textarea = textareaRef.current;
     if (!textarea) {
@@ -144,13 +160,12 @@ export function App() {
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
-  const accountName = state.auth.accountName || (isAuthenticated ? state.auth.label : 'Not signed in');
-  const accountInitial = accountName.trim().charAt(0).toUpperCase() || 'N';
+  const waitingText = state.activityText || 'Waiting';
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const prompt = draft.trim();
-    if (!prompt || isStreaming || !isAuthenticated) {
+    if (!prompt || isStreaming) {
       return;
     }
     post({ type: 'sendPrompt', prompt });
@@ -181,7 +196,7 @@ export function App() {
         <section className="sessions-page" aria-label="Nap sessions">
           <header className="sessions-page-header">
             <button type="button" aria-label="Back to chat" onClick={() => setSessionsOpen(false)}>
-              <ChevronLeft size={16} />
+              <ChevronLeft size={13} />
             </button>
             <span>Sessions</span>
           </header>
@@ -191,79 +206,55 @@ export function App() {
                 <span>No daemon sessions yet</span>
               </div>
             ) : sessions.map(session => (
-              <button
-                key={session.id}
-                type="button"
-                className={`session-item${session.id === state.sessionId ? ' is-current' : ''}`}
-                onClick={() => {
-                  if (session.id !== state.sessionId) {
-                    post({ type: 'openSession', sessionId: session.id });
-                  }
-                  setSessionsOpen(false);
-                }}
-              >
-                <span className="session-title">{session.title}</span>
-                <span className="session-meta">{session.messageCount} messages - {formatRelativeTime(session.updatedAt)}</span>
-                {session.preview ? <span className="session-preview">{session.preview}</span> : null}
-              </button>
+              <div key={session.id} className="session-item">
+                <button
+                  type="button"
+                  className="session-item-main"
+                  onClick={() => {
+                    if (session.id !== state.sessionId) {
+                      post({ type: 'openSession', sessionId: session.id });
+                    }
+                    setSessionsOpen(false);
+                  }}
+                >
+                  <span className="session-title">{session.title}</span>
+                  <span className="session-time">{formatRelativeTime(session.updatedAt)}</span>
+                </button>
+                <button
+                  type="button"
+                  className="session-delete-button"
+                  title="Delete session"
+                  aria-label={`Delete ${session.title}`}
+                  onClick={() => post({ type: 'deleteSession', sessionId: session.id })}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             ))}
           </div>
         </section>
       ) : null}
 
-      {profileOpen ? (
-        <section className="profile-page" aria-label="Nap profile">
-          <header className="profile-page-header">
-            <button type="button" aria-label="Back to chat" onClick={() => setProfileOpen(false)}>
-              <ChevronLeft size={16} />
-            </button>
-            <span>Profile</span>
-          </header>
-          <div className="profile-content">
-            <div className="profile-avatar" aria-hidden="true">
-              {state.auth.avatarUrl ? (
-                <img src={state.auth.avatarUrl} alt="" />
-              ) : isAuthenticated ? (
-                <span>{accountInitial}</span>
-              ) : (
-                <UserRound size={28} />
-              )}
-            </div>
-            <div className="profile-copy">
-              <span className={`profile-status profile-status--${state.auth.status}`}>
-                {isAuthenticated ? 'Logged in' : 'Signed out'}
-              </span>
-              <strong>{accountName}</strong>
-              {state.auth.accountEmail ? <span>{state.auth.accountEmail}</span> : null}
-              <p>{state.auth.label}</p>
-            </div>
-            {!isAuthenticated ? (
-              <button type="button" className="profile-auth-button" onClick={() => post({ type: 'authLogin' })}>
-                <Lock size={12} />
-                <span>Sign in with Nap</span>
-              </button>
-            ) : null}
-          </div>
-        </section>
+      {!sessionsOpen ? (
+        <header className="chat-header">
+          <button
+            className="sessions-toggle"
+            type="button"
+            title="Sessions"
+            aria-label="Show sessions"
+            aria-expanded={sessionsOpen}
+            onClick={() => {
+              post({ type: 'refreshSessions' });
+              setSessionsOpen(true);
+            }}
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <span>{state.title || 'New Chat'}</span>
+        </header>
       ) : null}
 
-      {!sessionsOpen && !profileOpen ? (
-        <button
-          className="sessions-toggle"
-          type="button"
-          title="Sessions"
-          aria-label="Show sessions"
-          aria-expanded={sessionsOpen}
-          onClick={() => {
-            post({ type: 'refreshSessions' });
-            setSessionsOpen(true);
-          }}
-        >
-          <ChevronLeft size={16} />
-        </button>
-      ) : null}
-
-      {!sessionsOpen && !profileOpen ? (
+      {!sessionsOpen ? (
         <main className="timeline" ref={timelineRef} aria-label="Nap conversation">
         {state.messages.length === 0 ? (
           <div className="empty-state">
@@ -285,10 +276,17 @@ export function App() {
         ) : state.messages.map(message => (
           <article key={message.id} className={`message message--${message.role}`} data-message-id={message.id}>
             <div className="message-body">
-              {message.role === 'assistant' && message.status === 'streaming' && !message.content ? (
-                <span className="analysing-text">Analysing</span>
-              ) : message.role === 'assistant' ? (
-                <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content || '...') }} />
+              {message.role === 'assistant' ? (
+                <>
+                  {message.content ? (
+                    <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }} />
+                  ) : null}
+                  {message.status === 'streaming' ? (
+                    <span className="waiting-text">{waitingText}</span>
+                  ) : !message.content ? (
+                    <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown('...') }} />
+                  ) : null}
+                </>
               ) : message.content || '...'}
             </div>
             {message.role === 'assistant' && message.content && message.status !== 'streaming' ? (
@@ -324,14 +322,14 @@ export function App() {
         </main>
       ) : null}
 
-      {!sessionsOpen && !profileOpen ? (
+      {!sessionsOpen ? (
         <section className="log-strip" aria-label="Nap log">
         <span className={`log-dot log-dot--${latestLog?.level ?? 'trace'}`} />
         <span className="log-text">{latestLog ? latestLog.message : 'Session idle'}</span>
         </section>
       ) : null}
 
-      {!sessionsOpen && !profileOpen ? (
+      {!sessionsOpen ? (
         <footer className="composer-panel" ref={composerPanelRef}>
         <form className="composer" onSubmit={onSubmit}>
           <div className="composer-input">

@@ -5,6 +5,7 @@ import {
   NapSessionRecord,
   WorkspaceIndexStatus
 } from '../protocol';
+import { NapAuthState } from '../../shared/protocol';
 import { ensureNapDataDir, getSqlitePath, getStatePath } from '../runtimePaths';
 
 interface PersistedDaemonState {
@@ -12,6 +13,8 @@ interface PersistedDaemonState {
   sessions: NapSessionRecord[];
   jobs: NapJobRecord[];
   defaultModelId: string;
+  auth: NapAuthState;
+  authAccessToken?: string;
   workspaceIndexes: WorkspaceIndexStatus[];
   cache: CacheStatus;
 }
@@ -21,6 +24,7 @@ const DEFAULT_STATE: PersistedDaemonState = {
   sessions: [],
   jobs: [],
   defaultModelId: 'auto',
+  auth: { status: 'unknown', label: 'Unknown' },
   workspaceIndexes: [],
   cache: {
     entries: 0,
@@ -64,6 +68,46 @@ export class DaemonStorage {
     return [...this.state.jobs].sort((left, right) => right.updatedAt - left.updatedAt);
   }
 
+  markInterruptedJobs(reason: string): void {
+    const now = Date.now();
+    let changed = false;
+    this.state.jobs = this.state.jobs.map(job => {
+      if (job.status !== 'running' && job.status !== 'queued') {
+        return job;
+      }
+      changed = true;
+      return {
+        ...job,
+        status: 'error',
+        error: reason,
+        cancellable: false,
+        updatedAt: now
+      };
+    });
+    this.state.sessions = this.state.sessions.map(session => {
+      let sessionChanged = false;
+      const messages = session.messages.map(message => {
+        if (message.status !== 'streaming') {
+          return message;
+        }
+        sessionChanged = true;
+        return { ...message, status: 'error' as const };
+      });
+      if (!sessionChanged) {
+        return session;
+      }
+      changed = true;
+      return {
+        ...session,
+        messages,
+        updatedAt: now
+      };
+    });
+    if (changed) {
+      this.save();
+    }
+  }
+
   getJob(jobId: string): NapJobRecord | undefined {
     return this.state.jobs.find(job => job.id === jobId);
   }
@@ -83,6 +127,28 @@ export class DaemonStorage {
   setDefaultModelId(modelId: string): void {
     this.state.defaultModelId = modelId;
     this.save();
+  }
+
+  getAuthState(): NapAuthState {
+    return this.state.auth;
+  }
+
+  setAuthState(auth: NapAuthState, accessToken?: string): void {
+    this.state.auth = auth;
+    if (accessToken !== undefined) {
+      this.state.authAccessToken = accessToken;
+    }
+    this.save();
+  }
+
+  clearAuthState(): void {
+    this.state.auth = { status: 'signedOut', label: 'Nap signed out' };
+    this.state.authAccessToken = undefined;
+    this.save();
+  }
+
+  getAuthAccessToken(): string | undefined {
+    return this.state.authAccessToken;
   }
 
   getWorkspaceIndex(workspaceRoot?: string): WorkspaceIndexStatus {

@@ -49,28 +49,40 @@ async function chat(client: NapDaemonClient, prompt: string): Promise<void> {
   }
 
   const session = await client.createSession();
+  let cleanupDelta: (() => void) | undefined;
+  let cleanupDone: (() => void) | undefined;
+  let cleanupClose: (() => void) | undefined;
   const done = new Promise<void>((resolve, reject) => {
-    client.on<SessionMessageDeltaEvent>('session.message.delta', event => {
+    cleanupDelta = client.on<SessionMessageDeltaEvent>('session.message.delta', event => {
       if (event.sessionId === session.id) {
         process.stdout.write(event.delta);
       }
     });
-    client.on<SessionMessageDoneEvent>('session.message.done', event => {
+    cleanupDone = client.on<SessionMessageDoneEvent>('session.message.done', event => {
       if (event.sessionId === session.id) {
         process.stdout.write('\n');
         event.status === 'error' ? reject(new Error('Chat job failed.')) : resolve();
       }
     });
+    cleanupClose = client.onClose(error => {
+      reject(error);
+    });
   });
-  await client.sendMessage({
-    sessionId: session.id,
-    prompt,
-    mode: 'chat',
-    modelId: session.modelId,
-    debugMode: session.debugMode,
-    securityMode: session.securityMode
-  });
-  await done;
+  try {
+    await client.sendMessage({
+      sessionId: session.id,
+      prompt,
+      mode: 'chat',
+      modelId: session.modelId,
+      debugMode: session.debugMode,
+      securityMode: session.securityMode
+    });
+    await done;
+  } finally {
+    cleanupDelta?.();
+    cleanupDone?.();
+    cleanupClose?.();
+  }
 }
 
 function printHelp(): void {

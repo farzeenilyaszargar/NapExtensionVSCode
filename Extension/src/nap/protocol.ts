@@ -8,7 +8,7 @@ import {
   NapSecurityMode
 } from '../shared/protocol';
 
-export const NAP_DAEMON_PROTOCOL_VERSION = 1;
+export const NAP_DAEMON_PROTOCOL_VERSION = 3;
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -73,6 +73,7 @@ export type NapRpcMethod =
 export type NapRpcEvent =
   | 'session.message.delta'
   | 'session.message.done'
+  | 'session.activity'
   | 'job.created'
   | 'job.progress'
   | 'job.done'
@@ -188,6 +189,13 @@ export interface SessionMessageDoneEvent extends NapRpcEnvelope {
   messageId: string;
   jobId: string;
   status: 'complete' | 'stopped' | 'error';
+}
+
+export interface SessionActivityEvent extends NapRpcEnvelope {
+  eventId: string;
+  createdAt: number;
+  jobId: string;
+  text?: string;
 }
 
 export interface JobEvent extends NapRpcEnvelope {

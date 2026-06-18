@@ -85,12 +85,14 @@ export interface NapMcpState {
 
 export interface NapSessionState {
   sessionId: string;
+  title: string;
   status: NapRunStatus;
   mode: NapMode;
   modelId: string;
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
+  activityText?: string;
   logs: NapLogEvent[];
   models: NapModelOption[];
   sessions: NapSessionSummary[];
@@ -108,6 +110,7 @@ export type WebviewToExtensionMessage =
   | { type: 'newSession' }
   | { type: 'clearSession' }
   | { type: 'openSession'; sessionId: string }
+  | { type: 'deleteSession'; sessionId: string }
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
   | { type: 'openSettings' };
@@ -115,14 +118,14 @@ export type WebviewToExtensionMessage =
 export type ExtensionToWebviewMessage =
   | { type: 'sessionState'; state: NapSessionState }
   | { type: 'messageDelta'; messageId: string; delta: string }
+  | { type: 'activityTextChanged'; text?: string }
   | { type: 'messageDone'; messageId: string; status: NapMessageStatus }
   | { type: 'logEvent'; event: NapLogEvent }
   | { type: 'error'; message: string }
   | { type: 'modelsChanged'; models: NapModelOption[]; selectedModelId: string }
   | { type: 'sessionsChanged'; sessions: NapSessionSummary[] }
   | { type: 'authStateChanged'; auth: NapAuthState }
-  | { type: 'mcpStateChanged'; mcp: NapMcpState }
-  | { type: 'showProfile' };
+  | { type: 'mcpStateChanged'; mcp: NapMcpState };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -149,6 +152,7 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'sendPrompt':
       return typeof value.prompt === 'string';
     case 'openSession':
+    case 'deleteSession':
       return typeof value.sessionId === 'string' && value.sessionId.length > 0;
     case 'setMode':
       return isNapMode(value.mode);
