@@ -14,6 +14,7 @@ import {
   isWebviewToExtensionMessage,
   NapLogEvent,
   NapMessage,
+  NapAuthState,
   NapMode,
   NapSessionRecord,
   NapSessionState,
@@ -100,8 +101,15 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const cliPath = this.state.config.cliPath || 'nap';
     this.log('info', 'Starting Nap sign in.');
     try {
-      await runNapLoginFlow(cliPath, this.output);
-      await this.pollAuthAfterLogin();
+      const auth = await runNapLoginFlow(cliPath, this.output);
+      this.state = {
+        ...this.state,
+        auth
+      };
+      this.post({ type: 'authStateChanged', auth });
+      this.log('info', auth.label);
+      this.publishState();
+      await this.refreshEnvironment();
     } catch (error) {
       this.reportError(error);
     }
@@ -640,7 +648,8 @@ function parseFileReference(rawFilePath: string): { filePath: string; line?: num
   };
 }
 
-async function runNapLoginFlow(cliPath: string, output: vscode.OutputChannel): Promise<void> {
+async function runNapLoginFlow(cliPath: string, output: vscode.OutputChannel): Promise<NapAuthState> {
+  let savedAuth: NapAuthState | undefined;
   await vscode.window.withProgress({
     location: vscode.ProgressLocation.Notification,
     title: 'Signing in to Nap',
@@ -659,11 +668,16 @@ async function runNapLoginFlow(cliPath: string, output: vscode.OutputChannel): P
       progress.report({ message: 'Exchanging code...' });
       const tokenSet = await exchangeNapOAuthCode(callback.redirectUri, oauth, code);
       progress.report({ message: 'Saving credentials...' });
-      await persistNapTokenSet(cliPath, tokenSet, output);
+      savedAuth = await persistNapTokenSet(cliPath, tokenSet, output);
     } finally {
       callback.dispose();
     }
   });
+
+  if (!savedAuth) {
+    throw new Error('Nap login completed without returning credentials.');
+  }
+  return savedAuth;
 }
 
 interface CliOAuthRequest {
@@ -816,7 +830,7 @@ async function exchangeNapOAuthCode(redirectUri: string, oauth: CliOAuthRequest,
   return payload as unknown as CliTokenSet;
 }
 
-async function persistNapTokenSet(cliPath: string, tokenSet: CliTokenSet, output: vscode.OutputChannel): Promise<void> {
+async function persistNapTokenSet(cliPath: string, tokenSet: CliTokenSet, output: vscode.OutputChannel): Promise<NapAuthState> {
   const command = resolveNapCliCommand(['login', '--with-access-token'], cliPath);
   output.appendLine(`[Nap] Saving credentials with: ${command.command} ${command.args.join(' ')}`);
   try {
@@ -849,6 +863,7 @@ async function persistNapTokenSet(cliPath: string, tokenSet: CliTokenSet, output
   }
 
   persistNapAuthJson(tokenSet, output);
+  return authStateFromTokenSet(tokenSet);
 }
 
 function persistNapAuthJson(tokenSet: CliTokenSet, output: vscode.OutputChannel): void {
@@ -871,7 +886,25 @@ function persistNapAuthJson(tokenSet: CliTokenSet, output: vscode.OutputChannel)
   output.appendLine(`[Nap] Saved persistent credentials to ${authPath}`);
 }
 
+function authStateFromTokenSet(tokenSet: CliTokenSet): NapAuthState {
+  const claims = readJwtClaims(tokenSet.id_token ?? tokenSet.access_token);
+  const accountName = readString(claims?.name) ?? readString(claims?.preferred_username);
+  const accountEmail = readString(claims?.email);
+  const avatarUrl = readString(claims?.picture) ?? readString(claims?.avatarUrl);
+  return {
+    status: 'authenticated',
+    label: accountName ?? accountEmail ?? 'Nap account',
+    accountName,
+    accountEmail,
+    avatarUrl
+  };
+}
+
 function readJwtClaim(token: string | undefined, claim: string): string | undefined {
+  return readString(readJwtClaims(token)?.[claim]);
+}
+
+function readJwtClaims(token: string | undefined): Record<string, unknown> | undefined {
   if (!token) {
     return undefined;
   }
@@ -882,8 +915,10 @@ function readJwtClaim(token: string | undefined, claim: string): string | undefi
   try {
     const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
-    const claims = JSON.parse(Buffer.from(padded, 'base64').toString('utf8')) as Record<string, unknown>;
-    return readString(claims[claim]);
+    const claims = JSON.parse(Buffer.from(padded, 'base64').toString('utf8'));
+    return claims && typeof claims === 'object' && !Array.isArray(claims)
+      ? claims as Record<string, unknown>
+      : undefined;
   } catch {
     return undefined;
   }

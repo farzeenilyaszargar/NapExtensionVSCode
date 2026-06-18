@@ -95,6 +95,34 @@ describe('Nap CLI auth parsing', () => {
       fs.rmSync(napHome, { recursive: true, force: true });
     }
   });
+
+  it('trusts refresh-token-backed auth.json even when the access token is expired', () => {
+    const napHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nap-auth-'));
+    try {
+      fs.writeFileSync(path.join(napHome, 'auth.json'), JSON.stringify({
+        auth_mode: 'agentIdentity',
+        tokens: {
+          access_token: createJwt({
+            exp: Math.floor(Date.now() / 1000) - 60,
+            name: 'Farzeen',
+            email: 'farzeen@example.com'
+          }),
+          refresh_token: 'refresh-token',
+          account_id: 'acct_123'
+        },
+        last_refresh: new Date().toISOString()
+      }));
+
+      expect(readPersistedAuthState(napHome)).toMatchObject({
+        status: 'authenticated',
+        label: 'Farzeen',
+        accountName: 'Farzeen',
+        accountEmail: 'farzeen@example.com'
+      });
+    } finally {
+      fs.rmSync(napHome, { recursive: true, force: true });
+    }
+  });
 });
 
 function createJwt(payload: Record<string, unknown>): string {

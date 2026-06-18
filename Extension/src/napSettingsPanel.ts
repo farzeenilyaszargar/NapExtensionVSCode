@@ -15,6 +15,7 @@ interface LocalAccountInfo {
   email: string;
   accountId: string;
   authMode: string;
+  refreshToken: string;
   lastRefresh: string;
   tokenExpires: string;
 }
@@ -63,6 +64,7 @@ export class NapSettingsPanel {
       { key: 'email', value: account.email },
       { key: 'account_id', value: account.accountId },
       { key: 'auth_mode', value: account.authMode },
+      { key: 'refresh_token', value: account.refreshToken },
       { key: 'last_refresh', value: account.lastRefresh },
       { key: 'token_expires', value: account.tokenExpires }
     ];
@@ -190,13 +192,17 @@ function readLocalAccountInfo(): LocalAccountInfo {
   const idToken = readString(tokens?.id_token) ?? readString(tokens?.access_token) ?? readString(serviceAuth?.accessToken);
   const claims = readJwtClaims(idToken);
   const expiresAt = readNumber(claims?.exp) ? readNumber(claims?.exp)! * 1000 : readNumber(serviceAuth?.expiresAt);
+  const refreshToken = readString(tokens?.refresh_token) ?? readString(auth?.refreshToken) ?? readString(auth?.refresh_token);
+  const hasAuth = Boolean(auth || serviceAuth);
+  const hasAccount = Boolean(readString(claims?.email) || readString(claims?.sub) || readString(tokens?.account_id));
 
   return {
-    status: auth || serviceAuth ? 'Signed in locally' : 'Not signed in',
+    status: hasAuth && hasAccount ? 'Signed in locally' : hasAuth ? 'Credentials saved locally' : 'Not signed in',
     name: readString(claims?.name) ?? readString(claims?.preferred_username) ?? 'Unknown',
     email: readString(claims?.email) ?? 'Unknown',
-    accountId: readString(tokens?.account_id) ?? readString(claims?.sub) ?? 'Unknown',
+    accountId: readString(tokens?.account_id) ?? readString(claims?.sub) ?? readString(claims?.chatgpt_account_id) ?? 'Unknown',
     authMode: readString(auth?.auth_mode) ?? readString(serviceAuth?.source) ?? 'Unknown',
+    refreshToken: refreshToken ? 'Available' : 'Not saved',
     lastRefresh: formatDate(readString(auth?.last_refresh) ?? readNumber(serviceAuth?.createdAt)),
     tokenExpires: formatDate(expiresAt)
   };

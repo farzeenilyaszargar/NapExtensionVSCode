@@ -88,6 +88,11 @@ export class NapCliProviderAdapter implements ProviderAdapter {
   }
 
   private async readAuthStatus(): Promise<NapAuthState> {
+    const persisted = readPersistedAuthState();
+    if (persisted) {
+      return persisted;
+    }
+
     let lastAuth: NapAuthState | undefined;
     for (const args of [['login', 'status'], ['doctor', '--json'], ['status', '--json']]) {
       try {
@@ -578,7 +583,11 @@ export function readPersistedAuthState(napHome = process.env.NAP_HOME ?? path.jo
     }
 
     const token = getAuthAccessToken(record);
-    if (!token || isJwtExpired(token, readNumber(record.expiresAt))) {
+    const refreshToken = getAuthRefreshToken(record);
+    if (!token && !refreshToken) {
+      continue;
+    }
+    if (!refreshToken && token && isJwtExpired(token, readNumber(record.expiresAt))) {
       continue;
     }
 
@@ -620,6 +629,13 @@ function getAuthAccessToken(record: Record<string, unknown>): string | undefined
     ?? readString(record.token)
     ?? readString(tokens?.access_token)
     ?? readString(tokens?.id_token);
+}
+
+function getAuthRefreshToken(record: Record<string, unknown>): string | undefined {
+  const tokens = readObject(record.tokens);
+  return readString(record.refreshToken)
+    ?? readString(record.refresh_token)
+    ?? readString(tokens?.refresh_token);
 }
 
 function isJwtExpired(token: string, fallbackExpiresAt?: number): boolean {
