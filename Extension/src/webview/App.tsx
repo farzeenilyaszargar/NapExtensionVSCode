@@ -5,11 +5,8 @@ import {
   Cloud,
   Copy,
   Laptop,
-  List,
   Lock,
   Mic,
-  Plus,
-  Settings,
   Shield,
   SquareTerminal,
   Square,
@@ -200,11 +197,6 @@ export function App() {
     setActivePage('sessions');
   }, [post]);
 
-  const openNewChat = useCallback(() => {
-    post({ type: 'newSession' });
-    setActivePage('chat');
-  }, [post]);
-
   return (
     <div className="nap-shell">
       {activePage === 'sessions' ? (
@@ -281,18 +273,10 @@ export function App() {
 
       {activePage === 'chat' ? (
         <header className="chat-header">
+          <button type="button" className="chat-sessions-button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
+            <ChevronLeft size={13} />
+          </button>
           <span>{state.title || 'New Chat'}</span>
-          <div className="chat-header-actions" aria-label="Nap chat actions">
-            <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
-              <List size={14} />
-            </button>
-            <button type="button" title="Settings" aria-label="Settings" onClick={() => setActivePage('settings')}>
-              <Settings size={14} />
-            </button>
-            <button type="button" title="New chat" aria-label="New chat" onClick={openNewChat}>
-              <Plus size={14} />
-            </button>
-          </div>
         </header>
       ) : null}
 

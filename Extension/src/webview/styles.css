@@ -46,11 +46,11 @@ button {
 
 .chat-header {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 22px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   min-height: 33px;
-  padding: 5px 7px 4px 8px;
+  padding: 5px 7px 4px 0;
   border-bottom: 0;
   color: #b8b8b8;
   background: color-mix(in srgb, var(--nap-surface) 94%, #1c1c1c);
@@ -66,16 +66,7 @@ button {
   font-weight: 500;
 }
 
-.chat-header-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 2px;
-  min-width: 0;
-}
-
-.chat-header-actions button,
-.sessions-toggle {
+.chat-sessions-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -89,16 +80,14 @@ button {
   cursor: pointer;
 }
 
-.chat-header-actions button:hover,
-.sessions-toggle:hover,
+.chat-sessions-button:hover,
 .sessions-page-header button:hover,
 .settings-page-header button:hover {
   color: var(--vscode-foreground);
   background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 }
 
-.chat-header-actions button:focus-visible,
-.sessions-toggle:focus-visible,
+.chat-sessions-button:focus-visible,
 .sessions-page-header button:focus-visible,
 .settings-page-header button:focus-visible,
 .session-item-main:focus-visible,
