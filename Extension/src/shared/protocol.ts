@@ -106,6 +106,7 @@ export type WebviewToExtensionMessage =
   | { type: 'sendPrompt'; prompt: string }
   | { type: 'stopGeneration' }
   | { type: 'authLogin' }
+  | { type: 'openAccounts' }
   | { type: 'refreshSessions' }
   | { type: 'newSession' }
   | { type: 'clearSession' }
@@ -144,6 +145,7 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'ready':
     case 'stopGeneration':
     case 'authLogin':
+    case 'openAccounts':
     case 'refreshSessions':
     case 'newSession':
     case 'clearSession':

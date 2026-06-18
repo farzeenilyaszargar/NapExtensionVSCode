@@ -46,7 +46,7 @@ button {
 
 .chat-header {
   display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
   gap: 5px;
   min-height: 33px;
@@ -80,7 +80,30 @@ button {
   cursor: pointer;
 }
 
+.chat-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.chat-header-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  color: #6f6f6f;
+  background: transparent;
+  cursor: pointer;
+}
+
 .chat-sessions-button:hover,
+.chat-header-actions button:hover,
 .sessions-page-header button:hover,
 .settings-page-header button:hover {
   color: var(--vscode-foreground);
@@ -88,6 +111,7 @@ button {
 }
 
 .chat-sessions-button:focus-visible,
+.chat-header-actions button:focus-visible,
 .sessions-page-header button:focus-visible,
 .settings-page-header button:focus-visible,
 .session-item-main:focus-visible,
@@ -235,14 +259,14 @@ button {
 
 .session-title {
   color: var(--vscode-foreground);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 400;
 }
 
 .session-time {
   justify-self: end;
   color: #6f6f6f;
-  font-size: 10.5px;
+  font-size: 11.5px;
   font-weight: 400;
 }
 

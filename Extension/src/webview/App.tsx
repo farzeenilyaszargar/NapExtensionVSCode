@@ -2,11 +2,14 @@ import {
   ArrowUp,
   Check,
   ChevronLeft,
+  CircleUserRound,
   Cloud,
   Copy,
   Laptop,
   Lock,
   Mic,
+  Plus,
+  Settings,
   Shield,
   SquareTerminal,
   Square,
@@ -277,6 +280,17 @@ export function App() {
             <ChevronLeft size={13} />
           </button>
           <span>{state.title || 'New Chat'}</span>
+          <div className="chat-header-actions" aria-label="Nap chat actions">
+            <button type="button" title="New chat" aria-label="New chat" onClick={() => post({ type: 'newSession' })}>
+              <Plus size={14} />
+            </button>
+            <button type="button" title="Account" aria-label="Account" onClick={() => post({ type: 'openAccounts' })}>
+              <CircleUserRound size={14} />
+            </button>
+            <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
+              <Settings size={14} />
+            </button>
+          </div>
         </header>
       ) : null}
 
