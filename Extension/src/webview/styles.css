@@ -44,7 +44,7 @@ button {
   background: var(--nap-surface);
 }
 
-.chat-header {
+.app-page-header {
   display: grid;
   grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
@@ -56,7 +56,7 @@ button {
   background: color-mix(in srgb, var(--nap-surface) 94%, #1c1c1c);
 }
 
-.chat-header span {
+.app-page-header span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -66,7 +66,7 @@ button {
   font-weight: 500;
 }
 
-.chat-sessions-button {
+.header-nav-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -80,7 +80,7 @@ button {
   cursor: pointer;
 }
 
-.chat-header-actions {
+.header-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -88,7 +88,7 @@ button {
   min-width: 0;
 }
 
-.chat-header-actions button {
+.header-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -102,16 +102,16 @@ button {
   cursor: pointer;
 }
 
-.chat-sessions-button:hover,
-.chat-header-actions button:hover,
+.header-nav-button:hover,
+.header-actions button:hover,
 .sessions-page-header button:hover,
 .settings-page-header button:hover {
   color: var(--vscode-foreground);
   background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 }
 
-.chat-sessions-button:focus-visible,
-.chat-header-actions button:focus-visible,
+.header-nav-button:focus-visible,
+.header-actions button:focus-visible,
 .sessions-page-header button:focus-visible,
 .settings-page-header button:focus-visible,
 .session-item-main:focus-visible,

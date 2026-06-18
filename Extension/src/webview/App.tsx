@@ -204,11 +204,22 @@ export function App() {
     <div className="nap-shell">
       {activePage === 'sessions' ? (
         <section className="sessions-page" aria-label="Nap sessions">
-          <header className="sessions-page-header">
-            <button type="button" aria-label="Back to chat" onClick={() => setActivePage('chat')}>
+          <header className="app-page-header">
+            <button type="button" className="header-nav-button" title="Back to chat" aria-label="Back to chat" onClick={() => setActivePage('chat')}>
               <ChevronLeft size={13} />
             </button>
             <span>Sessions</span>
+            <div className="header-actions" aria-label="Nap session actions">
+              <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
+                <List size={14} />
+              </button>
+              <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
+                <Settings size={14} />
+              </button>
+              <button type="button" title="New chat" aria-label="New chat" onClick={() => post({ type: 'newSession' })}>
+                <Plus size={14} />
+              </button>
+            </div>
           </header>
           <div className="sessions-list">
             {sessions.length === 0 ? (
@@ -275,12 +286,12 @@ export function App() {
       ) : null}
 
       {activePage === 'chat' ? (
-        <header className="chat-header">
-          <button type="button" className="chat-sessions-button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
+        <header className="app-page-header">
+          <button type="button" className="header-nav-button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
             <ChevronLeft size={13} />
           </button>
           <span>{state.title || 'New Chat'}</span>
-          <div className="chat-header-actions" aria-label="Nap chat actions">
+          <div className="header-actions" aria-label="Nap chat actions">
             <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
               <List size={14} />
             </button>
