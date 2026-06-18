@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildChatArgs, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
+import { buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
 
 describe('Nap CLI auth parsing', () => {
   it('treats profile JSON as authenticated even without a status field', () => {
@@ -122,6 +122,32 @@ describe('Nap CLI auth parsing', () => {
     } finally {
       fs.rmSync(napHome, { recursive: true, force: true });
     }
+  });
+
+  it('maps app-server account/read responses to authenticated state', () => {
+    expect(parseAppServerAccountAuthState({
+      account: {
+        type: 'chatgpt',
+        email: 'farzeen@example.com',
+        planType: 'pro'
+      },
+      requiresOpenaiAuth: true
+    })).toMatchObject({
+      status: 'authenticated',
+      label: 'farzeen@example.com',
+      accountEmail: 'farzeen@example.com',
+      planType: 'pro'
+    });
+  });
+
+  it('maps missing app-server account/read account to signed out', () => {
+    expect(parseAppServerAccountAuthState({
+      account: null,
+      requiresOpenaiAuth: true
+    })).toEqual({
+      status: 'signedOut',
+      label: 'Sign in with Nap'
+    });
   });
 });
 

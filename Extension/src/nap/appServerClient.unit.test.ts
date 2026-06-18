@@ -43,6 +43,42 @@ describe('NapAppServerClient', () => {
     expect(fake.killed()).toBe(true);
   });
 
+  it('sends account login and account read requests', async () => {
+    const fake = createFakeChild();
+    const client = new NapAppServerClient('1.2.3', (() => fake.child) as never);
+    const started = client.start();
+    await waitForWrites(fake.writes, 1);
+    fake.stdout.emit('data', Buffer.from('{"id":1,"result":{"ok":true}}\n'));
+    await started;
+
+    const login = client.loginAccount({ type: 'chatgpt', napStreamlinedLogin: true });
+    await waitForWrites(fake.writes, 3);
+    expect(JSON.parse(fake.writes[2])).toEqual({
+      id: 2,
+      method: 'account/login/start',
+      params: {
+        type: 'chatgpt',
+        napStreamlinedLogin: true
+      }
+    });
+    fake.stdout.emit('data', Buffer.from('{"id":2,"result":{"type":"chatgpt","loginId":"login-1","authUrl":"https://www.nap-code.com/login"}}\n'));
+    await expect(login).resolves.toMatchObject({ loginId: 'login-1' });
+
+    const account = client.readAccount({ refreshToken: true });
+    await waitForWrites(fake.writes, 4);
+    expect(JSON.parse(fake.writes[3])).toEqual({
+      id: 3,
+      method: 'account/read',
+      params: {
+        refreshToken: true
+      }
+    });
+    fake.stdout.emit('data', Buffer.from('{"id":3,"result":{"account":{"type":"chatgpt","email":"farzeen@example.com"},"requiresOpenaiAuth":true}}\n'));
+    await expect(account).resolves.toMatchObject({ account: { email: 'farzeen@example.com' } });
+
+    client.dispose();
+  });
+
   it('does not recursively wait on start while sending initialize', async () => {
     const fake = createFakeChild();
     const client = new NapAppServerClient('1.2.3', (() => fake.child) as never);

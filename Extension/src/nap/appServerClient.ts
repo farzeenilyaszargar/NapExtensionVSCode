@@ -46,6 +46,15 @@ export interface StartTurnParams {
   input: Array<{ type: 'text'; text: string }>;
 }
 
+export interface LoginAccountParams {
+  type: 'chatgpt';
+  napStreamlinedLogin?: boolean;
+}
+
+export interface GetAccountParams {
+  refreshToken?: boolean;
+}
+
 export interface NapCliCommand {
   command: string;
   args: string[];
@@ -118,6 +127,18 @@ export class NapAppServerClient {
 
   async startTurn(params: StartTurnParams): Promise<unknown> {
     return this.request('turn/start', params);
+  }
+
+  async loginAccount(params: LoginAccountParams): Promise<unknown> {
+    return this.request('account/login/start', params);
+  }
+
+  async readAccount(params: GetAccountParams = {}): Promise<unknown> {
+    return this.request('account/read', params);
+  }
+
+  async logoutAccount(): Promise<unknown> {
+    return this.request('account/logout');
   }
 
   async request<TResult = unknown, TParams = unknown>(method: string, params?: TParams): Promise<TResult> {

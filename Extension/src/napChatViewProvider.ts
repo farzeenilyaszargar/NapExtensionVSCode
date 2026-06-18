@@ -98,10 +98,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   async login(): Promise<void> {
-    const cliPath = this.state.config.cliPath || 'nap';
     this.log('info', 'Starting Nap sign in.');
     try {
-      const auth = await runNapLoginFlow(cliPath, this.output);
+      const auth = await this.cliService.login();
       this.state = {
         ...this.state,
         auth

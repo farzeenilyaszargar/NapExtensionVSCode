@@ -70,6 +70,7 @@ export interface NapAuthState {
   accountName?: string;
   accountEmail?: string;
   avatarUrl?: string;
+  planType?: string;
 }
 
 export interface NapMcpServerState {

@@ -96,6 +96,16 @@ export class NapCliProviderAdapter implements ProviderAdapter {
   }
 
   private async readAuthStatus(): Promise<NapAuthState> {
+    try {
+      await this.appServer.start();
+      const appServerAuth = parseAppServerAccountAuthState(await this.appServer.readAccount({ refreshToken: true }));
+      if (appServerAuth.status === 'authenticated') {
+        return appServerAuth;
+      }
+    } catch (error) {
+      appendDaemonLog(`[provider] app-server auth read failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
     const persisted = readPersistedAuthState();
     if (persisted) {
       return persisted;
@@ -121,18 +131,41 @@ export class NapCliProviderAdapter implements ProviderAdapter {
 
   async login(): Promise<NapAuthState> {
     try {
-      await this.runText(['login'], 120000);
-      return this.waitForAuthenticatedStatus();
-    } catch {
-      return { status: 'signedOut', label: `Run ${this.cliPath} login in a terminal` };
+      await this.appServer.start();
+      const login = readObject(await this.appServer.loginAccount({
+        type: 'chatgpt',
+        napStreamlinedLogin: true
+      }));
+      const responseType = readString(login?.type);
+      if (responseType === 'chatgpt') {
+        const loginId = readString(login?.loginId) ?? readString(login?.login_id);
+        const authUrl = readString(login?.authUrl) ?? readString(login?.auth_url);
+        if (!loginId || !authUrl) {
+          throw new Error('Nap app-server did not return a login URL.');
+        }
+        await openExternalUrl(authUrl);
+        await this.waitForAppServerLogin(loginId);
+      } else if (responseType !== 'chatgptAuthTokens') {
+        throw new Error(`Unsupported Nap app-server login response: ${responseType ?? 'unknown'}.`);
+      }
+
+      return parseAppServerAccountAuthState(await this.appServer.readAccount({ refreshToken: true }));
+    } catch (error) {
+      appendDaemonLog(`[provider] app-server login failed: ${error instanceof Error ? error.message : String(error)}`);
+      return { status: 'signedOut', label: `Sign in with Nap (${this.cliPath})` };
     }
   }
 
   async logout(): Promise<NapAuthState> {
     try {
-      await this.runText(['logout'], 8000);
+      await this.appServer.start();
+      await this.appServer.logoutAccount();
     } catch {
-      // Status check can correct this later.
+      try {
+        await this.runText(['logout'], 8000);
+      } catch {
+        // Status check can correct this later.
+      }
     }
     return { status: 'signedOut', label: 'Nap CLI signed out' };
   }
@@ -263,6 +296,32 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       await delay(1000);
     }
     return { status: 'signedOut', label: 'Nap login did not persist credentials. Run nap login in a terminal and retry.' };
+  }
+
+  private async waitForAppServerLogin(loginId: string): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        cleanup();
+        reject(new Error('Nap login timed out.'));
+      }, 10 * 60 * 1000);
+      const cleanup = this.appServer.onNotification(notification => {
+        if (notification.method !== 'account/login/completed') {
+          return;
+        }
+        const params = readObject(notification.params);
+        const eventLoginId = readString(params?.loginId) ?? readString(params?.login_id);
+        if (eventLoginId && eventLoginId !== loginId) {
+          return;
+        }
+        cleanup();
+        clearTimeout(timeout);
+        if (params?.success === true) {
+          resolve();
+          return;
+        }
+        reject(new Error(readString(params?.error) ?? 'Nap login failed.'));
+      });
+    });
   }
 }
 
@@ -626,6 +685,42 @@ export function parseAuthState(output: string, enrichFromLocal = true): NapAuthS
   return { status: 'unknown', label: 'Nap CLI auth unknown' };
 }
 
+export function parseAppServerAccountAuthState(result: unknown): NapAuthState {
+  const record = readObject(result);
+  const account = readObject(record?.account);
+  const accountType = readString(account?.type);
+  if (!account || !accountType) {
+    return {
+      status: 'signedOut',
+      label: record?.requiresOpenaiAuth === false ? 'Nap account not required' : 'Sign in with Nap'
+    };
+  }
+
+  if (accountType === 'chatgpt') {
+    const email = readString(account.email);
+    const planType = readString(account.planType) ?? readString(account.plan_type);
+    return enrichAuthState({
+      status: 'authenticated',
+      label: email ?? 'Nap account',
+      accountEmail: email,
+      accountName: email,
+      planType
+    }, false);
+  }
+
+  if (accountType === 'apiKey') {
+    return {
+      status: 'authenticated',
+      label: 'Nap API key'
+    };
+  }
+
+  return {
+    status: 'authenticated',
+    label: 'Nap account'
+  };
+}
+
 function enrichAuthState(auth: NapAuthState, enrichFromLocal: boolean): NapAuthState {
   if (auth.status !== 'authenticated' || !enrichFromLocal) {
     return auth;
@@ -770,6 +865,27 @@ function readJsonObject(filePath: string): Record<string, unknown> | undefined {
   } catch {
     return undefined;
   }
+}
+
+async function openExternalUrl(url: string): Promise<void> {
+  const command = process.platform === 'darwin'
+    ? { cmd: 'open', args: [url] }
+    : process.platform === 'win32'
+      ? { cmd: 'cmd', args: ['/c', 'start', '', url] }
+      : { cmd: 'xdg-open', args: [url] };
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command.cmd, command.args, {
+      env: process.env,
+      stdio: 'ignore',
+      detached: true
+    });
+    child.once('error', reject);
+    child.once('spawn', () => {
+      child.unref();
+      resolve();
+    });
+  });
 }
 
 function parseModelOptions(output: string): NapModelOption[] {
