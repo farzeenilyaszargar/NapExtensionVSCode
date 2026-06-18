@@ -104,8 +104,7 @@ button {
 
 .header-nav-button:hover,
 .header-actions button:hover,
-.sessions-page-header button:hover,
-.settings-page-header button:hover {
+.sessions-page-header button:hover {
   color: var(--vscode-foreground);
   background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
 }
@@ -113,15 +112,13 @@ button {
 .header-nav-button:focus-visible,
 .header-actions button:focus-visible,
 .sessions-page-header button:focus-visible,
-.settings-page-header button:focus-visible,
 .session-item-main:focus-visible,
 .session-delete-button:focus-visible {
   outline: 1px solid #4a4a4a;
   outline-offset: 1px;
 }
 
-.sessions-page,
-.settings-page {
+.sessions-page {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   height: 100%;
@@ -130,8 +127,7 @@ button {
   background: var(--nap-surface);
 }
 
-.sessions-page-header,
-.settings-page-header {
+.sessions-page-header {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -143,8 +139,7 @@ button {
   font-weight: 500;
 }
 
-.sessions-page-header button,
-.settings-page-header button {
+.sessions-page-header button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -268,63 +263,6 @@ button {
   color: #6f6f6f;
   font-size: 12.5px;
   font-weight: 400;
-}
-
-.settings-layout {
-  display: grid;
-  grid-template-columns: minmax(92px, 32%) minmax(0, 1fr);
-  min-height: 0;
-  overflow: hidden;
-  padding: 8px;
-}
-
-.settings-sidebar {
-  display: grid;
-  align-content: start;
-  gap: 2px;
-  min-width: 0;
-  padding-right: 8px;
-}
-
-.settings-sidebar button {
-  min-width: 0;
-  height: 26px;
-  padding: 0 7px;
-  border: 0;
-  border-radius: 5px;
-  color: #868686;
-  background: transparent;
-  cursor: pointer;
-  font-size: 11px;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settings-sidebar button:hover,
-.settings-sidebar button.is-active {
-  color: var(--vscode-foreground);
-  background: #1c1c1c;
-}
-
-.settings-content {
-  min-width: 0;
-  padding: 2px 2px 0 10px;
-  color: #868686;
-}
-
-.settings-content h1 {
-  margin: 0 0 7px;
-  color: #b8b8b8;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.settings-content p {
-  margin: 0;
-  font-size: 11.5px;
-  line-height: 1.45;
 }
 
 .log-text,

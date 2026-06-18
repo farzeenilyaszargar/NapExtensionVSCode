@@ -7,6 +7,7 @@ import { spawn } from 'node:child_process';
 import * as vscode from 'vscode';
 import { getNapConfiguration } from './configuration';
 import { resolveNapCliCommand } from './nap/appServerClient';
+import { NapSettingsPanel } from './napSettingsPanel';
 import { INapCliService } from './services/napCliService';
 import {
   ExtensionToWebviewMessage,
@@ -155,7 +156,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         this.setModel(message.modelId);
         return;
       case 'openSettings':
-        await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:NapCode.nap');
+        NapSettingsPanel.open(this.extensionUri);
         return;
     }
   }

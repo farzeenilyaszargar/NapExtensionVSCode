@@ -30,7 +30,7 @@ const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
 type OpenMenu = 'runtime' | 'approval' | 'model' | undefined;
 type ResponseVote = 'up' | 'down';
-type ActivePage = 'chat' | 'sessions' | 'settings';
+type ActivePage = 'chat' | 'sessions';
 
 const runtimeLabels: Record<RuntimeTarget, string> = {
   local: 'Local',
@@ -45,7 +45,6 @@ const approvalLabels: Record<ApprovalMode, string> = {
 
 const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
-const settingsSections = ['General', 'Config', 'Usage & Billing', 'MCPs', 'Hooks', 'Plugins'];
 
 declare global {
   interface Window {
@@ -60,7 +59,6 @@ export function App() {
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
   const [activePage, setActivePage] = useState<ActivePage>('chat');
-  const [activeSettingsSection, setActiveSettingsSection] = useState(settingsSections[0]);
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -268,35 +266,6 @@ export function App() {
                 </button>
               </div>
             ))}
-          </div>
-        </section>
-      ) : null}
-
-      {activePage === 'settings' ? (
-        <section className="settings-page" aria-label="Nap settings">
-          <header className="settings-page-header">
-            <button type="button" aria-label="Back to chat" onClick={() => setActivePage('chat')}>
-              <ChevronLeft size={13} />
-            </button>
-            <span>Nap Settings</span>
-          </header>
-          <div className="settings-layout">
-            <nav className="settings-sidebar" aria-label="Nap settings sections">
-              {settingsSections.map(section => (
-                <button
-                  key={section}
-                  type="button"
-                  className={activeSettingsSection === section ? 'is-active' : undefined}
-                  onClick={() => setActiveSettingsSection(section)}
-                >
-                  {section}
-                </button>
-              ))}
-            </nav>
-            <main className="settings-content">
-              <h1>{activeSettingsSection}</h1>
-              <p>Nap settings for {activeSettingsSection.toLowerCase()} will appear here.</p>
-            </main>
           </div>
         </section>
       ) : null}
