@@ -128,9 +128,6 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       case 'authLogin':
         await this.login();
         return;
-      case 'openAccounts':
-        await vscode.env.openExternal(vscode.Uri.parse('https://www.nap-code.com/dashboard'));
-        return;
       case 'refreshSessions':
         await this.refreshSessions();
         return;
