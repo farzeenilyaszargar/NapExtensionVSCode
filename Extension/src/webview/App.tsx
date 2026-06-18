@@ -5,8 +5,11 @@ import {
   Cloud,
   Copy,
   Laptop,
+  List,
   Lock,
   Mic,
+  Plus,
+  Settings,
   Shield,
   SquareTerminal,
   Square,
@@ -27,6 +30,7 @@ const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
 type OpenMenu = 'runtime' | 'approval' | 'model' | undefined;
 type ResponseVote = 'up' | 'down';
+type ActivePage = 'chat' | 'sessions' | 'settings';
 
 const runtimeLabels: Record<RuntimeTarget, string> = {
   local: 'Local',
@@ -41,6 +45,7 @@ const approvalLabels: Record<ApprovalMode, string> = {
 
 const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
+const settingsSections = ['General', 'Config', 'Usage & Billing', 'MCPs', 'Hooks', 'Plugins'];
 
 declare global {
   interface Window {
@@ -54,7 +59,8 @@ export function App() {
   const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>('local');
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
-  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [activePage, setActivePage] = useState<ActivePage>('chat');
+  const [activeSettingsSection, setActiveSettingsSection] = useState(settingsSections[0]);
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -189,13 +195,22 @@ export function App() {
   }, []);
 
   const RuntimeIcon = getRuntimeIcon(runtimeTarget);
+  const openSessionsPage = useCallback(() => {
+    post({ type: 'refreshSessions' });
+    setActivePage('sessions');
+  }, [post]);
+
+  const openNewChat = useCallback(() => {
+    post({ type: 'newSession' });
+    setActivePage('chat');
+  }, [post]);
 
   return (
     <div className="nap-shell">
-      {sessionsOpen ? (
+      {activePage === 'sessions' ? (
         <section className="sessions-page" aria-label="Nap sessions">
           <header className="sessions-page-header">
-            <button type="button" aria-label="Back to chat" onClick={() => setSessionsOpen(false)}>
+            <button type="button" aria-label="Back to chat" onClick={() => setActivePage('chat')}>
               <ChevronLeft size={13} />
             </button>
             <span>Sessions</span>
@@ -214,7 +229,7 @@ export function App() {
                     if (session.id !== state.sessionId) {
                       post({ type: 'openSession', sessionId: session.id });
                     }
-                    setSessionsOpen(false);
+                    setActivePage('chat');
                   }}
                 >
                   <span className="session-title">{session.title}</span>
@@ -235,26 +250,53 @@ export function App() {
         </section>
       ) : null}
 
-      {!sessionsOpen ? (
+      {activePage === 'settings' ? (
+        <section className="settings-page" aria-label="Nap settings">
+          <header className="settings-page-header">
+            <button type="button" aria-label="Back to chat" onClick={() => setActivePage('chat')}>
+              <ChevronLeft size={13} />
+            </button>
+            <span>Nap Settings</span>
+          </header>
+          <div className="settings-layout">
+            <nav className="settings-sidebar" aria-label="Nap settings sections">
+              {settingsSections.map(section => (
+                <button
+                  key={section}
+                  type="button"
+                  className={activeSettingsSection === section ? 'is-active' : undefined}
+                  onClick={() => setActiveSettingsSection(section)}
+                >
+                  {section}
+                </button>
+              ))}
+            </nav>
+            <main className="settings-content">
+              <h1>{activeSettingsSection}</h1>
+              <p>Nap settings for {activeSettingsSection.toLowerCase()} will appear here.</p>
+            </main>
+          </div>
+        </section>
+      ) : null}
+
+      {activePage === 'chat' ? (
         <header className="chat-header">
-          <button
-            className="sessions-toggle"
-            type="button"
-            title="Sessions"
-            aria-label="Show sessions"
-            aria-expanded={sessionsOpen}
-            onClick={() => {
-              post({ type: 'refreshSessions' });
-              setSessionsOpen(true);
-            }}
-          >
-            <ChevronLeft size={16} />
-          </button>
           <span>{state.title || 'New Chat'}</span>
+          <div className="chat-header-actions" aria-label="Nap chat actions">
+            <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
+              <List size={14} />
+            </button>
+            <button type="button" title="Settings" aria-label="Settings" onClick={() => setActivePage('settings')}>
+              <Settings size={14} />
+            </button>
+            <button type="button" title="New chat" aria-label="New chat" onClick={openNewChat}>
+              <Plus size={14} />
+            </button>
+          </div>
         </header>
       ) : null}
 
-      {!sessionsOpen ? (
+      {activePage === 'chat' ? (
         <main className="timeline" ref={timelineRef} aria-label="Nap conversation">
         {state.messages.length === 0 ? (
           <div className="empty-state">
@@ -322,14 +364,14 @@ export function App() {
         </main>
       ) : null}
 
-      {!sessionsOpen ? (
+      {activePage === 'chat' ? (
         <section className="log-strip" aria-label="Nap log">
         <span className={`log-dot log-dot--${latestLog?.level ?? 'trace'}`} />
         <span className="log-text">{latestLog ? latestLog.message : 'Session idle'}</span>
         </section>
       ) : null}
 
-      {!sessionsOpen ? (
+      {activePage === 'chat' ? (
         <footer className="composer-panel" ref={composerPanelRef}>
         <form className="composer" onSubmit={onSubmit}>
           <div className="composer-input">
