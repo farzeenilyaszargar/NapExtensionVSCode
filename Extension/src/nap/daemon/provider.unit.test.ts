@@ -147,11 +147,58 @@ describe('Nap app-server stream parsing', () => {
     expect(parseAppServerActivity({
       method: 'item/started',
       params: { item: { type: 'reasoning' } }
-    })).toBe('Reasoning');
+    })).toBe('Thinking');
     expect(parseAppServerActivity({
       method: 'mcpServer/startupStatus/updated',
       params: { name: 'nap_apps', status: 'starting' }
     })).toBe('Starting nap_apps');
+  });
+
+  it('uses JSON activity fields for shimmer text instead of fixed fallback text', () => {
+    expect(parseAppServerActivity({
+      method: 'item/started',
+      params: {
+        item: {
+          type: 'reasoning',
+          text: 'Reading workspace files'
+        }
+      }
+    })).toBe('Reading workspace files');
+
+    expect(parseAppServerActivity({
+      method: 'item/started',
+      params: {
+        item: {
+          type: 'toolCall',
+          name: 'rg'
+        }
+      }
+    })).toBe('Running rg');
+  });
+
+  it('does not treat normal assistant text deltas as shimmer activity', () => {
+    expect(parseAppServerActivity({
+      method: 'item/agentMessage/delta',
+      params: {
+        delta: 'This should render as paragraph text.'
+      }
+    })).toBeUndefined();
+  });
+
+  it('maps status and progress notifications to activity text', () => {
+    expect(parseAppServerActivity({
+      method: 'workspace/index/progress',
+      params: {
+        statusText: 'Indexing source files'
+      }
+    })).toBe('Indexing source files');
+
+    expect(parseAppServerActivity({
+      method: 'thread/status/changed',
+      params: {
+        status: { type: 'idle' }
+      }
+    })).toBeUndefined();
   });
 });
 

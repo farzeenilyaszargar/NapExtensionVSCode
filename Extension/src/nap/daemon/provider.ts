@@ -342,14 +342,35 @@ export function parseAppServerActivity(notification: NapAppServerNotification): 
   const item = readObject(params?.item);
   const status = readObject(params?.status);
   const itemType = readString(item?.type);
+  const method = notification.method;
+  const text = readActivityText(params)
+    ?? readActivityText(item)
+    ?? readActivityText(status);
 
-  switch (notification.method) {
+  if (method === 'item/agentMessage/delta') {
+    return undefined;
+  }
+
+  if (method === 'thread/status/changed') {
+    const statusType = readString(status?.type);
+    return statusType === 'active' ? text ?? 'Working' : statusType === 'idle' ? undefined : text ?? titleCase(statusType);
+  }
+
+  if (method.includes('/reasoning') || method.includes('/thought')) {
+    return text ?? 'Thinking';
+  }
+
+  if (method.includes('/tool') || method.includes('/function')) {
+    return text ?? toolActivityText(item, 'Running tool');
+  }
+
+  if (method.includes('/status') || method.includes('/progress')) {
+    return text ?? statusActivityText(params, status);
+  }
+
+  switch (method) {
     case 'turn/started':
-      return 'Thinking';
-    case 'thread/status/changed': {
-      const statusType = readString(status?.type);
-      return statusType === 'active' ? 'Working' : statusType === 'idle' ? undefined : titleCase(statusType);
-    }
+      return text ?? 'Thinking';
     case 'mcpServer/startupStatus/updated': {
       const name = readString(params?.name) ?? 'MCP server';
       const serverStatus = readString(params?.status);
@@ -363,28 +384,74 @@ export function parseAppServerActivity(notification: NapAppServerNotification): 
     }
     case 'item/started':
       if (itemType === 'reasoning') {
-        return 'Reasoning';
+        return text ?? 'Thinking';
       }
-      if (itemType === 'toolCall' || itemType === 'functionCall') {
-        return `Running ${readString(item?.name) ?? 'tool'}`;
+      if (isToolItemType(itemType)) {
+        return text ?? toolActivityText(item, 'Running tool');
+      }
+      if (isStatusItemType(itemType)) {
+        return text ?? statusActivityText(params, status);
       }
       if (itemType === 'agentMessage') {
-        return 'Writing';
+        return text ?? 'Writing';
       }
-      return undefined;
+      return text;
     case 'item/completed':
       if (itemType === 'reasoning') {
-        return 'Writing';
+        return text ?? 'Writing';
       }
-      if (itemType === 'toolCall' || itemType === 'functionCall') {
-        return 'Reading results';
+      if (isToolItemType(itemType)) {
+        return text ?? 'Reading results';
       }
-      return undefined;
+      return isStatusItemType(itemType) ? text : undefined;
     case 'turn/completed':
       return undefined;
     default:
-      return undefined;
+      return text;
   }
+}
+
+function readActivityText(record: Record<string, unknown> | undefined): string | undefined {
+  return readString(record?.activity)
+    ?? readString(record?.activityText)
+    ?? readString(record?.statusText)
+    ?? readString(record?.summary)
+    ?? readString(record?.message)
+    ?? readString(record?.title)
+    ?? readString(record?.text)
+    ?? readString(record?.content);
+}
+
+function toolActivityText(item: Record<string, unknown> | undefined, fallback: string): string {
+  const name = readString(item?.name)
+    ?? readString(item?.toolName)
+    ?? readString(item?.functionName)
+    ?? readString(item?.command);
+  return name ? `Running ${name}` : fallback;
+}
+
+function statusActivityText(params: Record<string, unknown> | undefined, status: Record<string, unknown> | undefined): string | undefined {
+  const value = readString(status?.type)
+    ?? readString(status?.state)
+    ?? readString(status?.status)
+    ?? readString(params?.status)
+    ?? readString(params?.state);
+  return value ? titleCase(value) : undefined;
+}
+
+function isToolItemType(itemType: string | undefined): boolean {
+  return itemType === 'toolCall'
+    || itemType === 'functionCall'
+    || itemType === 'command'
+    || itemType === 'shellCommand'
+    || itemType === 'mcpToolCall';
+}
+
+function isStatusItemType(itemType: string | undefined): boolean {
+  return itemType === 'status'
+    || itemType === 'progress'
+    || itemType === 'log'
+    || itemType === 'notice';
 }
 
 export function buildChatArgs(request: ProviderPromptRequest): string[] {

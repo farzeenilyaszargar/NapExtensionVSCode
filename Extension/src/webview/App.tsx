@@ -166,7 +166,7 @@ export function App() {
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
-  const waitingText = state.activityText || 'Waiting';
+  const waitingText = state.activityText;
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -332,7 +332,7 @@ export function App() {
                   {message.content ? (
                     <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }} />
                   ) : null}
-                  {message.status === 'streaming' ? (
+                  {message.status === 'streaming' && waitingText ? (
                     <span className="waiting-text">{waitingText}</span>
                   ) : !message.content ? (
                     <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown('...') }} />
