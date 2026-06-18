@@ -16,6 +16,7 @@ export const initialViewState: NapViewState = {
   securityMode: 'standard',
   messages: [],
   activityText: undefined,
+  activityKind: undefined,
   logs: [],
   models: [],
   sessions: [],
@@ -54,6 +55,7 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
       return {
         ...state,
         activityText: undefined,
+        activityKind: undefined,
         messages: state.messages.map(item => item.id === message.messageId
           ? { ...item, content: item.content + message.delta, status: 'streaming' }
           : item)
@@ -61,12 +63,14 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
     case 'activityTextChanged':
       return {
         ...state,
-        activityText: message.text
+        activityText: message.text,
+        activityKind: message.kind
       };
     case 'messageDone':
       return {
         ...state,
         activityText: undefined,
+        activityKind: undefined,
         status: message.status === 'complete' ? 'idle' : message.status,
         messages: state.messages.map(item => item.id === message.messageId
           ? { ...item, status: message.status }

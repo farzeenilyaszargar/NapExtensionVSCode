@@ -229,6 +229,7 @@ export function App() {
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
   const waitingText = state.activityText;
+  const waitingKind = state.activityKind ?? 'thinking';
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -391,7 +392,10 @@ export function App() {
                     <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }} />
                   ) : null}
                   {message.status === 'streaming' && waitingText ? (
-                    <span className="waiting-text">{waitingText}</span>
+                    <span className={`waiting-text waiting-text--${waitingKind}`}>
+                      <span className="waiting-kind">{activityKindLabel(waitingKind)}</span>
+                      <span>{waitingText}</span>
+                    </span>
                   ) : !message.content ? (
                     <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown('...') }} />
                   ) : null}
@@ -569,6 +573,31 @@ function getRuntimeIcon(target: RuntimeTarget) {
     return SquareTerminal;
   }
   return Laptop;
+}
+
+function activityKindLabel(kind: string): string {
+  switch (kind) {
+    case 'reasoning':
+      return 'Reasoning';
+    case 'plan':
+      return 'Plan';
+    case 'tool':
+      return 'Tool';
+    case 'command':
+      return 'Command';
+    case 'file':
+      return 'Files';
+    case 'warning':
+      return 'Warning';
+    case 'error':
+      return 'Error';
+    case 'writing':
+      return 'Writing';
+    case 'status':
+      return 'Status';
+    default:
+      return 'Thinking';
+  }
 }
 
 function formatRelativeTime(timestamp: number): string {

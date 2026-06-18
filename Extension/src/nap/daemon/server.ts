@@ -318,8 +318,8 @@ export class NapDaemon {
           this.broadcast('session.message.delta', this.deltaEvent(session, assistantMessageId, job.id, delta));
           this.broadcast('job.progress', this.jobEvent(job));
         },
-        onActivity: text => {
-          this.broadcast('session.activity', this.activityEvent(session, job.id, text));
+        onActivity: activity => {
+          this.broadcast('session.activity', this.activityEvent(session, job.id, activity));
         },
         onLog: message => this.log('info', message, params.workspaceRoot, session.id, job.id)
       }, abort.signal);
@@ -468,7 +468,9 @@ export class NapDaemon {
     };
   }
 
-  private activityEvent(session: NapSessionRecord, jobId: string, text: string | undefined): SessionActivityEvent {
+  private activityEvent(session: NapSessionRecord, jobId: string, activity: SessionActivityEvent['text'] | Pick<SessionActivityEvent, 'text' | 'kind'> | undefined): SessionActivityEvent {
+    const text = typeof activity === 'string' ? activity : activity?.text;
+    const kind = typeof activity === 'string' ? undefined : activity?.kind;
     return {
       eventId: createNapId('event'),
       createdAt: Date.now(),
@@ -476,7 +478,8 @@ export class NapDaemon {
       sessionId: session.id,
       clientId: 'napd',
       jobId,
-      text
+      text,
+      kind
     };
   }
 

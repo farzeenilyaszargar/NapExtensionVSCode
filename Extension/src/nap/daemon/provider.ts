@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import { NapAppServerClient, NapAppServerNotification, resolveNapCliCommand } from '../appServerClient';
 import { appendDaemonLog } from '../runtimePaths';
 import {
+  NapActivityKind,
   NapAuthState,
   NapMode,
   NapModelOption,
@@ -25,8 +26,15 @@ export interface ProviderPromptRequest {
 
 export interface ProviderPromptStream {
   onDelta(delta: string): void;
-  onActivity(text: string | undefined): void;
+  onActivity(activity: ProviderActivity | undefined): void;
   onLog(message: string): void;
+}
+
+export interface ProviderActivity {
+  text: string;
+  kind: NapActivityKind;
+  append?: boolean;
+  itemId?: string;
 }
 
 export interface ProviderAdapter {
@@ -142,6 +150,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
 
     let turnId: string | undefined;
     let cleanupCompleted: (() => void) | undefined;
+    const activityBuffers = new Map<string, ProviderActivity>();
     const completed = new Promise<void>((resolve, reject) => {
       const cleanup = this.appServer.onNotification(notification => {
         if (!notificationMatchesTurn(notification, threadId, turnId)) {
@@ -152,9 +161,9 @@ export class NapCliProviderAdapter implements ProviderAdapter {
         if (delta) {
           stream.onDelta(delta);
         }
-        const activityText = parseAppServerActivity(notification);
-        if (activityText !== undefined) {
-          stream.onActivity(activityText);
+        const activity = parseAppServerActivityEvent(notification);
+        if (activity !== undefined) {
+          stream.onActivity(mergeActivity(activityBuffers, activity));
         }
 
         if (notification.method === 'turn/completed') {
@@ -343,10 +352,15 @@ export function parseAppServerDelta(notification: NapAppServerNotification): str
 }
 
 export function parseAppServerActivity(notification: NapAppServerNotification): string | undefined {
+  return parseAppServerActivityEvent(notification)?.text;
+}
+
+export function parseAppServerActivityEvent(notification: NapAppServerNotification): ProviderActivity | undefined {
   const params = readObject(notification.params);
   const item = readObject(params?.item);
   const status = readObject(params?.status);
   const itemType = readString(item?.type);
+  const itemId = readString(params?.itemId) ?? readString(params?.item_id) ?? readString(item?.id);
   const method = notification.method;
   const text = readActivityText(params)
     ?? readActivityText(item)
@@ -356,64 +370,134 @@ export function parseAppServerActivity(notification: NapAppServerNotification): 
     return undefined;
   }
 
+  if (method === 'item/reasoning/textDelta') {
+    return deltaActivity(params, itemId, 'reasoning');
+  }
+
+  if (method === 'item/reasoning/summaryTextDelta') {
+    return deltaActivity(params, itemId, 'thinking');
+  }
+
+  if (method === 'item/plan/delta') {
+    return deltaActivity(params, itemId, 'plan');
+  }
+
+  if (method === 'item/commandExecution/outputDelta' || method === 'command/exec/outputDelta' || method === 'process/outputDelta') {
+    return deltaActivity(params, itemId, 'command');
+  }
+
+  if (method === 'item/fileChange/outputDelta' || method === 'item/fileChange/patchUpdated') {
+    return deltaActivity(params, itemId, 'file') ?? { text: 'Updating files', kind: 'file', itemId };
+  }
+
+  if (method === 'warning' || method === 'guardianWarning' || method === 'configWarning' || method === 'deprecationNotice') {
+    return { text: text ?? readString(params?.message) ?? 'Warning', kind: 'warning', itemId };
+  }
+
+  if (method === 'error') {
+    return { text: text ?? readString(params?.message) ?? 'Error', kind: 'error', itemId };
+  }
+
   if (method === 'thread/status/changed') {
     const statusType = readString(status?.type);
-    return statusType === 'active' ? text ?? 'Working' : statusType === 'idle' ? undefined : text ?? titleCase(statusType);
+    if (statusType === 'idle') {
+      return undefined;
+    }
+    const flags = readStringArray(status?.activeFlags);
+    if (flags.includes('waitingOnApproval')) {
+      return { text: text ?? 'Waiting on approval', kind: 'warning', itemId };
+    }
+    if (flags.includes('waitingOnUserInput')) {
+      return { text: text ?? 'Waiting on input', kind: 'warning', itemId };
+    }
+    return { text: statusType === 'active' ? text ?? 'Working' : text ?? titleCase(statusType) ?? 'Working', kind: 'status', itemId };
   }
 
   if (method.includes('/reasoning') || method.includes('/thought')) {
-    return text ?? 'Thinking';
+    return { text: text ?? 'Thinking', kind: 'reasoning', itemId };
   }
 
   if (method.includes('/tool') || method.includes('/function')) {
-    return text ?? toolActivityText(item, 'Running tool');
+    return { text: text ?? toolActivityText(item, 'Running tool'), kind: 'tool', itemId };
   }
 
   if (method.includes('/status') || method.includes('/progress')) {
-    return text ?? statusActivityText(params, status);
+    const statusText = text ?? statusActivityText(params, status);
+    return statusText ? { text: statusText, kind: 'status', itemId } : undefined;
   }
 
   switch (method) {
     case 'turn/started':
-      return text ?? 'Thinking';
+      return { text: text ?? 'Thinking', kind: 'thinking', itemId };
     case 'mcpServer/startupStatus/updated': {
       const name = readString(params?.name) ?? 'MCP server';
       const serverStatus = readString(params?.status);
       if (serverStatus === 'starting') {
-        return `Starting ${name}`;
+        return { text: `Starting ${name}`, kind: 'tool', itemId };
       }
       if (serverStatus === 'failed') {
         return undefined;
       }
-      return serverStatus ? `${titleCase(serverStatus)} ${name}` : undefined;
+      return serverStatus ? { text: `${titleCase(serverStatus)} ${name}`, kind: 'tool', itemId } : undefined;
     }
     case 'item/started':
       if (itemType === 'reasoning') {
-        return text ?? 'Thinking';
+        return { text: text ?? 'Thinking', kind: 'reasoning', itemId };
       }
       if (isToolItemType(itemType)) {
-        return text ?? toolActivityText(item, 'Running tool');
+        return { text: text ?? toolActivityText(item, 'Running tool'), kind: itemType === 'commandExecution' ? 'command' : 'tool', itemId };
+      }
+      if (itemType === 'fileChange') {
+        return { text: text ?? 'Editing files', kind: 'file', itemId };
+      }
+      if (itemType === 'plan') {
+        return { text: text ?? 'Planning', kind: 'plan', itemId };
       }
       if (isStatusItemType(itemType)) {
-        return text ?? statusActivityText(params, status);
+        const statusText = text ?? statusActivityText(params, status);
+        return statusText ? { text: statusText, kind: 'status', itemId } : undefined;
       }
       if (itemType === 'agentMessage') {
-        return text ?? 'Writing';
+        const phase = readString(item?.phase);
+        return { text: text ?? (phase === 'commentary' ? 'Working' : 'Writing'), kind: phase === 'commentary' ? 'thinking' : 'writing', itemId };
       }
-      return text;
+      return text ? { text, kind: 'status', itemId } : undefined;
     case 'item/completed':
       if (itemType === 'reasoning') {
-        return text ?? 'Writing';
+        return { text: text ?? 'Writing', kind: 'writing', itemId };
       }
       if (isToolItemType(itemType)) {
-        return text ?? 'Reading results';
+        return { text: text ?? 'Reading results', kind: 'tool', itemId };
       }
-      return isStatusItemType(itemType) ? text : undefined;
+      return isStatusItemType(itemType) && text ? { text, kind: 'status', itemId } : undefined;
     case 'turn/completed':
       return undefined;
     default:
-      return text;
+      return text ? { text, kind: 'status', itemId } : undefined;
   }
+}
+
+function mergeActivity(activityBuffers: Map<string, ProviderActivity>, activity: ProviderActivity): ProviderActivity {
+  if (!activity.append) {
+    return activity;
+  }
+
+  const key = activity.itemId ?? activity.kind;
+  const previous = activityBuffers.get(key);
+  const text = `${previous?.text ?? ''}${activity.text}`.trimStart();
+  const merged = {
+    ...activity,
+    text: truncateMiddle(text, 240),
+    append: false
+  };
+  activityBuffers.set(key, merged);
+  return merged;
+}
+
+function deltaActivity(params: Record<string, unknown> | undefined, itemId: string | undefined, kind: NapActivityKind): ProviderActivity | undefined {
+  const delta = readDeltaString(params?.delta)
+    ?? decodeBase64(readString(params?.deltaBase64));
+  return delta ? { text: delta, kind, append: true, itemId } : undefined;
 }
 
 function readActivityText(record: Record<string, unknown> | undefined): string | undefined {
@@ -448,6 +532,7 @@ function isToolItemType(itemType: string | undefined): boolean {
   return itemType === 'toolCall'
     || itemType === 'functionCall'
     || itemType === 'command'
+    || itemType === 'commandExecution'
     || itemType === 'shellCommand'
     || itemType === 'mcpToolCall';
 }
@@ -746,6 +831,32 @@ export function parseCliStreamLine(line: string): string {
 
 function readString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function readDeltaString(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value : undefined;
+}
+
+function readStringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function decodeBase64(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  try {
+    return Buffer.from(value, 'base64').toString('utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+function truncateMiddle(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
 }
 
 function readNumber(value: unknown): number | undefined {

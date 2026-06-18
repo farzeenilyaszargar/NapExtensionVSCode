@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { getNapConfiguration } from '../configuration';
 import {
+  NapActivityKind,
   NapAuthState,
   NapLogEvent,
   NapMcpState,
@@ -30,7 +31,7 @@ export interface NapPromptRequest {
 
 export interface NapPromptStream {
   onDelta(delta: string): void;
-  onActivity(text: string | undefined): void;
+  onActivity(activity: { text?: string; kind?: NapActivityKind } | undefined): void;
   onLog(event: NapLogEvent): void;
 }
 
@@ -147,7 +148,7 @@ export class NapDaemonService implements INapCliService {
     const done = new Promise<void>((resolve, reject) => {
       cleanupActivity = this.client.on<SessionActivityEvent>('session.activity', event => {
         if (event.sessionId === request.sessionId && (!jobId || event.jobId === jobId)) {
-          stream.onActivity(event.text);
+          stream.onActivity({ text: event.text, kind: event.kind });
         }
       });
       cleanupDelta = this.client.on<SessionMessageDeltaEvent>('session.message.delta', event => {

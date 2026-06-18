@@ -93,6 +93,7 @@ export interface NapSessionState {
   securityMode: NapSecurityMode;
   messages: NapMessage[];
   activityText?: string;
+  activityKind?: NapActivityKind;
   logs: NapLogEvent[];
   models: NapModelOption[];
   sessions: NapSessionSummary[];
@@ -100,6 +101,18 @@ export interface NapSessionState {
   mcp: NapMcpState;
   config: NapConfigurationSnapshot;
 }
+
+export type NapActivityKind =
+  | 'thinking'
+  | 'reasoning'
+  | 'plan'
+  | 'tool'
+  | 'command'
+  | 'file'
+  | 'warning'
+  | 'error'
+  | 'writing'
+  | 'status';
 
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
@@ -119,7 +132,7 @@ export type WebviewToExtensionMessage =
 export type ExtensionToWebviewMessage =
   | { type: 'sessionState'; state: NapSessionState }
   | { type: 'messageDelta'; messageId: string; delta: string }
-  | { type: 'activityTextChanged'; text?: string }
+  | { type: 'activityTextChanged'; text?: string; kind?: NapActivityKind }
   | { type: 'messageDone'; messageId: string; status: NapMessageStatus }
   | { type: 'logEvent'; event: NapLogEvent }
   | { type: 'error'; message: string }

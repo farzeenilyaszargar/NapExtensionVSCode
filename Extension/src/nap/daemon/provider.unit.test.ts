@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildChatArgs, parseAppServerActivity, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
+import { buildChatArgs, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
 
 describe('Nap CLI auth parsing', () => {
   it('treats profile JSON as authenticated even without a status field', () => {
@@ -227,6 +227,58 @@ describe('Nap app-server stream parsing', () => {
         status: { type: 'idle' }
       }
     })).toBeUndefined();
+  });
+
+  it('classifies reasoning, plan, command, and warning notifications for the UI', () => {
+    expect(parseAppServerActivityEvent({
+      method: 'item/reasoning/textDelta',
+      params: {
+        itemId: 'reasoning-1',
+        delta: 'I am checking files.'
+      }
+    })).toMatchObject({
+      text: 'I am checking files.',
+      kind: 'reasoning',
+      append: true,
+      itemId: 'reasoning-1'
+    });
+
+    expect(parseAppServerActivityEvent({
+      method: 'item/plan/delta',
+      params: {
+        itemId: 'plan-1',
+        delta: 'Update the parser.'
+      }
+    })).toMatchObject({
+      text: 'Update the parser.',
+      kind: 'plan',
+      append: true
+    });
+
+    expect(parseAppServerActivityEvent({
+      method: 'item/started',
+      params: {
+        item: {
+          type: 'commandExecution',
+          id: 'cmd-1',
+          command: 'npm test'
+        }
+      }
+    })).toMatchObject({
+      text: 'Running npm test',
+      kind: 'command',
+      itemId: 'cmd-1'
+    });
+
+    expect(parseAppServerActivityEvent({
+      method: 'guardianWarning',
+      params: {
+        message: 'Approval required'
+      }
+    })).toMatchObject({
+      text: 'Approval required',
+      kind: 'warning'
+    });
   });
 });
 

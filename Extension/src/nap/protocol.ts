@@ -1,4 +1,5 @@
 import {
+  NapActivityKind,
   NapAuthState,
   NapLogEvent,
   NapMcpState,
@@ -196,6 +197,7 @@ export interface SessionActivityEvent extends NapRpcEnvelope {
   createdAt: number;
   jobId: string;
   text?: string;
+  kind?: NapActivityKind;
 }
 
 export interface JobEvent extends NapRpcEnvelope {

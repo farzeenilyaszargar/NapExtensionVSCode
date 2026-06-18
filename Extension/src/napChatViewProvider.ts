@@ -228,8 +228,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
             this.appendAssistantDelta(assistantMessage.id, delta);
             deltaStreamer.enqueue(delta);
           },
-          onActivity: text => {
-            this.post({ type: 'activityTextChanged', text });
+          onActivity: activity => {
+            this.post({ type: 'activityTextChanged', text: activity?.text, kind: activity?.kind });
           },
           onLog: event => {
             this.appendLog(event);

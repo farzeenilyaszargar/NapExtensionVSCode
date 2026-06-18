@@ -661,8 +661,13 @@ textarea::-webkit-scrollbar,
 }
 
 .waiting-text {
-  display: inline-block;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  max-width: 100%;
   margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.45;
   color: transparent;
   background: linear-gradient(
     90deg,
@@ -673,7 +678,62 @@ textarea::-webkit-scrollbar,
   background-size: 220% 100%;
   background-clip: text;
   -webkit-background-clip: text;
-  animation: waiting-shimmer 1s ease-in-out infinite;
+  animation: waiting-shimmer 1.8s ease-in-out infinite;
+}
+
+.waiting-text > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waiting-kind {
+  flex: 0 0 auto;
+  color: #777;
+  background: none;
+  background-clip: initial;
+  -webkit-background-clip: initial;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.waiting-text--reasoning {
+  font-size: 11px;
+  opacity: 0.86;
+}
+
+.waiting-text--plan {
+  color: #a7a7a7;
+  background: none;
+}
+
+.waiting-text--tool,
+.waiting-text--command,
+.waiting-text--file {
+  color: #9a9a9a;
+  background: none;
+  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-size: 11px;
+}
+
+.waiting-text--warning {
+  color: var(--vscode-editorWarning-foreground, #cca700);
+  background: none;
+  animation: none;
+}
+
+.waiting-text--error {
+  color: var(--vscode-editorError-foreground, #f14c4c);
+  background: none;
+  animation: none;
+}
+
+.waiting-text--writing,
+.waiting-text--status {
+  font-size: 11px;
 }
 
 @keyframes waiting-shimmer {
