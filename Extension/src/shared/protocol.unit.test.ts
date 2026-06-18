@@ -8,6 +8,7 @@ describe('Nap bridge protocol', () => {
     expect(isWebviewToExtensionMessage({ type: 'refreshSessions' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'sendPrompt', prompt: 'hello' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'openSession', sessionId: 'session-1' })).toBe(true);
+    expect(isWebviewToExtensionMessage({ type: 'openFile', filePath: 'src/extension.ts:12' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'setMode', mode: 'plan' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'setModel', modelId: 'nap-default' })).toBe(true);
   });
@@ -17,6 +18,7 @@ describe('Nap bridge protocol', () => {
     expect(isWebviewToExtensionMessage({})).toBe(false);
     expect(isWebviewToExtensionMessage({ type: 'sendPrompt' })).toBe(false);
     expect(isWebviewToExtensionMessage({ type: 'openSession', sessionId: '' })).toBe(false);
+    expect(isWebviewToExtensionMessage({ type: 'openFile', filePath: '   ' })).toBe(false);
     expect(isWebviewToExtensionMessage({ type: 'setMode', mode: 'edit' })).toBe(false);
     expect(isWebviewToExtensionMessage({ type: 'setModel', modelId: '' })).toBe(false);
   });

@@ -145,6 +145,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       case 'deleteSession':
         await this.deleteSession(message.sessionId);
         return;
+      case 'openFile':
+        await this.openFileReference(message.filePath);
+        return;
       case 'setMode':
         this.setMode(message.mode);
         return;
@@ -365,6 +368,53 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     this.publishState();
   }
 
+  private async openFileReference(rawFilePath: string): Promise<void> {
+    const target = parseFileReference(rawFilePath);
+    if (!target.filePath) {
+      return;
+    }
+
+    const uri = await this.resolveWorkspaceFile(target.filePath);
+    if (!uri) {
+      this.post({ type: 'error', message: `Could not find ${target.filePath}` });
+      return;
+    }
+
+    const document = await vscode.workspace.openTextDocument(uri);
+    const editor = await vscode.window.showTextDocument(document, { preview: false });
+    if (target.line !== undefined) {
+      const line = Math.max(0, Math.min(document.lineCount - 1, target.line - 1));
+      const range = document.lineAt(line).range;
+      editor.selection = new vscode.Selection(range.start, range.start);
+      editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }
+  }
+
+  private async resolveWorkspaceFile(filePath: string): Promise<vscode.Uri | undefined> {
+    const candidates: vscode.Uri[] = [];
+    if (path.isAbsolute(filePath)) {
+      candidates.push(vscode.Uri.file(filePath));
+    } else {
+      for (const folder of vscode.workspace.workspaceFolders ?? []) {
+        candidates.push(vscode.Uri.file(path.join(folder.uri.fsPath, filePath)));
+      }
+      candidates.push(vscode.Uri.file(path.resolve(filePath)));
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const stat = await vscode.workspace.fs.stat(candidate);
+        if (stat.type !== vscode.FileType.Directory) {
+          return candidate;
+        }
+      } catch {
+        // Try the next likely workspace-relative path.
+      }
+    }
+
+    return undefined;
+  }
+
   private async pollAuthAfterLogin(): Promise<void> {
     const started = Date.now();
     while (Date.now() - started < 180000) {
@@ -576,6 +626,17 @@ function createId(prefix: string): string {
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function parseFileReference(rawFilePath: string): { filePath: string; line?: number } {
+  const cleaned = rawFilePath.trim().replace(/^file:\/\//, '');
+  const match = cleaned.match(/^(.*?)(?::(\d+))?(?::\d+)?$/);
+  const filePath = match?.[1]?.trim() ?? cleaned;
+  const line = match?.[2] ? Number.parseInt(match[2], 10) : undefined;
+  return {
+    filePath,
+    line: Number.isFinite(line) ? line : undefined
+  };
 }
 
 async function runNapLoginFlow(cliPath: string, output: vscode.OutputChannel): Promise<void> {

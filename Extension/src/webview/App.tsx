@@ -17,7 +17,7 @@ import {
   ThumbsUp,
   Trash2
 } from 'lucide-react';
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
@@ -185,6 +185,22 @@ export function App() {
     }
   };
 
+  const onTimelineClick = useCallback((event: MouseEvent<HTMLElement>) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+
+    const link = target.closest<HTMLAnchorElement>('a[data-nap-file]');
+    const filePath = link?.dataset.napFile;
+    if (!filePath) {
+      return;
+    }
+
+    event.preventDefault();
+    post({ type: 'openFile', filePath });
+  }, [post]);
+
   const copyResponse = useCallback((messageId: string, content: string) => {
     void navigator.clipboard?.writeText(content).then(() => {
       setCopiedMessageId(messageId);
@@ -306,7 +322,7 @@ export function App() {
       ) : null}
 
       {activePage === 'chat' ? (
-        <main className="timeline" ref={timelineRef} aria-label="Nap conversation">
+        <main className="timeline" ref={timelineRef} aria-label="Nap conversation" onClick={onTimelineClick}>
         {state.messages.length === 0 ? (
           <div className="empty-state">
             {window.__NAP_LOGO_URI__ ? (

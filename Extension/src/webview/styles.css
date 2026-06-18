@@ -626,6 +626,16 @@ textarea::-webkit-scrollbar,
   text-decoration: underline;
 }
 
+.markdown-body .nap-file-link {
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  text-underline-offset: 2px;
+}
+
+.markdown-body .nap-file-link code {
+  color: inherit;
+}
+
 .markdown-body code {
   padding: 1px 4px;
   border-radius: 4px;

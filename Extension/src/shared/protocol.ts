@@ -111,6 +111,7 @@ export type WebviewToExtensionMessage =
   | { type: 'clearSession' }
   | { type: 'openSession'; sessionId: string }
   | { type: 'deleteSession'; sessionId: string }
+  | { type: 'openFile'; filePath: string }
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
   | { type: 'openSettings' };
@@ -154,6 +155,8 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'openSession':
     case 'deleteSession':
       return typeof value.sessionId === 'string' && value.sessionId.length > 0;
+    case 'openFile':
+      return typeof value.filePath === 'string' && value.filePath.trim().length > 0;
     case 'setMode':
       return isNapMode(value.mode);
     case 'setModel':
