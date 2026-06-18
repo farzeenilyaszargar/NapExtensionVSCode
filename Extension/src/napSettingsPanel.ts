@@ -1,5 +1,23 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { getNapConfiguration } from './configuration';
+
+interface SettingsRow {
+  key: string;
+  value: string;
+}
+
+interface LocalAccountInfo {
+  status: string;
+  name: string;
+  email: string;
+  accountId: string;
+  authMode: string;
+  lastRefresh: string;
+  tokenExpires: string;
+}
 
 export class NapSettingsPanel {
   private static panel: vscode.WebviewPanel | undefined;
@@ -31,19 +49,34 @@ export class NapSettingsPanel {
 
   private static getHtml(webview: vscode.Webview): string {
     const config = getNapConfiguration();
-    const settings = [
-      ['nap.cliPath', config.cliPath],
-      ['nap.defaultModel', config.defaultModel],
-      ['nap.debugMode', String(config.debugMode)],
-      ['nap.securityMode', config.securityMode],
-      ['nap.accentColor', config.accentColor || 'theme default']
+    const account = readLocalAccountInfo();
+    const configRows: SettingsRow[] = [
+      { key: 'nap.cliPath', value: config.cliPath },
+      { key: 'nap.defaultModel', value: config.defaultModel },
+      { key: 'nap.debugMode', value: String(config.debugMode) },
+      { key: 'nap.securityMode', value: config.securityMode },
+      { key: 'nap.accentColor', value: config.accentColor || 'theme default' }
     ];
-    const rows = settings.map(([key, value]) => `
-      <div class="row">
-        <code>${escapeHtml(key)}</code>
-        <span>${escapeHtml(value)}</span>
-      </div>
-    `).join('');
+    const accountRows: SettingsRow[] = [
+      { key: 'status', value: account.status },
+      { key: 'username', value: account.name },
+      { key: 'email', value: account.email },
+      { key: 'account_id', value: account.accountId },
+      { key: 'auth_mode', value: account.authMode },
+      { key: 'last_refresh', value: account.lastRefresh },
+      { key: 'token_expires', value: account.tokenExpires }
+    ];
+    const usageRows: SettingsRow[] = [
+      { key: 'plan', value: 'Not reported by local CLI yet' },
+      { key: 'usage', value: 'Pending Nap backend usage endpoint' },
+      { key: 'remaining', value: 'Pending Nap backend usage endpoint' },
+      { key: 'billing', value: 'Open dashboard for live billing details' }
+    ];
+    const runtimeRows: SettingsRow[] = [
+      { key: 'app-server', value: 'nap app-server --listen stdio://' },
+      { key: 'transport', value: 'stdio JSON-RPC-like messages' },
+      { key: 'client', value: 'Nap Chat webview' }
+    ];
 
     return `<!doctype html>
 <html lang="en">
@@ -53,9 +86,7 @@ export class NapSettingsPanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nap Settings</title>
   <style>
-    :root {
-      color-scheme: light dark;
-    }
+    :root { color-scheme: light dark; }
     body {
       margin: 0;
       background: var(--vscode-editor-background);
@@ -63,7 +94,7 @@ export class NapSettingsPanel {
       font: 13px var(--vscode-font-family);
     }
     main {
-      width: min(760px, calc(100vw - 72px));
+      width: min(820px, calc(100vw - 72px));
       margin: 0 auto;
       padding: 42px 0 64px;
     }
@@ -107,9 +138,7 @@ export class NapSettingsPanel {
       padding: 0 14px;
       border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 40%, transparent);
     }
-    .row:last-child {
-      border-bottom: 0;
-    }
+    .row:last-child { border-bottom: 0; }
     code {
       color: var(--vscode-symbolIcon-propertyForeground, var(--vscode-textPreformat-foreground));
       font-family: var(--vscode-editor-font-family, monospace);
@@ -120,7 +149,7 @@ export class NapSettingsPanel {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: var(--vscode-descriptionForeground);
+      color: #d6d6d6;
     }
     .hint {
       margin-top: 12px;
@@ -133,25 +162,88 @@ export class NapSettingsPanel {
   <main>
     <header>
       <h1>Nap Settings</h1>
-      <p class="subtle">Central configuration surface for the Nap VS Code extension.</p>
+      <p class="subtle">Account, configuration, usage, and runtime state for the Nap VS Code extension.</p>
     </header>
-    <section>
-      <h2>Current Configuration</h2>
-      <div class="code-surface">${rows}</div>
-      <p class="hint">Edit these from VS Code Settings for now; this panel is ready for richer Nap-native controls.</p>
-    </section>
-    <section>
-      <h2>Runtime</h2>
-      <div class="code-surface">
-        <div class="row"><code>app-server</code><span>nap app-server --listen stdio://</span></div>
-        <div class="row"><code>transport</code><span>stdio JSON-RPC-like messages</span></div>
-        <div class="row"><code>client</code><span>Nap Chat webview</span></div>
-      </div>
-    </section>
+    ${section('Account', accountRows)}
+    ${section('Usage & Billing', usageRows)}
+    ${section('Current Configuration', configRows)}
+    ${section('Runtime', runtimeRows)}
   </main>
 </body>
 </html>`;
   }
+}
+
+function section(title: string, rows: SettingsRow[]): string {
+  return `<section><h2>${escapeHtml(title)}</h2><div class="code-surface">${rows.map(row).join('')}</div></section>`;
+}
+
+function row(item: SettingsRow): string {
+  return `<div class="row"><code>${escapeHtml(item.key)}</code><span>${escapeHtml(item.value)}</span></div>`;
+}
+
+function readLocalAccountInfo(): LocalAccountInfo {
+  const napHome = process.env.NAP_HOME ?? path.join(os.homedir(), '.nap');
+  const auth = readJsonObject(path.join(napHome, 'auth.json'));
+  const serviceAuth = readJsonObject(path.join(napHome, 'service-auth.json'));
+  const tokens = readObject(auth?.tokens);
+  const idToken = readString(tokens?.id_token) ?? readString(tokens?.access_token) ?? readString(serviceAuth?.accessToken);
+  const claims = readJwtClaims(idToken);
+  const expiresAt = readNumber(claims?.exp) ? readNumber(claims?.exp)! * 1000 : readNumber(serviceAuth?.expiresAt);
+
+  return {
+    status: auth || serviceAuth ? 'Signed in locally' : 'Not signed in',
+    name: readString(claims?.name) ?? readString(claims?.preferred_username) ?? 'Unknown',
+    email: readString(claims?.email) ?? 'Unknown',
+    accountId: readString(tokens?.account_id) ?? readString(claims?.sub) ?? 'Unknown',
+    authMode: readString(auth?.auth_mode) ?? readString(serviceAuth?.source) ?? 'Unknown',
+    lastRefresh: formatDate(readString(auth?.last_refresh) ?? readNumber(serviceAuth?.createdAt)),
+    tokenExpires: formatDate(expiresAt)
+  };
+}
+
+function readJwtClaims(token: string | undefined): Record<string, unknown> | undefined {
+  const [, payload] = token?.split('.') ?? [];
+  if (!payload) {
+    return undefined;
+  }
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    return readObject(JSON.parse(Buffer.from(padded, 'base64').toString('utf8')));
+  } catch {
+    return undefined;
+  }
+}
+
+function readJsonObject(filePath: string): Record<string, unknown> | undefined {
+  try {
+    return readObject(JSON.parse(fs.readFileSync(filePath, 'utf8')));
+  } catch {
+    return undefined;
+  }
+}
+
+function readObject(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+}
+
+function formatDate(value: string | number | undefined): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return new Date(value).toISOString();
+  }
+  return 'Unknown';
 }
 
 function escapeHtml(value: string): string {

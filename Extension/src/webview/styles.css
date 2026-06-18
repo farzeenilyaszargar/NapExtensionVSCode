@@ -456,16 +456,17 @@ textarea::-webkit-scrollbar,
 }
 
 .message--assistant .message-body {
-  color: #868686;
+  color: #d6d6d6;
   padding-left: 0;
   padding-right: 0;
+  font-size: 13.5px;
 }
 
 .markdown-body {
   display: flow-root;
   color: inherit;
   white-space: normal;
-  line-height: 1.32;
+  line-height: 1.38;
 }
 
 .markdown-body :where(p, ul, ol, li, blockquote, pre, h1, h2, h3, h4) {
