@@ -1,6 +1,8 @@
 import * as fs from 'node:fs';
 import * as crypto from 'node:crypto';
 import * as http from 'node:http';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { spawn } from 'node:child_process';
 import * as vscode from 'vscode';
 import { getNapConfiguration } from './configuration';
@@ -595,7 +597,7 @@ async function runNapLoginFlow(cliPath: string, output: vscode.OutputChannel): P
       progress.report({ message: 'Exchanging code...' });
       const tokenSet = await exchangeNapOAuthCode(callback.redirectUri, oauth, code);
       progress.report({ message: 'Saving credentials...' });
-      await persistNapAccessToken(cliPath, tokenSet.access_token, output);
+      await persistNapTokenSet(cliPath, tokenSet, output);
     } finally {
       callback.dispose();
     }
@@ -752,33 +754,77 @@ async function exchangeNapOAuthCode(redirectUri: string, oauth: CliOAuthRequest,
   return payload as unknown as CliTokenSet;
 }
 
-async function persistNapAccessToken(cliPath: string, accessToken: string, output: vscode.OutputChannel): Promise<void> {
+async function persistNapTokenSet(cliPath: string, tokenSet: CliTokenSet, output: vscode.OutputChannel): Promise<void> {
   const command = resolveNapCliCommand(['login', '--with-access-token'], cliPath);
   output.appendLine(`[Nap] Saving credentials with: ${command.command} ${command.args.join(' ')}`);
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(command.command, command.args, {
-      env: process.env,
-      stdio: ['pipe', 'pipe', 'pipe']
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(command.command, command.args, {
+        env: process.env,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      let stderr = '';
+      let stdout = '';
+      child.stdout.on('data', data => {
+        stdout += data.toString('utf8');
+      });
+      child.stderr.on('data', data => {
+        stderr += data.toString('utf8');
+      });
+      child.on('error', reject);
+      child.on('close', code => {
+        output.append(stdout);
+        if (code === 0) {
+          resolve();
+          return;
+        }
+        reject(new Error(stripAnsi(stderr).trim() || stripAnsi(stdout).trim() || `Nap credential save exited with code ${code}.`));
+      });
+      child.stdin.end(`${tokenSet.access_token}\n`);
     });
-    let stderr = '';
-    let stdout = '';
-    child.stdout.on('data', data => {
-      stdout += data.toString('utf8');
-    });
-    child.stderr.on('data', data => {
-      stderr += data.toString('utf8');
-    });
-    child.on('error', reject);
-    child.on('close', code => {
-      output.append(stdout);
-      if (code === 0) {
-        resolve();
-        return;
-      }
-      reject(new Error(stripAnsi(stderr).trim() || stripAnsi(stdout).trim() || `Nap credential save exited with code ${code}.`));
-    });
-    child.stdin.end(`${accessToken}\n`);
-  });
+  } catch (error) {
+    output.appendLine(`[Nap] CLI credential save failed, writing VS Code credentials directly: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  persistNapAuthJson(tokenSet, output);
+}
+
+function persistNapAuthJson(tokenSet: CliTokenSet, output: vscode.OutputChannel): void {
+  const napHome = process.env.NAP_HOME ?? path.join(os.homedir(), '.nap');
+  fs.mkdirSync(napHome, { recursive: true });
+  const authPath = path.join(napHome, 'auth.json');
+  const idToken = tokenSet.id_token ?? tokenSet.access_token;
+  const accountId = readJwtClaim(idToken, 'sub');
+  const auth = {
+    auth_mode: 'agentIdentity',
+    tokens: {
+      id_token: idToken,
+      access_token: tokenSet.access_token,
+      refresh_token: tokenSet.refresh_token,
+      account_id: accountId
+    },
+    last_refresh: new Date().toISOString()
+  };
+  fs.writeFileSync(authPath, `${JSON.stringify(auth, null, 2)}\n`, { mode: 0o600 });
+  output.appendLine(`[Nap] Saved persistent credentials to ${authPath}`);
+}
+
+function readJwtClaim(token: string | undefined, claim: string): string | undefined {
+  if (!token) {
+    return undefined;
+  }
+  const [, payload] = token.split('.');
+  if (!payload) {
+    return undefined;
+  }
+  try {
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+    const claims = JSON.parse(Buffer.from(padded, 'base64').toString('utf8')) as Record<string, unknown>;
+    return readString(claims[claim]);
+  } catch {
+    return undefined;
+  }
 }
 
 function napLoginHtml(title: string, message: string): string {

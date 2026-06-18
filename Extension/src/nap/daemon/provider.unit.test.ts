@@ -1,5 +1,8 @@
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildChatArgs, parseAppServerActivity, parseAppServerDelta, parseAuthState, parseCliStreamLine } from './provider';
+import { buildChatArgs, parseAppServerActivity, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
 
 describe('Nap CLI auth parsing', () => {
   it('treats profile JSON as authenticated even without a status field', () => {
@@ -52,7 +55,52 @@ describe('Nap CLI auth parsing', () => {
       status: 'signedOut'
     });
   });
+
+  it('reads persistent auth.json credentials', () => {
+    const napHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nap-auth-'));
+    try {
+      fs.writeFileSync(path.join(napHome, 'auth.json'), JSON.stringify({
+        auth_mode: 'nap',
+        tokens: {
+          access_token: createJwt({
+            exp: Math.floor(Date.now() / 1000) + 3600,
+            name: 'Farzeen',
+            email: 'farzeen@example.com'
+          })
+        },
+        last_refresh: new Date().toISOString()
+      }));
+
+      expect(readPersistedAuthState(napHome)).toMatchObject({
+        status: 'authenticated',
+        label: 'Farzeen',
+        accountName: 'Farzeen',
+        accountEmail: 'farzeen@example.com'
+      });
+    } finally {
+      fs.rmSync(napHome, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores expired persistent auth credentials', () => {
+    const napHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nap-auth-'));
+    try {
+      fs.writeFileSync(path.join(napHome, 'service-auth.json'), JSON.stringify({
+        accessToken: createJwt({ exp: Math.floor(Date.now() / 1000) - 60 }),
+        expiresAt: Date.now() - 60_000
+      }));
+
+      expect(readPersistedAuthState(napHome)).toBeUndefined();
+    } finally {
+      fs.rmSync(napHome, { recursive: true, force: true });
+    }
+  });
 });
+
+function createJwt(payload: Record<string, unknown>): string {
+  const encode = (value: Record<string, unknown>) => Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${encode({ alg: 'none', typ: 'JWT' })}.${encode(payload)}.`;
+}
 
 describe('Nap CLI stream parsing', () => {
   it('extracts completed agent message text from JSONL events', () => {

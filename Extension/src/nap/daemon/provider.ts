@@ -88,17 +88,22 @@ export class NapCliProviderAdapter implements ProviderAdapter {
   }
 
   private async readAuthStatus(): Promise<NapAuthState> {
+    let lastAuth: NapAuthState | undefined;
     for (const args of [['login', 'status'], ['doctor', '--json'], ['status', '--json']]) {
       try {
         appendDaemonLog(`[provider] auth probe: ${this.cliPath} ${args.join(' ')}`);
-        return parseAuthState(await this.runText(args, 4500));
+        const auth = parseAuthState(await this.runText(args, 4500));
+        if (auth.status === 'authenticated') {
+          return auth;
+        }
+        lastAuth = auth;
       } catch (error) {
         appendDaemonLog(`[provider] auth probe failed: ${args.join(' ')}: ${error instanceof Error ? error.message : String(error)}`);
         // Try the next common CLI shape.
       }
     }
 
-    return { status: 'signedOut', label: `Sign in with Nap CLI (${this.cliPath})` };
+    return readPersistedAuthState() ?? lastAuth ?? { status: 'signedOut', label: `Sign in with Nap CLI (${this.cliPath})` };
   }
 
   async login(): Promise<NapAuthState> {
@@ -498,14 +503,75 @@ function readLocalAuthProfile(): Partial<Pick<NapAuthState, 'accountName' | 'acc
   return {};
 }
 
+export function readPersistedAuthState(napHome = process.env.NAP_HOME ?? path.join(os.homedir(), '.nap')): NapAuthState | undefined {
+  for (const fileName of ['auth.json', 'service-auth.json']) {
+    const record = readJsonObject(path.join(napHome, fileName));
+    if (!record) {
+      continue;
+    }
+
+    const token = getAuthAccessToken(record);
+    if (!token || isJwtExpired(token, readNumber(record.expiresAt))) {
+      continue;
+    }
+
+    const profile = profileFromRecord(record);
+    const label = profile.accountName ?? profile.accountEmail ?? 'Nap account';
+    return {
+      status: 'authenticated',
+      label,
+      accountName: profile.accountName,
+      accountEmail: profile.accountEmail,
+      avatarUrl: profile.avatarUrl
+    };
+  }
+
+  return undefined;
+}
+
 function profileFromRecord(record: Record<string, unknown>): Partial<Pick<NapAuthState, 'accountName' | 'accountEmail' | 'avatarUrl'>> {
   const user = readObject(record.user) ?? readObject(record.account) ?? readObject(record.profile);
-  const tokenProfile = profileFromJwt(readString(record.accessToken) ?? readString(record.idToken) ?? readString(record.token));
+  const tokens = readObject(record.tokens);
+  const tokenProfile = profileFromJwt(
+    readString(record.accessToken)
+      ?? readString(record.idToken)
+      ?? readString(record.token)
+      ?? readString(tokens?.id_token)
+      ?? readString(tokens?.access_token)
+  );
   return {
     accountName: readString(record.name) ?? readString(record.accountName) ?? readString(record.username) ?? readString(user?.name) ?? readString(user?.username) ?? tokenProfile.accountName,
     accountEmail: readString(record.email) ?? readString(record.accountEmail) ?? readString(user?.email) ?? tokenProfile.accountEmail,
     avatarUrl: readString(record.avatarUrl) ?? readString(record.avatar) ?? readString(record.picture) ?? readString(user?.avatarUrl) ?? readString(user?.avatar) ?? readString(user?.picture) ?? tokenProfile.avatarUrl
   };
+}
+
+function getAuthAccessToken(record: Record<string, unknown>): string | undefined {
+  const tokens = readObject(record.tokens);
+  return readString(record.accessToken)
+    ?? readString(record.access_token)
+    ?? readString(record.token)
+    ?? readString(tokens?.access_token)
+    ?? readString(tokens?.id_token);
+}
+
+function isJwtExpired(token: string, fallbackExpiresAt?: number): boolean {
+  const [, payload] = token.split('.');
+  if (payload) {
+    try {
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
+      const claims = JSON.parse(Buffer.from(padded, 'base64').toString('utf8')) as Record<string, unknown>;
+      const exp = readNumber(claims.exp);
+      if (exp) {
+        return exp * 1000 <= Date.now();
+      }
+    } catch {
+      // Fall back to expiresAt below.
+    }
+  }
+
+  return typeof fallbackExpiresAt === 'number' && fallbackExpiresAt <= Date.now();
 }
 
 function profileFromJwt(token: string | undefined): Partial<Pick<NapAuthState, 'accountName' | 'accountEmail' | 'avatarUrl'>> {
@@ -597,6 +663,10 @@ export function parseCliStreamLine(line: string): string {
 
 function readString(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function titleCase(value: string | undefined): string | undefined {
