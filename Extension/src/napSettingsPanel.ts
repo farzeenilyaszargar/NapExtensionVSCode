@@ -22,7 +22,7 @@ export class NapSettingsPanel {
       }
     );
     this.panel = panel;
-    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'nap.svg');
+    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'logo.svg');
     panel.webview.html = this.getHtml(panel.webview);
     panel.onDidDispose(() => {
       this.panel = undefined;
