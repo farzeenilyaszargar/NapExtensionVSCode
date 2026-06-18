@@ -47,8 +47,6 @@ const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
 const SCROLL_BOTTOM_THRESHOLD = 96;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 220;
-const BOOT_SPLASH_MIN_MS = 2000;
-const BOOT_SPLASH_FALLBACK_MS = 3500;
 
 declare global {
   interface Window {
@@ -63,7 +61,6 @@ export function App() {
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
   const [activePage, setActivePage] = useState<ActivePage>('chat');
-  const [isBootSplashVisible, setIsBootSplashVisible] = useState(true);
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -73,8 +70,6 @@ export function App() {
   const isScrollPinnedRef = useRef(true);
   const userScrollIntentRef = useRef(false);
   const ignoreScrollUntilRef = useRef(0);
-  const bootMinElapsedRef = useRef(false);
-  const bootDataReadyRef = useRef(false);
   const vscode = useMemo(() => getVsCodeApi(), []);
 
   const post = useCallback((message: WebviewToExtensionMessage) => {
@@ -82,35 +77,12 @@ export function App() {
   }, [vscode]);
 
   useEffect(() => {
-    const maybeHideBootSplash = () => {
-      if (bootMinElapsedRef.current && bootDataReadyRef.current) {
-        setIsBootSplashVisible(false);
-      }
-    };
-
-    const minTimer = window.setTimeout(() => {
-      bootMinElapsedRef.current = true;
-      maybeHideBootSplash();
-    }, BOOT_SPLASH_MIN_MS);
-    const fallbackTimer = window.setTimeout(() => {
-      bootDataReadyRef.current = true;
-      maybeHideBootSplash();
-    }, BOOT_SPLASH_FALLBACK_MS);
-
     const listener = (event: MessageEvent) => {
-      if (event.data?.type === 'sessionState') {
-        bootDataReadyRef.current = true;
-        maybeHideBootSplash();
-      }
       dispatch({ type: 'extensionMessage', message: event.data });
     };
     window.addEventListener('message', listener);
     post({ type: 'ready' });
-    return () => {
-      window.clearTimeout(minTimer);
-      window.clearTimeout(fallbackTimer);
-      window.removeEventListener('message', listener);
-    };
+    return () => window.removeEventListener('message', listener);
   }, [post]);
 
   const markProgrammaticScroll = useCallback(() => {
@@ -308,15 +280,6 @@ export function App() {
 
   return (
     <div className="nap-shell">
-      {isBootSplashVisible ? (
-        <div className="boot-splash" aria-label="Loading Nap">
-          {window.__NAP_LOGO_URI__ ? (
-            <img className="boot-splash-logo" src={window.__NAP_LOGO_URI__} alt="" aria-hidden="true" />
-          ) : null}
-          <span className="boot-splash-text">Loading Nap</span>
-        </div>
-      ) : null}
-
       {activePage === 'sessions' ? (
         <section className="sessions-page" aria-label="Nap sessions">
           <header className="app-page-header">

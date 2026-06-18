@@ -590,8 +590,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     let html = fs.readFileSync(indexPath, 'utf8');
-    const logoFile = fs.existsSync(vscode.Uri.joinPath(this.extensionUri, 'resources', 'logo.svg').fsPath) ? 'logo.svg' : 'logo.png';
-    const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', logoFile));
+    const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'logo.png'));
     html = html.replace(/(href|src)="\/([^"]+)"/g, (_match, attribute: string, resourcePath: string) => {
       const uri = webview.asWebviewUri(vscode.Uri.joinPath(distRoot, resourcePath));
       return `${attribute}="${uri}"`;
