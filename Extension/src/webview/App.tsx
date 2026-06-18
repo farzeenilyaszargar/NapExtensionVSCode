@@ -17,7 +17,7 @@ import {
   ThumbsUp,
   Trash2
 } from 'lucide-react';
-import { FormEvent, KeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
@@ -45,6 +45,8 @@ const approvalLabels: Record<ApprovalMode, string> = {
 
 const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
+const SCROLL_BOTTOM_THRESHOLD = 96;
+const PROGRAMMATIC_SCROLL_GRACE_MS = 220;
 
 declare global {
   interface Window {
@@ -65,6 +67,9 @@ export function App() {
   const composerPanelRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastAnchoredUserMessageId = useRef<string>();
+  const isScrollPinnedRef = useRef(true);
+  const userScrollIntentRef = useRef(false);
+  const ignoreScrollUntilRef = useRef(0);
   const vscode = useMemo(() => getVsCodeApi(), []);
 
   const post = useCallback((message: WebviewToExtensionMessage) => {
@@ -80,6 +85,63 @@ export function App() {
     return () => window.removeEventListener('message', listener);
   }, [post]);
 
+  const markProgrammaticScroll = useCallback(() => {
+    ignoreScrollUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_GRACE_MS;
+    userScrollIntentRef.current = false;
+  }, []);
+
+  const distanceFromBottom = useCallback((element: HTMLElement) =>
+    element.scrollHeight - element.scrollTop - element.clientHeight
+  , []);
+
+  const isNearBottom = useCallback((element: HTMLElement) =>
+    distanceFromBottom(element) <= SCROLL_BOTTOM_THRESHOLD
+  , [distanceFromBottom]);
+
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
+    const timeline = timelineRef.current;
+    if (!timeline) {
+      return;
+    }
+
+    markProgrammaticScroll();
+    timeline.scrollTo({
+      top: timeline.scrollHeight,
+      behavior
+    });
+  }, [markProgrammaticScroll]);
+
+  const markUserScrollIntent = useCallback(() => {
+    userScrollIntentRef.current = true;
+  }, []);
+
+  const onTimelineScroll = useCallback((event: UIEvent<HTMLElement>) => {
+    const timeline = event.currentTarget;
+    const nearBottom = isNearBottom(timeline);
+    if (nearBottom) {
+      isScrollPinnedRef.current = true;
+      userScrollIntentRef.current = false;
+      return;
+    }
+
+    if (userScrollIntentRef.current && Date.now() > ignoreScrollUntilRef.current) {
+      isScrollPinnedRef.current = false;
+    }
+  }, [isNearBottom]);
+
+  const onTimelineWheel = useCallback((event: WheelEvent<HTMLElement>) => {
+    markUserScrollIntent();
+    if (event.deltaY < 0) {
+      isScrollPinnedRef.current = false;
+    }
+  }, [markUserScrollIntent]);
+
+  const onTimelinePointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
+    if (event.currentTarget === event.target) {
+      markUserScrollIntent();
+    }
+  }, [markUserScrollIntent]);
+
   useEffect(() => {
     const latestUserMessage = [...state.messages].reverse().find(message => message.role === 'user');
     if (!latestUserMessage || latestUserMessage.id === lastAnchoredUserMessageId.current) {
@@ -87,6 +149,7 @@ export function App() {
     }
 
     lastAnchoredUserMessageId.current = latestUserMessage.id;
+    isScrollPinnedRef.current = true;
     requestAnimationFrame(() => {
       const timeline = timelineRef.current;
       const userMessage = timeline?.querySelector<HTMLElement>(`[data-message-id="${latestUserMessage.id}"]`);
@@ -94,12 +157,13 @@ export function App() {
         return;
       }
 
+      markProgrammaticScroll();
       timeline.scrollTo({
         top: userMessage.offsetTop - timeline.clientTop - (timeline.clientHeight * 0.25),
         behavior: 'smooth'
       });
     });
-  }, [state.messages]);
+  }, [markProgrammaticScroll, state.messages]);
 
   useEffect(() => {
     if (!openMenu) {
@@ -133,12 +197,12 @@ export function App() {
         return;
       }
 
-      timeline.scrollTo({
-        top: timeline.scrollHeight,
-        behavior: latestStreamingAssistant.content ? 'auto' : 'smooth'
-      });
+      if (isScrollPinnedRef.current || isNearBottom(timeline)) {
+        isScrollPinnedRef.current = true;
+        scrollToBottom(latestStreamingAssistant.content ? 'auto' : 'smooth');
+      }
     });
-  }, [state.messages]);
+  }, [isNearBottom, scrollToBottom, state.messages]);
 
   const resizeComposer = useCallback(() => {
     const textarea = textareaRef.current;
@@ -291,7 +355,16 @@ export function App() {
       ) : null}
 
       {activePage === 'chat' ? (
-        <main className="timeline" ref={timelineRef} aria-label="Nap conversation" onClick={onTimelineClick}>
+        <main
+          className="timeline"
+          ref={timelineRef}
+          aria-label="Nap conversation"
+          onClick={onTimelineClick}
+          onScroll={onTimelineScroll}
+          onWheel={onTimelineWheel}
+          onPointerDown={onTimelinePointerDown}
+          onTouchMove={markUserScrollIntent}
+        >
         {state.messages.length === 0 ? (
           <div className="empty-state">
             {window.__NAP_LOGO_URI__ ? (
