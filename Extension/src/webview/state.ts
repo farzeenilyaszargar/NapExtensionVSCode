@@ -17,6 +17,7 @@ export const initialViewState: NapViewState = {
   messages: [],
   activityText: undefined,
   activityKind: undefined,
+  activityItems: [],
   logs: [],
   models: [],
   sessions: [],
@@ -50,7 +51,7 @@ export function napViewReducer(state: NapViewState, action: NapViewAction): NapV
 export function applyExtensionMessage(state: NapViewState, message: ExtensionToWebviewMessage): NapViewState {
   switch (message.type) {
     case 'sessionState':
-      return message.state;
+      return { ...message.state, activityItems: [] };
     case 'messageDelta':
       return {
         ...state,
@@ -63,8 +64,9 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
     case 'activityTextChanged':
       return {
         ...state,
-        activityText: message.text,
-        activityKind: message.kind
+        activityText: message.activity?.title ?? message.text,
+        activityKind: message.kind,
+        activityItems: appendActivityItem(state.activityItems ?? [], message)
       };
     case 'messageDone':
       return {
@@ -73,7 +75,7 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
         activityKind: undefined,
         status: message.status === 'complete' ? 'idle' : message.status,
         messages: state.messages.map(item => item.id === message.messageId
-          ? { ...item, status: message.status }
+          ? { ...item, status: message.status, completedAt: item.completedAt ?? Date.now() }
           : item)
       };
     case 'logEvent':
@@ -121,4 +123,29 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
         mcp: message.mcp
       };
   }
+}
+
+function appendActivityItem(
+  items: NonNullable<NapViewState['activityItems']>,
+  message: Extract<ExtensionToWebviewMessage, { type: 'activityTextChanged' }>
+): NonNullable<NapViewState['activityItems']> {
+  if (!message.persistent || !message.text || !message.kind) {
+    return items;
+  }
+
+  const previous = items[items.length - 1];
+  if (previous?.text === message.text && previous.kind === message.kind) {
+    return items;
+  }
+
+  return [
+    ...items,
+    {
+      id: `activity-${Date.now()}-${items.length}`,
+      text: message.text,
+      kind: message.kind,
+      createdAt: Date.now(),
+      ...message.activity
+    }
+  ].slice(-18);
 }

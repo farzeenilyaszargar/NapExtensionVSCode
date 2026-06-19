@@ -24,6 +24,7 @@ export interface NapMessage {
   role: NapMessageRole;
   content: string;
   createdAt: number;
+  completedAt?: number;
   status: NapMessageStatus;
 }
 
@@ -95,6 +96,7 @@ export interface NapSessionState {
   messages: NapMessage[];
   activityText?: string;
   activityKind?: NapActivityKind;
+  activityItems?: NapActivityItem[];
   logs: NapLogEvent[];
   models: NapModelOption[];
   sessions: NapSessionSummary[];
@@ -102,6 +104,30 @@ export interface NapSessionState {
   mcp: NapMcpState;
   config: NapConfigurationSnapshot;
 }
+
+export interface NapActivityItem {
+  id: string;
+  text: string;
+  kind: NapActivityKind;
+  createdAt: number;
+  verb?: NapActivityVerb;
+  filePath?: string;
+  title?: string;
+  detail?: string;
+  additions?: number;
+  deletions?: number;
+}
+
+export type NapActivityVerb =
+  | 'read'
+  | 'search'
+  | 'edit'
+  | 'run'
+  | 'think'
+  | 'write'
+  | 'warn'
+  | 'error'
+  | 'status';
 
 export type NapActivityKind =
   | 'thinking'
@@ -133,7 +159,7 @@ export type WebviewToExtensionMessage =
 export type ExtensionToWebviewMessage =
   | { type: 'sessionState'; state: NapSessionState }
   | { type: 'messageDelta'; messageId: string; delta: string }
-  | { type: 'activityTextChanged'; text?: string; kind?: NapActivityKind }
+  | { type: 'activityTextChanged'; text?: string; kind?: NapActivityKind; persistent?: boolean; activity?: Partial<NapActivityItem> }
   | { type: 'messageDone'; messageId: string; status: NapMessageStatus }
   | { type: 'logEvent'; event: NapLogEvent }
   | { type: 'error'; message: string }

@@ -46,10 +46,17 @@ export interface StartTurnParams {
   input: Array<{ type: 'text'; text: string }>;
 }
 
-export interface LoginAccountParams {
-  type: 'chatgpt';
-  napStreamlinedLogin?: boolean;
-}
+export type LoginAccountParams =
+  | {
+    type: 'chatgpt';
+    napStreamlinedLogin?: boolean;
+  }
+  | {
+    type: 'chatgptAuthTokens';
+    accessToken: string;
+    chatgptAccountId: string;
+    chatgptPlanType?: string;
+  };
 
 export interface GetAccountParams {
   refreshToken?: boolean;
@@ -66,6 +73,7 @@ type PendingRequest = {
 };
 
 type NotificationHandler = (notification: NapAppServerNotification) => void;
+type RequestHandler = (request: NapAppServerRequest) => Promise<unknown> | unknown | undefined;
 type SpawnFunction = typeof spawn;
 
 export class NapAppServerClient {
@@ -74,6 +82,7 @@ export class NapAppServerClient {
   private stdoutBuffer = '';
   private readonly pending = new Map<NapAppServerId, PendingRequest>();
   private readonly notificationHandlers = new Set<NotificationHandler>();
+  private readonly requestHandlers = new Set<RequestHandler>();
   private startPromise: Promise<void> | undefined;
 
   constructor(
@@ -84,6 +93,11 @@ export class NapAppServerClient {
   onNotification(handler: NotificationHandler): () => void {
     this.notificationHandlers.add(handler);
     return () => this.notificationHandlers.delete(handler);
+  }
+
+  onRequest(handler: RequestHandler): () => void {
+    this.requestHandlers.add(handler);
+    return () => this.requestHandlers.delete(handler);
   }
 
   async start(): Promise<void> {
@@ -254,6 +268,11 @@ export class NapAppServerClient {
       return;
     }
 
+    if (isServerRequest(message)) {
+      void this.handleServerRequest(message);
+      return;
+    }
+
     if (isNotification(message)) {
       for (const handler of this.notificationHandlers) {
         handler(message);
@@ -273,6 +292,37 @@ export class NapAppServerClient {
       pending.reject(error);
     }
     this.pending.clear();
+  }
+
+  private async handleServerRequest(request: NapAppServerRequest): Promise<void> {
+    for (const handler of this.requestHandlers) {
+      try {
+        const result = await handler(request);
+        if (result !== undefined) {
+          this.write({
+            id: request.id,
+            result
+          } as unknown as NapAppServerRequest);
+          return;
+        }
+      } catch (error) {
+        this.write({
+          id: request.id,
+          error: {
+            message: error instanceof Error ? error.message : String(error)
+          }
+        } as unknown as NapAppServerRequest);
+        return;
+      }
+    }
+
+    appendDaemonLog(`[app-server] unhandled server request method=${request.method}`);
+    this.write({
+      id: request.id,
+      error: {
+        message: `Unhandled app-server request: ${request.method}`
+      }
+    } as unknown as NapAppServerRequest);
   }
 }
 
@@ -309,6 +359,13 @@ function isResponse(message: NapAppServerMessage): message is NapAppServerSucces
   return typeof (message as { id?: unknown }).id === 'number'
     && ('result' in message || 'error' in message)
     && !('method' in message);
+}
+
+function isServerRequest(message: NapAppServerMessage): message is NapAppServerRequest {
+  return typeof (message as { id?: unknown }).id === 'number'
+    && typeof (message as { method?: unknown }).method === 'string'
+    && !('result' in message)
+    && !('error' in message);
 }
 
 function isNotification(message: NapAppServerMessage): message is NapAppServerNotification {

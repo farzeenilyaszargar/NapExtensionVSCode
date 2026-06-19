@@ -15,4 +15,13 @@ describe('Nap markdown rendering', () => {
     expect(html).toContain('data-nap-file="package.json"');
     expect(html).toContain('<code>package.json</code>');
   });
+
+  it('strips internal inline activity markers from markdown output', () => {
+    const html = renderMarkdown('Before\n:::nap-activity eyJ0ZXh0IjoiUnVubmluZyJ9\nAfter');
+
+    expect(html).toContain('Before');
+    expect(html).toContain('After');
+    expect(html).not.toContain('nap-activity');
+    expect(html).not.toContain('eyJ0ZXh0');
+  });
 });

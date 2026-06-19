@@ -188,20 +188,33 @@ function readLocalAccountInfo(): LocalAccountInfo {
   const napHome = process.env.NAP_HOME ?? path.join(os.homedir(), '.nap');
   const auth = readJsonObject(path.join(napHome, 'auth.json'));
   const serviceAuth = readJsonObject(path.join(napHome, 'service-auth.json'));
+  const vscodeAuth = readJsonObject(path.join(napHome, 'vscode-auth.json'));
   const tokens = readObject(auth?.tokens);
-  const idToken = readString(tokens?.id_token) ?? readString(tokens?.access_token) ?? readString(serviceAuth?.accessToken);
+  const idToken = readString(tokens?.id_token)
+    ?? readString(vscodeAuth?.id_token)
+    ?? readString(tokens?.access_token)
+    ?? readString(vscodeAuth?.access_token)
+    ?? readString(serviceAuth?.accessToken);
   const claims = readJwtClaims(idToken);
+  const openAiAuth = readObject(claims?.['https://api.openai.com/auth']);
   const expiresAt = readNumber(claims?.exp) ? readNumber(claims?.exp)! * 1000 : readNumber(serviceAuth?.expiresAt);
-  const refreshToken = readString(tokens?.refresh_token) ?? readString(auth?.refreshToken) ?? readString(auth?.refresh_token);
-  const hasAuth = Boolean(auth || serviceAuth);
-  const hasAccount = Boolean(readString(claims?.email) || readString(claims?.sub) || readString(tokens?.account_id));
+  const refreshToken = readString(tokens?.refresh_token)
+    ?? readString(vscodeAuth?.refresh_token)
+    ?? readString(auth?.refreshToken)
+    ?? readString(auth?.refresh_token);
+  const hasAuth = Boolean(auth || serviceAuth || vscodeAuth);
+  const hasAccount = Boolean(readString(claims?.email) || readString(claims?.sub) || readString(tokens?.account_id) || readString(openAiAuth?.chatgpt_account_id));
 
   return {
     status: hasAuth && hasAccount ? 'Signed in locally' : hasAuth ? 'Credentials saved locally' : 'Not signed in',
     name: readString(claims?.name) ?? readString(claims?.preferred_username) ?? 'Unknown',
     email: readString(claims?.email) ?? 'Unknown',
-    accountId: readString(tokens?.account_id) ?? readString(claims?.sub) ?? readString(claims?.chatgpt_account_id) ?? 'Unknown',
-    authMode: readString(auth?.auth_mode) ?? readString(serviceAuth?.source) ?? 'Unknown',
+    accountId: readString(tokens?.account_id)
+      ?? readString(openAiAuth?.chatgpt_account_id)
+      ?? readString(claims?.chatgpt_account_id)
+      ?? readString(claims?.sub)
+      ?? 'Unknown',
+    authMode: readString(auth?.auth_mode) ?? readString(serviceAuth?.source) ?? (vscodeAuth ? 'VS Code OAuth' : 'Unknown'),
     refreshToken: refreshToken ? 'Available' : 'Not saved',
     lastRefresh: formatDate(readString(auth?.last_refresh) ?? readNumber(serviceAuth?.createdAt)),
     tokenExpires: formatDate(expiresAt)

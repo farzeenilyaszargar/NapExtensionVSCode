@@ -79,6 +79,39 @@ describe('NapAppServerClient', () => {
     client.dispose();
   });
 
+  it('responds to app-server auth refresh requests', async () => {
+    const fake = createFakeChild();
+    const client = new NapAppServerClient('1.2.3', (() => fake.child) as never);
+    client.onRequest(request => {
+      if (request.method !== 'account/chatgptAuthTokens/refresh') {
+        return undefined;
+      }
+      return {
+        accessToken: 'access-2',
+        chatgptAccountId: 'acct-1',
+        chatgptPlanType: 'pro'
+      };
+    });
+
+    const started = client.start();
+    await waitForWrites(fake.writes, 1);
+    fake.stdout.emit('data', Buffer.from('{"id":1,"result":{"ok":true}}\n'));
+    await started;
+
+    fake.stdout.emit('data', Buffer.from('{"id":99,"method":"account/chatgptAuthTokens/refresh","params":{"reason":"unauthorized","previousAccountId":"acct-1"}}\n'));
+    await waitForWrites(fake.writes, 3);
+    expect(JSON.parse(fake.writes[2])).toEqual({
+      id: 99,
+      result: {
+        accessToken: 'access-2',
+        chatgptAccountId: 'acct-1',
+        chatgptPlanType: 'pro'
+      }
+    });
+
+    client.dispose();
+  });
+
   it('does not recursively wait on start while sending initialize', async () => {
     const fake = createFakeChild();
     const client = new NapAppServerClient('1.2.3', (() => fake.child) as never);

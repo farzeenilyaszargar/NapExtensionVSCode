@@ -1,5 +1,6 @@
 import {
   NapActivityKind,
+  NapActivityVerb,
   NapAuthState,
   NapLogEvent,
   NapMcpState,
@@ -198,6 +199,13 @@ export interface SessionActivityEvent extends NapRpcEnvelope {
   jobId: string;
   text?: string;
   kind?: NapActivityKind;
+  verb?: NapActivityVerb;
+  filePath?: string;
+  title?: string;
+  detail?: string;
+  additions?: number;
+  deletions?: number;
+  itemId?: string;
 }
 
 export interface JobEvent extends NapRpcEnvelope {

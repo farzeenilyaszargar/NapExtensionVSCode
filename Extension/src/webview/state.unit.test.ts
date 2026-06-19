@@ -10,12 +10,14 @@ describe('Nap webview state reducer', () => {
       modelId: 'nap-fast'
     };
 
-    expect(applyExtensionMessage(initialViewState, { type: 'sessionState', state: nextState })).toBe(nextState);
+    expect(applyExtensionMessage(initialViewState, { type: 'sessionState', state: nextState })).toStrictEqual(nextState);
   });
 
   it('streams assistant deltas into the matching message', () => {
     const state = {
       ...initialViewState,
+      activityText: 'Reading files',
+      activityKind: 'reasoning' as const,
       messages: [
         {
           id: 'assistant-1',
@@ -34,6 +36,40 @@ describe('Nap webview state reducer', () => {
     });
 
     expect(nextState.messages[0].content).toBe('Hello');
+    expect(nextState.activityText).toBeUndefined();
+    expect(nextState.activityKind).toBeUndefined();
+  });
+
+  it('replaces transient activity text from semantic app-server events', () => {
+    const thinkingState = applyExtensionMessage(initialViewState, {
+      type: 'activityTextChanged',
+      text: 'Reading workspace files',
+      kind: 'reasoning'
+    });
+
+    const commandState = applyExtensionMessage(thinkingState, {
+      type: 'activityTextChanged',
+      text: 'Running tests',
+      kind: 'command'
+    });
+
+    expect(commandState.activityText).toBe('Running tests');
+    expect(commandState.activityKind).toBe('command');
+  });
+
+  it('keeps persistent file activity as separate activity rows', () => {
+    const nextState = applyExtensionMessage(initialViewState, {
+      type: 'activityTextChanged',
+      text: 'Editing file src/app.ts (+4 -1)',
+      kind: 'file',
+      persistent: true
+    });
+
+    expect(nextState.activityItems).toHaveLength(1);
+    expect(nextState.activityItems?.[0]).toMatchObject({
+      text: 'Editing file src/app.ts (+4 -1)',
+      kind: 'file'
+    });
   });
 
   it('updates status when a stream completes or stops', () => {

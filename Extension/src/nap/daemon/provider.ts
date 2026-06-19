@@ -2,10 +2,11 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { NapAppServerClient, NapAppServerNotification, resolveNapCliCommand } from '../appServerClient';
+import { NapAppServerClient, NapAppServerNotification, NapAppServerRequest, resolveNapCliCommand } from '../appServerClient';
 import { appendDaemonLog } from '../runtimePaths';
 import {
   NapActivityKind,
+  NapActivityVerb,
   NapAuthState,
   NapMode,
   NapModelOption,
@@ -33,6 +34,12 @@ export interface ProviderPromptStream {
 export interface ProviderActivity {
   text: string;
   kind: NapActivityKind;
+  verb?: NapActivityVerb;
+  filePath?: string;
+  title?: string;
+  detail?: string;
+  additions?: number;
+  deletions?: number;
   append?: boolean;
   itemId?: string;
 }
@@ -57,6 +64,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     appServer?: NapAppServerClient
   ) {
     this.appServer = appServer ?? new NapAppServerClient(extensionVersion);
+    this.appServer.onRequest(request => this.handleAppServerRequest(request));
   }
 
   async listModels(defaultModelId: string): Promise<NapModelOption[]> {
@@ -132,23 +140,10 @@ export class NapCliProviderAdapter implements ProviderAdapter {
   async login(): Promise<NapAuthState> {
     try {
       await this.appServer.start();
-      const login = readObject(await this.appServer.loginAccount({
-        type: 'chatgpt',
-        napStreamlinedLogin: true
-      }));
-      const responseType = readString(login?.type);
-      if (responseType === 'chatgpt') {
-        const loginId = readString(login?.loginId) ?? readString(login?.login_id);
-        const authUrl = readString(login?.authUrl) ?? readString(login?.auth_url);
-        if (!loginId || !authUrl) {
-          throw new Error('Nap app-server did not return a login URL.');
-        }
-        await openExternalUrl(authUrl);
-        await this.waitForAppServerLogin(loginId);
-      } else if (responseType !== 'chatgptAuthTokens') {
-        throw new Error(`Unsupported Nap app-server login response: ${responseType ?? 'unknown'}.`);
-      }
-
+      const login = await this.startManagedAppServerLogin();
+      appendDaemonLog(`[provider] opening app-server login URL id=${login.loginId}`);
+      await openExternalUrl(login.authUrl);
+      await this.waitForAppServerLogin(login.loginId);
       return parseAppServerAccountAuthState(await this.appServer.readAccount({ refreshToken: true }));
     } catch (error) {
       appendDaemonLog(`[provider] app-server login failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -234,6 +229,35 @@ export class NapCliProviderAdapter implements ProviderAdapter {
 
   dispose(): void {
     this.appServer.dispose();
+  }
+
+  private async handleAppServerRequest(request: NapAppServerRequest): Promise<unknown> {
+    if (request.method !== 'account/chatgptAuthTokens/refresh') {
+      return undefined;
+    }
+
+    appendDaemonLog('[provider] app-server requested external auth refresh; managed app-server login is required');
+    throw new Error('Nap managed app-server login is required. Sign out and sign in again.');
+  }
+
+  private async startManagedAppServerLogin(): Promise<{ loginId: string; authUrl: string }> {
+    try {
+      return parseManagedLoginResponse(await this.appServer.loginAccount({
+        type: 'chatgpt',
+        napStreamlinedLogin: true
+      }));
+    } catch (error) {
+      if (!isExternalAuthActiveError(error)) {
+        throw error;
+      }
+
+      appendDaemonLog('[provider] clearing external auth before starting managed app-server login');
+      await this.appServer.logoutAccount();
+      return parseManagedLoginResponse(await this.appServer.loginAccount({
+        type: 'chatgpt',
+        napStreamlinedLogin: true
+      }));
+    }
   }
 
   private async getOrStartThread(threadKey: string, request: ProviderPromptRequest): Promise<string> {
@@ -323,6 +347,20 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       });
     });
   }
+}
+
+function parseManagedLoginResponse(response: unknown): { loginId: string; authUrl: string } {
+  const record = readObject(response);
+  const loginId = readString(record?.loginId) ?? readString(record?.login_id);
+  const authUrl = readString(record?.authUrl) ?? readString(record?.auth_url);
+  if (record?.type !== 'chatgpt' || !loginId || !authUrl) {
+    throw new Error('Nap app-server did not return a managed login URL.');
+  }
+  return { loginId, authUrl };
+}
+
+function isExternalAuthActiveError(error: unknown): boolean {
+  return error instanceof Error && /External auth is active/i.test(error.message);
 }
 
 async function getInitializedThread(client: NapAppServerClient, request: ProviderPromptRequest): Promise<string> {
@@ -442,11 +480,15 @@ export function parseAppServerActivityEvent(notification: NapAppServerNotificati
   }
 
   if (method === 'item/commandExecution/outputDelta' || method === 'command/exec/outputDelta' || method === 'process/outputDelta') {
-    return deltaActivity(params, itemId, 'command');
+    return withActivityMetadata(deltaActivity(params, itemId, 'command'), params, item);
   }
 
   if (method === 'item/fileChange/outputDelta' || method === 'item/fileChange/patchUpdated') {
-    return deltaActivity(params, itemId, 'file') ?? { text: 'Updating files', kind: 'file', itemId };
+    return withActivityMetadata(
+      deltaActivity(params, itemId, 'file') ?? { text: 'Updating files', kind: 'file', itemId },
+      params,
+      item
+    );
   }
 
   if (method === 'warning' || method === 'guardianWarning' || method === 'configWarning' || method === 'deprecationNotice') {
@@ -504,10 +546,14 @@ export function parseAppServerActivityEvent(notification: NapAppServerNotificati
         return { text: text ?? 'Thinking', kind: 'reasoning', itemId };
       }
       if (isToolItemType(itemType)) {
-        return { text: text ?? toolActivityText(item, 'Running tool'), kind: itemType === 'commandExecution' ? 'command' : 'tool', itemId };
+        return withActivityMetadata(
+          { text: text ?? toolActivityText(item, 'Running tool'), kind: itemType === 'commandExecution' ? 'command' : 'tool', itemId },
+          params,
+          item
+        );
       }
       if (itemType === 'fileChange') {
-        return { text: text ?? 'Editing files', kind: 'file', itemId };
+        return withActivityMetadata({ text: text ?? 'Editing files', kind: 'file', itemId }, params, item);
       }
       if (itemType === 'plan') {
         return { text: text ?? 'Planning', kind: 'plan', itemId };
@@ -526,7 +572,7 @@ export function parseAppServerActivityEvent(notification: NapAppServerNotificati
         return { text: text ?? 'Writing', kind: 'writing', itemId };
       }
       if (isToolItemType(itemType)) {
-        return { text: text ?? 'Reading results', kind: 'tool', itemId };
+        return undefined;
       }
       return isStatusItemType(itemType) && text ? { text, kind: 'status', itemId } : undefined;
     case 'turn/completed':
@@ -553,10 +599,214 @@ function mergeActivity(activityBuffers: Map<string, ProviderActivity>, activity:
   return merged;
 }
 
+function withActivityMetadata(
+  activity: ProviderActivity | undefined,
+  params: Record<string, unknown> | undefined,
+  item: Record<string, unknown> | undefined
+): ProviderActivity | undefined {
+  if (!activity) {
+    return undefined;
+  }
+
+  const command = readCommandText(params, item);
+  const filePath = readFilePath(params, item);
+  const patch = readPatchStats(params, item, activity.text);
+  const toolName = readString(item?.name)
+    ?? readString(item?.toolName)
+    ?? readString(item?.functionName)
+    ?? readString(params?.name);
+  const verb = inferActivityVerb(activity.kind, activity.text, command, filePath, toolName);
+  const title = formatActivityTitle(verb, activity.kind, activity.text, command, filePath, toolName);
+
+  return {
+    ...activity,
+    verb,
+    filePath,
+    title,
+    detail: command && title !== command ? command : undefined,
+    additions: patch.additions,
+    deletions: patch.deletions
+  };
+}
+
 function deltaActivity(params: Record<string, unknown> | undefined, itemId: string | undefined, kind: NapActivityKind): ProviderActivity | undefined {
   const delta = readDeltaString(params?.delta)
     ?? decodeBase64(readString(params?.deltaBase64));
   return delta ? { text: delta, kind, append: true, itemId } : undefined;
+}
+
+function inferActivityVerb(
+  kind: NapActivityKind,
+  text: string,
+  command: string | undefined,
+  filePath: string | undefined,
+  toolName: string | undefined
+): NapActivityVerb {
+  const haystack = `${toolName ?? ''} ${command ?? ''} ${text}`.toLowerCase();
+  if (kind === 'file') {
+    return 'edit';
+  }
+  if (/\b(rg|grep|find|search|glob)\b/.test(haystack)) {
+    return 'search';
+  }
+  if (/\b(read|open|cat|sed|head|tail|git diff)\b/.test(haystack) || filePath) {
+    return 'read';
+  }
+  if (kind === 'command') {
+    return 'run';
+  }
+  if (kind === 'warning') {
+    return 'warn';
+  }
+  if (kind === 'error') {
+    return 'error';
+  }
+  if (kind === 'writing') {
+    return 'write';
+  }
+  return 'status';
+}
+
+function formatActivityTitle(
+  verb: NapActivityVerb,
+  kind: NapActivityKind,
+  text: string,
+  command: string | undefined,
+  filePath: string | undefined,
+  toolName: string | undefined
+): string {
+  const fileName = filePath ? path.basename(filePath) : undefined;
+  if (verb === 'edit') {
+    return fileName ? `Edited ${fileName}` : 'Edited files';
+  }
+  if (verb === 'read') {
+    if (command && /\bgit\s+diff\b/.test(command)) {
+      return 'Read changes';
+    }
+    return fileName ? `Read ${fileName}` : formatShortActivity(text, 'Read a file');
+  }
+  if (verb === 'search') {
+    const pattern = readSearchPattern(command);
+    return pattern ? `Searched for ${pattern}` : formatShortActivity(text, 'Searched code');
+  }
+  if (verb === 'run') {
+    return command ? `Ran ${firstCommandWord(command)}` : formatShortActivity(text, 'Ran command');
+  }
+  if (toolName) {
+    return `${titleCase(toolName) ?? toolName}`;
+  }
+  return formatShortActivity(text, activityKindLabel(kind));
+}
+
+function readCommandText(params: Record<string, unknown> | undefined, item: Record<string, unknown> | undefined): string | undefined {
+  const command = readString(item?.command)
+    ?? readString(item?.cmd)
+    ?? readString(params?.command)
+    ?? readString(params?.cmd);
+  const args = readStringArray(item?.args).length ? readStringArray(item?.args) : readStringArray(params?.args);
+  if (command && args.length > 0) {
+    return unwrapShellCommand(command, args);
+  }
+  return command ? unwrapInlineShellCommand(command) : undefined;
+}
+
+function readFilePath(params: Record<string, unknown> | undefined, item: Record<string, unknown> | undefined): string | undefined {
+  return readString(item?.filePath)
+    ?? readString(item?.path)
+    ?? readString(item?.uri)
+    ?? readString(params?.filePath)
+    ?? readString(params?.path)
+    ?? readString(params?.uri);
+}
+
+function readPatchStats(
+  params: Record<string, unknown> | undefined,
+  item: Record<string, unknown> | undefined,
+  text: string
+): { additions?: number; deletions?: number } {
+  const additions = readNumber(item?.additions)
+    ?? readNumber(params?.additions)
+    ?? readNumber(item?.added)
+    ?? readNumber(params?.added);
+  const deletions = readNumber(item?.deletions)
+    ?? readNumber(params?.deletions)
+    ?? readNumber(item?.removed)
+    ?? readNumber(params?.removed);
+  if (additions !== undefined || deletions !== undefined) {
+    return { additions, deletions };
+  }
+
+  let inferredAdditions = 0;
+  let inferredDeletions = 0;
+  for (const line of text.split(/\r?\n/)) {
+    if (line.startsWith('+++') || line.startsWith('---')) {
+      continue;
+    }
+    if (line.startsWith('+')) {
+      inferredAdditions += 1;
+    } else if (line.startsWith('-')) {
+      inferredDeletions += 1;
+    }
+  }
+  return inferredAdditions || inferredDeletions
+    ? { additions: inferredAdditions, deletions: inferredDeletions }
+    : {};
+}
+
+function readSearchPattern(command: string | undefined): string | undefined {
+  if (!command) {
+    return undefined;
+  }
+  const match = command.match(/\b(?:rg|grep)\s+(?:-[A-Za-z]+\s+)*["']([^"']+)["']|\b(?:rg|grep)\s+(?:-[A-Za-z]+\s+)*([^\s]+)/);
+  return (match?.[1] ?? match?.[2])?.trim();
+}
+
+function firstCommandWord(command: string): string {
+  return command.trim().split(/\s+/, 1)[0] ?? 'command';
+}
+
+function unwrapShellCommand(command: string, args: string[]): string {
+  const shellName = path.basename(command);
+  if ((shellName === 'zsh' || shellName === 'bash' || shellName === 'sh') && args[0] === '-lc' && args[1]) {
+    return args[1];
+  }
+  return [command, ...args].join(' ');
+}
+
+function unwrapInlineShellCommand(command: string): string {
+  const trimmed = command.trim();
+  const match = trimmed.match(/(?:^|\s)(?:\/bin\/)?(?:zsh|bash|sh)\s+-lc\s+(["'])([\s\S]*)\1$/);
+  return match?.[2]?.replace(/\\"/g, '"').trim() ?? trimmed;
+}
+
+function formatShortActivity(text: string, fallback: string): string {
+  const clean = text.replace(/\s+/g, ' ').trim();
+  return clean ? truncateMiddle(clean, 90) : fallback;
+}
+
+function activityKindLabel(kind: NapActivityKind): string {
+  switch (kind) {
+    case 'reasoning':
+      return 'Reasoning';
+    case 'plan':
+      return 'Plan';
+    case 'tool':
+      return 'Tool';
+    case 'command':
+      return 'Command';
+    case 'file':
+      return 'Files';
+    case 'warning':
+      return 'Warning';
+    case 'error':
+      return 'Error';
+    case 'writing':
+      return 'Writing';
+    case 'status':
+      return 'Status';
+    default:
+      return 'Thinking';
+  }
 }
 
 function readActivityText(record: Record<string, unknown> | undefined): string | undefined {

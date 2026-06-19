@@ -31,7 +31,7 @@ export interface NapPromptRequest {
 
 export interface NapPromptStream {
   onDelta(delta: string): void;
-  onActivity(activity: { text?: string; kind?: NapActivityKind } | undefined): void;
+  onActivity(activity: Partial<SessionActivityEvent> | undefined): void;
   onLog(event: NapLogEvent): void;
 }
 
@@ -51,6 +51,7 @@ export interface INapCliService extends vscode.Disposable {
 
 export class NapDaemonService implements INapCliService {
   private readonly client: NapDaemonClient;
+  private cachedAuth: NapAuthState | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -87,6 +88,7 @@ export class NapDaemonService implements INapCliService {
 
   async login(): Promise<NapAuthState> {
     const auth = await this.client.login();
+    this.rememberAuth(auth);
     this.output.appendLine(`[Nap] Auth: ${auth.label}`);
     return auth;
   }
@@ -97,7 +99,8 @@ export class NapDaemonService implements INapCliService {
   }
 
   async getAuthState(): Promise<NapAuthState> {
-    return this.client.authStatus();
+    const auth = await this.client.authStatus();
+    return this.rememberAuth(auth);
   }
 
   async getMcpState(): Promise<NapMcpState> {
@@ -125,7 +128,7 @@ export class NapDaemonService implements INapCliService {
   }
 
   async streamPrompt(request: NapPromptRequest, stream: NapPromptStream, token: vscode.CancellationToken): Promise<void> {
-    const auth = await this.client.authStatus();
+    const auth = await this.getAuthState();
     if (auth.status !== 'authenticated') {
       throw new Error('Sign in with Nap CLI before using chat.');
     }
@@ -148,7 +151,7 @@ export class NapDaemonService implements INapCliService {
     const done = new Promise<void>((resolve, reject) => {
       cleanupActivity = this.client.on<SessionActivityEvent>('session.activity', event => {
         if (event.sessionId === request.sessionId && (!jobId || event.jobId === jobId)) {
-          stream.onActivity({ text: event.text, kind: event.kind });
+          stream.onActivity(event);
         }
       });
       cleanupDelta = this.client.on<SessionMessageDeltaEvent>('session.message.delta', event => {
@@ -193,6 +196,20 @@ export class NapDaemonService implements INapCliService {
       cleanupClose?.();
       cancellation.dispose();
     }
+  }
+
+  private rememberAuth(auth: NapAuthState): NapAuthState {
+    if (auth.status === 'authenticated') {
+      this.cachedAuth = auth;
+      return auth;
+    }
+
+    if (this.cachedAuth?.status === 'authenticated') {
+      this.output.appendLine(`[Nap] Keeping cached authenticated account while auth probe returned ${auth.status}.`);
+      return this.cachedAuth;
+    }
+
+    return auth;
   }
 }
 

@@ -468,7 +468,7 @@ export class NapDaemon {
     };
   }
 
-  private activityEvent(session: NapSessionRecord, jobId: string, activity: SessionActivityEvent['text'] | Pick<SessionActivityEvent, 'text' | 'kind'> | undefined): SessionActivityEvent {
+  private activityEvent(session: NapSessionRecord, jobId: string, activity: SessionActivityEvent['text'] | Partial<SessionActivityEvent> | undefined): SessionActivityEvent {
     const text = typeof activity === 'string' ? activity : activity?.text;
     const kind = typeof activity === 'string' ? undefined : activity?.kind;
     return {
@@ -479,7 +479,14 @@ export class NapDaemon {
       clientId: 'napd',
       jobId,
       text,
-      kind
+      kind,
+      verb: typeof activity === 'string' ? undefined : activity?.verb,
+      filePath: typeof activity === 'string' ? undefined : activity?.filePath,
+      title: typeof activity === 'string' ? undefined : activity?.title,
+      detail: typeof activity === 'string' ? undefined : activity?.detail,
+      additions: typeof activity === 'string' ? undefined : activity?.additions,
+      deletions: typeof activity === 'string' ? undefined : activity?.deletions,
+      itemId: typeof activity === 'string' ? undefined : activity?.itemId
     };
   }
 
@@ -563,12 +570,22 @@ function titleFromPrompt(prompt: string): string {
   const cleaned = prompt
     .replace(/[`*_#[\](){}<>]/g, '')
     .replace(/\s+/g, ' ')
+    .replace(/^(please\s+)?(can you|could you|would you|i want you to|i need you to|help me|make|create|build)\s+/i, '')
     .trim();
   if (!cleaned) {
     return 'New Chat';
   }
   const sentence = cleaned.split(/[.!?\n]/)[0]?.trim() || cleaned;
-  return sentence.length > 42 ? `${sentence.slice(0, 39).trimEnd()}...` : sentence;
+  const words = sentence.split(/\s+/).filter(word => !/^(a|an|the|to|for|with|and|or|of|in|on)$/i.test(word));
+  const title = words.slice(0, 7).map(titleCaseWord).join(' ') || sentence;
+  return title.length > 42 ? `${title.slice(0, 39).trimEnd()}...` : title;
+}
+
+function titleCaseWord(word: string): string {
+  if (/^[A-Z0-9_.-]{2,}$/.test(word)) {
+    return word;
+  }
+  return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
 }
 
 export async function startNapDaemon(): Promise<NapDaemon> {

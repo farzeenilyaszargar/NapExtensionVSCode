@@ -60,13 +60,6 @@ export class NapDaemonClient {
   ) {}
 
   async dispose(): Promise<void> {
-    if (this.connection) {
-      try {
-        await this.shutdown();
-      } catch {
-        // Best-effort cleanup. Closing the socket is still safe if shutdown fails.
-      }
-    }
     this.connection?.close();
     this.connection = undefined;
     this.pending.clear();

@@ -19,7 +19,7 @@ markdown.renderer.rules.code_inline = (tokens, index) => {
 };
 
 export function renderMarkdown(source: string): string {
-  return markdown.render(source).replace(/==([^=\n][\s\S]*?[^=\n])==/g, '<mark>$1</mark>');
+  return markdown.render(stripNapActivityMarkers(source)).replace(/==([^=\n][\s\S]*?[^=\n])==/g, '<mark>$1</mark>');
 }
 
 const FILE_REFERENCE_PATTERN = /(^|[\s([,{])((?:(?:\.{1,2}\/|\/|[A-Za-z0-9_.-]+\/)[^\s`<>"')\]}]+?\.(?:ts|tsx|js|jsx|mjs|cjs|json|md|css|scss|html|yml|yaml|toml|py|rs|go|java|kt|swift|c|cpp|h|hpp|cs|rb|php|sh|bash|zsh|sql|txt|xml|svg|png|jpg|jpeg|webp|gif|lock|config)(?::\d+)?(?::\d+)?|(?:package(?:-lock)?\.json|README\.md|readme\.md|tsconfig\.json|vite\.config\.ts|vitest\.config\.ts)(?::\d+)?(?::\d+)?))(?=$|[\s.,;!?)]|\})/g;
@@ -41,4 +41,8 @@ function fileReferenceLink(filePath: string, label: string): string {
 
 function escapeAttribute(value: string): string {
   return markdown.utils.escapeHtml(value).replace(/"/g, '&quot;');
+}
+
+function stripNapActivityMarkers(source: string): string {
+  return source.replace(/(?:^|\n):::nap-activity[ \t]+[A-Za-z0-9+/_=-]+(?:\r?\n:::)?[ \t]*(?:\r?\n)?/g, '\n');
 }
