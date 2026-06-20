@@ -1571,6 +1571,14 @@ textarea:disabled {
   color: var(--nap-muted);
 }
 
+.permissions-select--bypass,
+.permissions-select--bypass svg,
+.permissions-menu-item--bypass,
+.permissions-menu-item--bypass svg,
+.permissions-menu-item--bypass span {
+  color: #ff8a24;
+}
+
 .floating-menu-item span {
   flex: 0 1 auto;
   min-width: 0;
