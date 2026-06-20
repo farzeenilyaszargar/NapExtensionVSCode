@@ -2,7 +2,7 @@
   color-scheme: light dark;
   --nap-border: var(--vscode-panel-border, rgba(127, 127, 127, 0.28));
   --nap-muted: var(--vscode-descriptionForeground);
-  --nap-surface: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  --nap-surface: #141414;
   --nap-surface-alt: var(--vscode-input-background, var(--vscode-editorWidget-background));
 }
 
