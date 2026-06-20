@@ -21,7 +21,7 @@ body,
 }
 
 body {
-  padding-inline: 10px;
+  padding-inline: 15px;
   background: var(--nap-surface);
   color: var(--vscode-foreground);
   font-family: var(--vscode-font-family);
@@ -1027,7 +1027,7 @@ textarea::-webkit-scrollbar,
 .composer-panel {
   display: grid;
   gap: 6px;
-  padding: 0 0 16px;
+  padding: 0 0 15px;
   border-top: 0;
   background: transparent;
 }
@@ -1054,7 +1054,7 @@ textarea::-webkit-scrollbar,
   resize: none;
   padding: 12px 13px 58px;
   border: 1px solid #2a2a2a;
-  border-radius: 14px;
+  border-radius: 18px;
   line-height: 1.35;
   overflow-y: hidden;
   background: rgba(26, 26, 26, 0.58);
