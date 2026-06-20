@@ -32,8 +32,8 @@ type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
 
 const approvalLabels: Record<ApprovalMode, string> = {
-  default: 'Default approval',
-  bypass: 'Bypass approval'
+  default: 'Default Permissions',
+  bypass: 'Full Permissions'
 };
 
 const COMPOSER_MIN_HEIGHT = 92;
@@ -811,6 +811,7 @@ export function App() {
                     {approvalModes.map(mode => (
                       <button key={mode} type="button" className={`floating-menu-item permissions-menu-item permissions-menu-item--${mode}`} role="menuitemradio" aria-label={approvalLabels[mode]} title={approvalLabels[mode]} aria-checked={approvalMode === mode} onClick={() => { setApprovalMode(mode); setOpenMenu(undefined); }}>
                         {mode === 'bypass' ? <TriangleAlert size={13} /> : <Shield size={13} />}
+                        <span>{approvalLabels[mode]}</span>
                         {approvalMode === mode ? <Check size={12} /> : null}
                       </button>
                     ))}
