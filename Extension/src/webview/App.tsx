@@ -324,6 +324,7 @@ export function App() {
   const waitingKind = state.activityKind ?? 'thinking';
   const activityItems = state.activityItems ?? [];
   const queuedPrompts = state.queuedPrompts ?? [];
+  const hasDraft = draft.trim().length > 0;
   const latestAssistantMessageId = [...state.messages].reverse().find(message => message.role === 'assistant')?.id;
   const editedActivityItems = getEditedActivityItems(activityItems);
 
@@ -640,12 +641,12 @@ export function App() {
                   </div>
                 ) : null}
               </div>
-              {isStreaming ? (
+              {isStreaming && !hasDraft ? (
                 <button className="send-button send-button--stop" type="button" title="Stop" aria-label="Stop" onClick={() => post({ type: 'stopGeneration' })}>
                   <Square size={10} />
                 </button>
               ) : (
-                <button className="send-button" type="submit" title={isAuthenticated ? 'Send' : 'Sign in required'} aria-label="Send" disabled={!draft.trim() || !isAuthenticated}>
+                <button className="send-button" type="submit" title={isAuthenticated ? 'Send' : 'Sign in required'} aria-label="Send" disabled={!hasDraft || !isAuthenticated}>
                   <LocalIcon name="arrowUp" className="send-icon" />
                 </button>
               )}
