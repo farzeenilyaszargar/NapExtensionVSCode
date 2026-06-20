@@ -1,12 +1,10 @@
 import {
   ArrowLeft,
-  ArrowUp,
   Brain,
   Check,
-  Cloud,
+  ChevronDown,
   Copy,
   FileText,
-  Laptop,
   List,
   Lock,
   Plus,
@@ -20,26 +18,18 @@ import {
   TriangleAlert,
   Trash2
 } from 'lucide-react';
-import { Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { NapActivityItem, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
 import { renderMarkdown } from './markdown';
 
-const runtimeTargets = ['local', 'cli', 'cloud'] as const;
-type RuntimeTarget = typeof runtimeTargets[number];
-
 const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
-type OpenMenu = 'runtime' | 'approval' | 'model' | undefined;
+type OpenMenu = 'approval' | 'model' | undefined;
 type ResponseVote = 'up' | 'down';
 type ActivePage = 'chat' | 'sessions';
-
-const runtimeLabels: Record<RuntimeTarget, string> = {
-  local: 'Local',
-  cli: 'Nap CLI',
-  cloud: 'Cloud'
-};
+type LocalIconName = 'archive' | 'arrowUp' | 'new' | 'settings';
 
 const approvalLabels: Record<ApprovalMode, string> = {
   default: 'Default approval',
@@ -56,13 +46,13 @@ const LIVE_SCROLL_BOTTOM_PADDING = 18;
 declare global {
   interface Window {
     __NAP_LOGO_URI__?: string;
+    __NAP_ICON_URIS__?: Record<LocalIconName, string>;
   }
 }
 
 export function App() {
   const [state, dispatch] = useReducer(napViewReducer, initialViewState);
   const [draft, setDraft] = useState('');
-  const [runtimeTarget, setRuntimeTarget] = useState<RuntimeTarget>('local');
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
   const [activePage, setActivePage] = useState<ActivePage>('chat');
@@ -241,6 +231,38 @@ export function App() {
     return () => window.removeEventListener('pointerdown', closeOnOutsideClick);
   }, [openMenu]);
 
+  useLayoutEffect(() => {
+    if (!openMenu) {
+      return;
+    }
+
+    const clampOpenMenu = () => {
+      const menu = document.querySelector<HTMLElement>(`.floating-menu[data-menu="${openMenu}"]`);
+      if (!menu) {
+        return;
+      }
+
+      menu.classList.remove('floating-menu--align-end');
+      menu.style.maxWidth = `${Math.max(120, window.innerWidth - 8)}px`;
+      menu.style.maxHeight = `${Math.max(96, window.innerHeight - 80)}px`;
+
+      const rect = menu.getBoundingClientRect();
+      if (rect.right > window.innerWidth - 4) {
+        menu.classList.add('floating-menu--align-end');
+      }
+      if (rect.left < 4) {
+        menu.classList.remove('floating-menu--align-end');
+      }
+    };
+
+    const frame = window.requestAnimationFrame(clampOpenMenu);
+    window.addEventListener('resize', clampOpenMenu);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('resize', clampOpenMenu);
+    };
+  }, [openMenu]);
+
   useEffect(() => {
     const latestStreamingAssistant = [...state.messages].reverse().find(message =>
       message.role === 'assistant' && message.status === 'streaming'
@@ -291,10 +313,10 @@ export function App() {
     ? `Working for ${formatElapsedTime(elapsedNow - latestStreamingAssistant.createdAt)}`
     : undefined;
   const isStreaming = state.status === 'streaming';
-  const latestLog = state.logs[state.logs.length - 1];
-  const modelOptions = state.models.length > 0
+  const modelOptions = (state.models.length > 0
     ? state.models
-    : [{ id: state.modelId, label: state.modelId, description: 'Current model' }];
+    : [{ id: state.modelId, label: state.modelId, description: 'Current model' }]
+  ).filter(model => model.id !== 'auto');
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
@@ -381,7 +403,6 @@ export function App() {
     });
   }, []);
 
-  const RuntimeIcon = getRuntimeIcon(runtimeTarget);
   const openSessionsPage = useCallback(() => {
     post({ type: 'refreshSessions' });
     setActivePage('sessions');
@@ -395,13 +416,13 @@ export function App() {
             <span>Sessions</span>
             <div className="header-actions" aria-label="Nap session actions">
               <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
-                <List size={16} />
+                <LocalIcon name="archive" />
               </button>
               <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
-                <Settings size={16} />
+                <LocalIcon name="settings" />
               </button>
               <button type="button" title="New chat" aria-label="New chat" onClick={() => post({ type: 'newSession' })}>
-                <Plus size={16} />
+                <LocalIcon name="new" />
               </button>
             </div>
           </header>
@@ -448,13 +469,13 @@ export function App() {
           <span>{state.title || 'New Chat'}</span>
           <div className="header-actions" aria-label="Nap chat actions">
             <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
-              <List size={16} />
+              <LocalIcon name="archive" />
             </button>
             <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
-              <Settings size={16} />
+              <LocalIcon name="settings" />
             </button>
             <button type="button" title="New chat" aria-label="New chat" onClick={() => post({ type: 'newSession' })}>
-              <Plus size={16} />
+              <LocalIcon name="new" />
             </button>
           </div>
         </header>
@@ -560,13 +581,6 @@ export function App() {
       ) : null}
 
       {activePage === 'chat' ? (
-        <section className="log-strip" aria-label="Nap log">
-        <span className={`log-dot log-dot--${latestLog?.level ?? 'trace'}`} />
-        <span className="log-text">{latestLog ? latestLog.message : 'Session idle'}</span>
-        </section>
-      ) : null}
-
-      {activePage === 'chat' ? (
         <footer className="composer-panel" ref={composerPanelRef}>
         <form className="composer" onSubmit={onSubmit}>
           <div className="composer-input">
@@ -584,9 +598,10 @@ export function App() {
               <div className="floating-dropdown model-dropdown">
                 <button type="button" className="floating-select model-select" aria-label="Model" aria-expanded={openMenu === 'model'} onClick={() => setOpenMenu(openMenu === 'model' ? undefined : 'model')}>
                   <span>{selectedModel?.label ?? state.modelId}</span>
+                  <ChevronDown className="model-chevron" size={11} strokeWidth={1.7} aria-hidden="true" />
                 </button>
                 {openMenu === 'model' ? (
-                  <div className="floating-menu model-menu" role="menu">
+                  <div className="floating-menu model-menu" role="menu" data-menu="model">
                     {modelOptions.map(model => (
                       <button
                         key={model.id}
@@ -612,74 +627,35 @@ export function App() {
                 </button>
               ) : (
                 <button className="send-button" type="submit" title={isAuthenticated ? 'Send' : 'Sign in required'} aria-label="Send" disabled={!draft.trim() || !isAuthenticated}>
-                  <ArrowUp size={20} strokeWidth={1.35} />
+                  <LocalIcon name="arrowUp" className="send-icon" />
                 </button>
               )}
             </div>
+            <div className="composer-left-actions">
+              <button className="composer-plus-button" type="button" title="Add context" aria-label="Add context">
+                <Plus size={14} strokeWidth={1.9} />
+              </button>
+              <div className="floating-dropdown permissions-dropdown">
+                <button type="button" className={`floating-select permissions-select permissions-select--${approvalMode}`} aria-label="Permissions" aria-expanded={openMenu === 'approval'} onClick={() => setOpenMenu(openMenu === 'approval' ? undefined : 'approval')}>
+                  <Shield size={12} />
+                  {approvalMode === 'bypass' ? <span>{approvalLabels[approvalMode]}</span> : null}
+                  {approvalMode === 'bypass' ? <ChevronDown className="model-chevron" size={10} strokeWidth={1.7} aria-hidden="true" /> : null}
+                </button>
+                {openMenu === 'approval' ? (
+                  <div className="floating-menu permissions-menu" role="menu" data-menu="approval">
+                    {approvalModes.map(mode => (
+                      <button key={mode} type="button" className={`floating-menu-item permissions-menu-item permissions-menu-item--${mode}`} role="menuitemradio" aria-checked={approvalMode === mode} onClick={() => { setApprovalMode(mode); setOpenMenu(undefined); }}>
+                        <Shield size={13} />
+                        <span>{approvalLabels[mode]}</span>
+                        {approvalMode === mode ? <Check size={12} /> : null}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         </form>
-
-        <div className="composer-options" aria-label="Nap run options">
-          {!isAuthenticated ? (
-            <button type="button" className="auth-inline-button" onClick={() => post({ type: 'authLogin' })}>
-              <Lock size={12} />
-              <span>Auth</span>
-            </button>
-          ) : null}
-          <div className="floating-dropdown">
-            <button type="button" className="floating-select" aria-label="Runtime target" aria-expanded={openMenu === 'runtime'} onClick={() => setOpenMenu(openMenu === 'runtime' ? undefined : 'runtime')}>
-              <RuntimeIcon size={13} />
-              <span>{runtimeLabels[runtimeTarget]}</span>
-            </button>
-            {openMenu === 'runtime' ? (
-              <div className="floating-menu" role="menu">
-                {runtimeTargets.map(target => {
-                  const Icon = getRuntimeIcon(target);
-                  const isLocked = target === 'cloud';
-                  return (
-                    <button
-                      key={target}
-                      type="button"
-                      className="floating-menu-item"
-                      role="menuitemradio"
-                      aria-checked={runtimeTarget === target}
-                      disabled={isLocked}
-                      title={isLocked ? 'Cloud is locked for now' : undefined}
-                      onClick={() => {
-                        if (isLocked) {
-                          return;
-                        }
-                        setRuntimeTarget(target);
-                        setOpenMenu(undefined);
-                      }}
-                    >
-                      <Icon size={13} />
-                      <span>{runtimeLabels[target]}</span>
-                      {isLocked ? <Lock size={11} /> : runtimeTarget === target ? <Check size={12} /> : null}
-                    </button>
-                  );
-                })}
-              </div>
-            ) : null}
-          </div>
-          <div className="floating-dropdown">
-            <button type="button" className="floating-select" aria-label="Approval mode" aria-expanded={openMenu === 'approval'} onClick={() => setOpenMenu(openMenu === 'approval' ? undefined : 'approval')}>
-              <Shield size={13} />
-              <span>{approvalLabels[approvalMode]}</span>
-            </button>
-            {openMenu === 'approval' ? (
-              <div className="floating-menu" role="menu">
-                {approvalModes.map(mode => (
-                  <button key={mode} type="button" className="floating-menu-item" role="menuitemradio" aria-checked={approvalMode === mode} onClick={() => { setApprovalMode(mode); setOpenMenu(undefined); }}>
-                    <Shield size={13} />
-                    <span>{approvalLabels[mode]}</span>
-                    {approvalMode === mode ? <Check size={12} /> : null}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
         </footer>
       ) : null}
     </div>
@@ -691,6 +667,20 @@ function TurnDivider({ label }: { label?: string }) {
     <div className={`turn-divider${label ? ' turn-divider--active' : ''}`} aria-label={label ?? 'Conversation divider'}>
       {label ? <span>{label}</span> : <span aria-hidden="true" />}
     </div>
+  );
+}
+
+function LocalIcon({ name, className }: { name: LocalIconName; className?: string }) {
+  const uri = window.__NAP_ICON_URIS__?.[name];
+  if (!uri) {
+    return null;
+  }
+  return (
+    <span
+      className={`local-icon local-icon--${name}${className ? ` ${className}` : ''}`}
+      style={{ WebkitMaskImage: `url("${uri}")`, maskImage: `url("${uri}")` }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -959,16 +949,6 @@ function splitActivityParagraphs(text: string): string[] {
   }
 
   return merged;
-}
-
-function getRuntimeIcon(target: RuntimeTarget) {
-  if (target === 'cloud') {
-    return Cloud;
-  }
-  if (target === 'cli') {
-    return SquareTerminal;
-  }
-  return Laptop;
 }
 
 function activityKindIcon(kind: string) {

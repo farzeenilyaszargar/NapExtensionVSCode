@@ -2,7 +2,7 @@
   "name": "nap",
   "displayName": "Nap Chat For VS Code",
   "description": "An AI coding agent chat experience for VS Code with a polished Nap sidebar interface.",
-  "version": "1.4.23",
+  "version": "1.5.6",
   "publisher": "NapCode",
   "icon": "icon.png",
   "license": "MIT",
@@ -169,7 +169,7 @@
         },
         "nap.defaultModel": {
           "type": "string",
-          "default": "auto",
+          "default": "gpt-5.4-mini",
           "description": "Default Nap model id used by the chat shell."
         },
         "nap.debugMode": {

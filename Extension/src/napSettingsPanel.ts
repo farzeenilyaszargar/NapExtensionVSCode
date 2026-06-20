@@ -88,88 +88,321 @@ export class NapSettingsPanel {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nap Settings</title>
   <style>
-    :root { color-scheme: light dark; }
-    body {
+    :root {
+      color-scheme: light dark;
+      --nap-bg: var(--vscode-editor-background);
+      --nap-page: color-mix(in srgb, var(--vscode-editor-background) 88%, #2a2a2a);
+      --nap-fg: var(--vscode-editor-foreground);
+      --nap-muted: var(--vscode-descriptionForeground);
+      --nap-border: color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 62%, transparent);
+      --nap-card: color-mix(in srgb, var(--vscode-editorWidget-background, #1b1b1b) 88%, transparent);
+      --nap-card-strong: color-mix(in srgb, var(--vscode-sideBar-background, #181818) 90%, #101010);
+      --nap-row: color-mix(in srgb, var(--vscode-list-hoverBackground, #2a2a2a) 32%, transparent);
+      --nap-accent: var(--vscode-button-background, #6f6f6f);
+      --settings-nav-width: 210px;
+    }
+    * { box-sizing: border-box; }
+    html {
+      width: 100dvw;
+      max-width: 100%;
       margin: 0;
-      background: var(--vscode-editor-background);
-      color: var(--vscode-editor-foreground);
+      padding: 0;
+      overflow-x: hidden;
+    }
+    body {
+      width: 100dvw;
+      max-width: 100%;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      background: var(--nap-page);
+      color: var(--nap-fg);
       font: 13px var(--vscode-font-family);
     }
-    main {
-      width: min(820px, calc(100vw - 72px));
-      margin: 0 auto;
-      padding: 42px 0 64px;
+    .settings-shell {
+      width: 100dvw;
+      max-width: 100%;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      padding-left: var(--settings-nav-width);
+      display: block;
     }
-    header {
-      padding-bottom: 22px;
-      border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 65%, transparent);
+    .sidebar {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: var(--settings-nav-width);
+      height: 100vh;
+      display: block;
+      padding: 18px 10px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-right: 1px solid var(--nap-border);
+      background: color-mix(in srgb, var(--vscode-sideBar-background, #181818) 92%, #222222);
+      box-shadow: none;
+      scrollbar-width: none;
+    }
+    .sidebar::-webkit-scrollbar {
+      display: none;
+    }
+    nav {
+      display: grid;
+      gap: 3px;
+    }
+    nav a {
+      display: flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 0 9px;
+      border-radius: 7px;
+      color: var(--nap-muted);
+      text-decoration: none;
+      font-size: 12px;
+    }
+    nav a:first-child {
+      color: #f0f0f0;
+      background: color-mix(in srgb, var(--vscode-list-hoverBackground, #2b2b2b) 72%, transparent);
+    }
+    .content {
+      min-width: 0;
+      display: grid;
+      gap: 18px;
+      width: min(920px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 34px 0 56px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      padding: 2px 0 8px;
     }
     h1 {
       margin: 0;
-      font-size: 22px;
+      font-size: 25px;
       font-weight: 600;
       letter-spacing: 0;
     }
     .subtle {
-      margin: 8px 0 0;
-      color: var(--vscode-descriptionForeground);
+      margin: 7px 0 0;
+      max-width: 640px;
+      color: var(--nap-muted);
       line-height: 1.5;
     }
-    section {
-      padding: 24px 0;
-      border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 48%, transparent);
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 28px;
+      padding: 0 10px;
+      border: 1px solid var(--nap-border);
+      border-radius: 999px;
+      color: #d8d8d8;
+      background: color-mix(in srgb, var(--nap-card) 82%, transparent);
+      font-size: 11.5px;
+      white-space: nowrap;
     }
-    h2 {
-      margin: 0 0 14px;
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #7bbf7b;
+      box-shadow: 0 0 12px rgba(123, 191, 123, 0.28);
+    }
+    .account-card {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+      padding: 18px;
+      border: 1px solid var(--nap-border);
+      border-radius: 12px;
+      background: var(--nap-card-strong);
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+    }
+    .avatar {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border-radius: 15px;
+      border: 1px solid #343434;
+      background: #202020;
+      color: #eeeeee;
+      font-size: 17px;
+      font-weight: 650;
+    }
+    .account-main {
+      min-width: 0;
+    }
+    .account-name {
+      margin: 0;
+      color: #efefef;
+      font-size: 16px;
+      font-weight: 600;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .account-meta {
+      margin-top: 5px;
+      color: var(--nap-muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .metric {
+      padding: 12px 13px;
+      border: 1px solid var(--nap-border);
+      border-radius: 10px;
+      background: var(--nap-card);
+    }
+    .metric-label {
+      color: var(--nap-muted);
+      font-size: 11px;
+    }
+    .metric-value {
+      margin-top: 6px;
+      color: #e2e2e2;
       font-size: 13px;
       font-weight: 600;
-      color: var(--vscode-foreground);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    section.setting-section {
+      overflow: hidden;
+      border: 1px solid var(--nap-border);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--nap-card) 92%, transparent);
+    }
+    h2 {
+      margin: 0;
+      padding: 14px 16px 13px;
+      border-bottom: 1px solid color-mix(in srgb, var(--nap-border) 72%, transparent);
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e0e0;
     }
     .code-surface {
       overflow: hidden;
-      border: 1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 80%, transparent);
-      border-radius: 6px;
-      background: var(--vscode-textCodeBlock-background, var(--vscode-editorWidget-background));
+      background: transparent;
     }
     .row {
       display: grid;
       grid-template-columns: minmax(170px, 32%) minmax(0, 1fr);
       gap: 16px;
       align-items: center;
-      min-height: 38px;
-      padding: 0 14px;
-      border-bottom: 1px solid color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 40%, transparent);
+      min-height: 40px;
+      padding: 0 16px;
+      border-bottom: 1px solid color-mix(in srgb, var(--nap-border) 46%, transparent);
     }
     .row:last-child { border-bottom: 0; }
     code {
-      color: var(--vscode-symbolIcon-propertyForeground, var(--vscode-textPreformat-foreground));
+      color: #8f8f8f;
       font-family: var(--vscode-editor-font-family, monospace);
-      font-size: 12px;
+      font-size: 11.5px;
     }
     .row span {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: #d6d6d6;
+      color: #d8d8d8;
     }
     .hint {
       margin-top: 12px;
-      color: var(--vscode-descriptionForeground);
+      color: var(--nap-muted);
       line-height: 1.5;
+    }
+    @media (max-width: 760px) {
+      .settings-shell {
+        width: 100dvw;
+        max-width: 100%;
+        padding-left: 0;
+      }
+      .sidebar {
+        position: static;
+        height: auto;
+        padding: 8px;
+        border-right: 0;
+        border-bottom: 1px solid var(--nap-border);
+      }
+      nav {
+        display: flex;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+      nav::-webkit-scrollbar {
+        display: none;
+      }
+      nav a {
+        flex: 0 0 auto;
+        min-height: 28px;
+        white-space: nowrap;
+      }
+      .content {
+        width: calc(100dvw - 20px);
+        padding: 18px 0 36px;
+      }
+      .hero {
+        grid-template-columns: 1fr;
+      }
+      .quick-grid {
+        grid-template-columns: 1fr;
+      }
+      .row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+        padding: 10px 14px;
+      }
     }
   </style>
 </head>
 <body>
-  <main>
-    <header>
-      <h1>Nap Settings</h1>
-      <p class="subtle">Account, configuration, usage, and runtime state for the Nap VS Code extension.</p>
-    </header>
-    ${section('Account', accountRows)}
-    ${section('Usage & Billing', usageRows)}
-    ${section('Current Configuration', configRows)}
-    ${section('Runtime', runtimeRows)}
+  <main class="settings-shell">
+    <aside class="sidebar" aria-label="Nap settings sections">
+      <nav>
+        <a href="#account">General</a>
+        <a href="#config">Config</a>
+        <a href="#usage">Usage & Billing</a>
+        <a href="#runtime">Runtime</a>
+        <a href="#mcp">MCPs</a>
+        <a href="#hooks">Hooks</a>
+        <a href="#plugins">Plugins</a>
+      </nav>
+    </aside>
+    <div class="content">
+      <header class="hero">
+        <div>
+          <h1>Nap Settings</h1>
+          <p class="subtle">Account, configuration, usage, and runtime state for the Nap VS Code extension.</p>
+        </div>
+        <div class="status-pill"><span class="status-dot"></span>${escapeHtml(account.status)}</div>
+      </header>
+      ${accountHero(account)}
+      <div class="quick-grid">
+        ${metric('Model', config.defaultModel)}
+        ${metric('Security', config.securityMode)}
+        ${metric('Auth', account.refreshToken)}
+      </div>
+      <div id="account">${section('Account', accountRows)}</div>
+      <div id="usage">${section('Usage & Billing', usageRows)}</div>
+      <div id="config">${section('Current Configuration', configRows)}</div>
+      <div id="runtime">${section('Runtime', runtimeRows)}</div>
+      <div id="mcp">${section('MCPs', [{ key: 'servers', value: 'Coming soon from napd' }])}</div>
+      <div id="hooks">${section('Hooks', [{ key: 'status', value: 'Coming soon' }])}</div>
+      <div id="plugins">${section('Plugins', [{ key: 'status', value: 'Coming soon' }])}</div>
+    </div>
   </main>
 </body>
 </html>`;
@@ -177,7 +410,29 @@ export class NapSettingsPanel {
 }
 
 function section(title: string, rows: SettingsRow[]): string {
-  return `<section><h2>${escapeHtml(title)}</h2><div class="code-surface">${rows.map(row).join('')}</div></section>`;
+  return `<section class="setting-section"><h2>${escapeHtml(title)}</h2><div class="code-surface">${rows.map(row).join('')}</div></section>`;
+}
+
+function accountHero(account: LocalAccountInfo): string {
+  const name = account.name !== 'Unknown' ? account.name : account.email !== 'Unknown' ? account.email : 'Nap account';
+  const initials = initialsFromName(name);
+  const meta = account.email !== 'Unknown' ? account.email : account.accountId !== 'Unknown' ? account.accountId : account.status;
+  return `<section class="account-card" aria-label="Nap account summary"><div class="avatar">${escapeHtml(initials)}</div><div class="account-main"><p class="account-name">${escapeHtml(name)}</p><div class="account-meta">${escapeHtml(meta)}</div></div></section>`;
+}
+
+function metric(label: string, value: string): string {
+  return `<div class="metric"><div class="metric-label">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(value)}</div></div>`;
+}
+
+function initialsFromName(value: string): string {
+  const parts = value
+    .replace(/@.*/, '')
+    .split(/[\s._-]+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+  const first = parts[0]?.charAt(0) ?? 'N';
+  const second = parts.length > 1 ? parts[1]?.charAt(0) : parts[0]?.charAt(1);
+  return `${first}${second ?? ''}`.toUpperCase();
 }
 
 function row(item: SettingsRow): string {

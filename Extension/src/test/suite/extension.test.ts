@@ -28,7 +28,7 @@ suite('Nap extension', () => {
 
     const config = vscode.workspace.getConfiguration('nap');
     assert.equal(config.get('cliPath'), 'nap');
-    assert.equal(config.get('defaultModel'), 'auto');
+    assert.equal(config.get('defaultModel'), 'gpt-5.4-mini');
     assert.equal(config.get('debugMode'), false);
     assert.equal(config.get('securityMode'), 'standard');
   });

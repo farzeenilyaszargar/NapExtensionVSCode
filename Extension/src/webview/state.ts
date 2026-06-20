@@ -11,7 +11,7 @@ export const initialViewState: NapViewState = {
   title: 'New Chat',
   status: 'idle',
   mode: 'chat',
-  modelId: 'auto',
+  modelId: 'gpt-5.4-mini',
   debugMode: false,
   securityMode: 'standard',
   messages: [],
@@ -32,7 +32,7 @@ export const initialViewState: NapViewState = {
   config: {
     cliPath: 'nap',
     accentColor: NAP_DEFAULT_ACCENT,
-    defaultModel: 'auto',
+    defaultModel: 'gpt-5.4-mini',
     debugMode: false,
     securityMode: 'standard'
   }

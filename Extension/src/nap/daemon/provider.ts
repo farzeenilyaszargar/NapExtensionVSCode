@@ -14,6 +14,7 @@ import {
 } from '../../shared/protocol';
 
 const AUTO_MODEL_ID = 'gpt-5.4-mini';
+const DEFAULT_MODEL_OPTION: NapModelOption = { id: AUTO_MODEL_ID, label: 'GPT-5.4 Mini', description: 'Default model', supportsTools: true };
 
 export interface ProviderPromptRequest {
   prompt: string;
@@ -72,7 +73,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       try {
         const models = parseModelOptions(await this.runText(args, 5000));
         if (models.length > 0) {
-          return models;
+          return ensureDefaultModelOption(models.filter(model => model.id !== 'auto'));
         }
       } catch {
         // Try the next common CLI shape.
@@ -80,10 +81,9 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     }
 
     return [
-      { id: 'auto', label: 'Auto', description: AUTO_MODEL_ID, supportsTools: true },
       { id: 'gpt-5.5', label: 'GPT-5.5', supportsTools: true },
       { id: 'gpt-5.4', label: 'GPT-5.4', supportsTools: true },
-      { id: AUTO_MODEL_ID, label: 'GPT-5.4 Mini', description: 'Default auto model', supportsTools: true },
+      DEFAULT_MODEL_OPTION,
       { id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', supportsTools: true },
       { id: 'claude-opus-4.8', label: 'Claude Opus 4.8', supportsTools: true },
       { id: 'claude-sonnet-4.6', label: 'Claude Sonnet 4.6', supportsTools: true },
@@ -1164,6 +1164,18 @@ function parseModelOptions(output: string): NapModelOption[] {
     ids.add(match[0].replace(/^models\//, ''));
   }
   return [...ids].map(id => ({ id, label: id.replace(/-/g, ' '), supportsTools: true }));
+}
+
+function ensureDefaultModelOption(models: NapModelOption[]): NapModelOption[] {
+  const withoutAuto = models.filter(model => model.id !== 'auto');
+  const existingIndex = withoutAuto.findIndex(model => model.id === AUTO_MODEL_ID);
+  if (existingIndex === -1) {
+    return [DEFAULT_MODEL_OPTION, ...withoutAuto];
+  }
+
+  return withoutAuto.map((model, index) => index === existingIndex
+    ? { ...DEFAULT_MODEL_OPTION, ...model, label: DEFAULT_MODEL_OPTION.label, description: model.description ?? DEFAULT_MODEL_OPTION.description }
+    : model);
 }
 
 export function parseCliStreamLine(line: string): string {

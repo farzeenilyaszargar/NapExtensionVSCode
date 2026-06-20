@@ -23,7 +23,7 @@ const DEFAULT_STATE: PersistedDaemonState = {
   schemaVersion: 1,
   sessions: [],
   jobs: [],
-  defaultModelId: 'auto',
+  defaultModelId: 'gpt-5.4-mini',
   auth: { status: 'unknown', label: 'Unknown' },
   workspaceIndexes: [],
   cache: {

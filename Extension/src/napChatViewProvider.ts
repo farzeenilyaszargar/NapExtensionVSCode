@@ -305,9 +305,12 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       }
     }
 
-    const selectedModelId = models.some(model => model.id === this.state.modelId)
-      ? this.state.modelId
-      : models[0]?.id ?? config.defaultModel;
+    const currentModelId = this.state.modelId === 'auto' ? config.defaultModel : this.state.modelId;
+    const selectedModelId = models.some(model => model.id === currentModelId)
+      ? currentModelId
+      : models.some(model => model.id === config.defaultModel)
+        ? config.defaultModel
+        : models[0]?.id ?? config.defaultModel;
 
     this.state = {
       ...this.state,
@@ -633,6 +636,12 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
     let html = fs.readFileSync(indexPath, 'utf8');
     const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'logo.svg'));
+    const iconUris = {
+      archive: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'archive.svg')).toString(),
+      arrowUp: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'arrow-up.svg')).toString(),
+      new: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'new.svg')).toString(),
+      settings: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'settings.svg')).toString()
+    };
     html = html.replace(/(href|src)="\/([^"]+)"/g, (_match, attribute: string, resourcePath: string) => {
       const uri = webview.asWebviewUri(vscode.Uri.joinPath(distRoot, resourcePath));
       return `${attribute}="${uri}"`;
@@ -640,7 +649,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     html = html.replace(/%CSP_SOURCE%/g, webview.cspSource);
     html = html.replace(/%NONCE%/g, nonce);
     html = html.replace(/<script /g, `<script nonce="${nonce}" `);
-    html = html.replace('<div id="root"></div>', `<script nonce="${nonce}">window.__NAP_LOGO_URI__ = ${JSON.stringify(logoUri.toString())};</script><div id="root"></div>`);
+    html = html.replace('<div id="root"></div>', `<script nonce="${nonce}">window.__NAP_LOGO_URI__ = ${JSON.stringify(logoUri.toString())}; window.__NAP_ICON_URIS__ = ${JSON.stringify(iconUris)};</script><div id="root"></div>`);
     return html;
   }
 

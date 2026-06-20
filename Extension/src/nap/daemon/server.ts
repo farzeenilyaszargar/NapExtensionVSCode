@@ -223,7 +223,7 @@ export class NapDaemon {
       workspaceRoot: params?.workspaceRoot,
       title: 'New Chat',
       mode: params?.mode ?? 'chat',
-      modelId: params?.modelId ?? this.storage.getDefaultModelId(),
+      modelId: normalizeModelId(params?.modelId ?? this.storage.getDefaultModelId()),
       debugMode: params?.debugMode ?? false,
       securityMode: params?.securityMode ?? 'standard',
       messages: [],
@@ -261,7 +261,7 @@ export class NapDaemon {
         ? titleFromPrompt(params.prompt)
         : session.title,
       mode: params.mode,
-      modelId: params.modelId,
+      modelId: normalizeModelId(params.modelId),
       debugMode: params.debugMode,
       securityMode: params.securityMode,
       messages: [...session.messages, userMessage, assistantMessage],
@@ -303,7 +303,7 @@ export class NapDaemon {
       await this.provider.streamPrompt({
         prompt: params.prompt,
         mode: params.mode,
-        modelId: params.modelId,
+        modelId: normalizeModelId(params.modelId),
         debugMode: params.debugMode,
         securityMode: params.securityMode,
         sessionId: session.id,
@@ -361,9 +361,9 @@ export class NapDaemon {
   }
 
   private async listModels(params: { defaultModelId?: string }): Promise<ModelListResult> {
-    const selectedModelId = this.storage.getDefaultModelId() || params.defaultModelId || 'auto';
+    const selectedModelId = normalizeModelId(this.storage.getDefaultModelId() || params.defaultModelId);
     const models = await this.provider.listModels(selectedModelId);
-    return { models, selectedModelId: models.some(model => model.id === selectedModelId) ? selectedModelId : models[0]?.id ?? 'auto' };
+    return { models, selectedModelId: models.some(model => model.id === selectedModelId) ? selectedModelId : 'gpt-5.4-mini' };
   }
 
   private async refreshAuthState(): Promise<NapAuthState> {
@@ -579,6 +579,10 @@ function titleFromPrompt(prompt: string): string {
   const words = sentence.split(/\s+/).filter(word => !/^(a|an|the|to|for|with|and|or|of|in|on)$/i.test(word));
   const title = words.slice(0, 7).map(titleCaseWord).join(' ') || sentence;
   return title.length > 42 ? `${title.slice(0, 39).trimEnd()}...` : title;
+}
+
+function normalizeModelId(modelId: string | undefined): string {
+  return !modelId || modelId === 'auto' ? 'gpt-5.4-mini' : modelId;
 }
 
 function titleCaseWord(word: string): string {
