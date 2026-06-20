@@ -78,6 +78,9 @@ export function App() {
 
   useEffect(() => {
     const listener = (event: MessageEvent) => {
+      if (event.data?.type === 'showChat') {
+        setActivePage('chat');
+      }
       dispatch({ type: 'extensionMessage', message: event.data });
     };
     window.addEventListener('message', listener);
@@ -470,6 +473,11 @@ export function App() {
     setActivePage('sessions');
   }, [post]);
 
+  const startNewChat = useCallback(() => {
+    setActivePage('chat');
+    post({ type: 'newSession' });
+  }, [post]);
+
   return (
     <div className="nap-shell">
       {activePage === 'sessions' ? (
@@ -483,7 +491,7 @@ export function App() {
               <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
                 <LocalIcon name="settings" />
               </button>
-              <button type="button" title="New chat" aria-label="New chat" onClick={() => post({ type: 'newSession' })}>
+              <button type="button" title="New chat" aria-label="New chat" onClick={startNewChat}>
                 <LocalIcon name="new" />
               </button>
             </div>
@@ -536,7 +544,7 @@ export function App() {
             <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
               <LocalIcon name="settings" />
             </button>
-            <button type="button" title="New chat" aria-label="New chat" onClick={() => post({ type: 'newSession' })}>
+            <button type="button" title="New chat" aria-label="New chat" onClick={startNewChat}>
               <LocalIcon name="new" />
             </button>
           </div>

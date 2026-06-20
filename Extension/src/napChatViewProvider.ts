@@ -80,6 +80,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     await this.refreshEnvironment();
     await this.refreshSessions();
     this.log('info', `New Nap session ${this.state.sessionId} created.`);
+    this.post({ type: 'showChat' });
     this.publishState();
   }
 

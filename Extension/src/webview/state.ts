@@ -51,6 +51,8 @@ export function napViewReducer(state: NapViewState, action: NapViewAction): NapV
 
 export function applyExtensionMessage(state: NapViewState, message: ExtensionToWebviewMessage): NapViewState {
   switch (message.type) {
+    case 'showChat':
+      return state;
     case 'sessionState':
       return { ...message.state, activityItems: [] };
     case 'messageDelta':

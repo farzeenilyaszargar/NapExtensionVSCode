@@ -168,6 +168,7 @@ export type WebviewToExtensionMessage =
 
 export type ExtensionToWebviewMessage =
   | { type: 'sessionState'; state: NapSessionState }
+  | { type: 'showChat' }
   | { type: 'messageDelta'; messageId: string; delta: string }
   | { type: 'activityTextChanged'; text?: string; kind?: NapActivityKind; persistent?: boolean; activity?: Partial<NapActivityItem> }
   | { type: 'messageDone'; messageId: string; status: NapMessageStatus }
