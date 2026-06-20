@@ -1172,7 +1172,7 @@ textarea::-webkit-scrollbar,
   gap: 0;
   padding: 0 0 15px;
   border-top: 0;
-  background: transparent;
+  background: transparent !important;
 }
 
 .prompt-queue {
@@ -1268,7 +1268,7 @@ textarea::-webkit-scrollbar,
 
 .composer {
   min-width: 0;
-  background: transparent;
+  background: transparent !important;
   border: 0;
   box-shadow: none;
 }
@@ -1276,7 +1276,7 @@ textarea::-webkit-scrollbar,
 .composer-input {
   position: relative;
   min-width: 0;
-  background: transparent;
+  background: transparent !important;
   border: 0;
   box-shadow: none;
 }
@@ -1291,7 +1291,7 @@ textarea::-webkit-scrollbar,
   border-radius: 18px;
   line-height: 1.35;
   overflow-y: hidden;
-  background: rgba(26, 26, 26, 0.58);
+  background: rgba(26, 26, 26, 0.9);
   box-shadow: none;
   -webkit-backdrop-filter: blur(18px) saturate(1.12);
   backdrop-filter: blur(18px) saturate(1.12);
@@ -1299,13 +1299,18 @@ textarea::-webkit-scrollbar,
 
 .composer-input textarea:hover {
   border-color: #2a2a2a;
-  background: rgba(26, 26, 26, 0.58);
+  background: rgba(26, 26, 26, 0.9);
 }
 
 .composer-input textarea:focus {
   border-color: #2a2a2a;
-  background: rgba(26, 26, 26, 0.58);
+  background: rgba(26, 26, 26, 0.9);
   box-shadow: none;
+}
+
+.composer-input textarea::placeholder {
+  color: #3E3E3E;
+  opacity: 1;
 }
 
 textarea:disabled {
