@@ -1200,26 +1200,26 @@ textarea:disabled {
 }
 
 .permissions-dropdown {
-  max-width: min(148px, calc(100vw - 82px));
+  max-width: min(88px, calc(100vw - 82px));
 }
 
 .permissions-select {
-  max-width: 148px;
+  max-width: 48px;
   color: #8a8a8a;
 }
 
-.permissions-select span {
-  max-width: 98px;
-}
-
 .permissions-select--default {
-  width: 24px;
+  width: 42px;
   padding: 0;
   justify-content: center;
-  gap: 0;
+  gap: 4px;
 }
 
 .permissions-select--bypass {
+  width: 42px;
+  padding: 0;
+  justify-content: center;
+  gap: 4px;
   color: #ff7a1a;
   background: rgba(120, 55, 0, 0.24);
 }
@@ -1230,12 +1230,19 @@ textarea:disabled {
 }
 
 .permissions-menu {
-  width: 150px;
+  width: 78px;
   max-width: calc(100vw - 8px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
 }
 
 .permissions-menu-item--bypass {
   color: #ff8a24;
+}
+
+.permissions-menu-item {
+  justify-content: center;
+  padding: 0;
 }
 
 .floating-dropdown {

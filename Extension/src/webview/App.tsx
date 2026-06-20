@@ -637,16 +637,14 @@ export function App() {
               </button>
               <div className="floating-dropdown permissions-dropdown">
                 <button type="button" className={`floating-select permissions-select permissions-select--${approvalMode}`} aria-label="Permissions" aria-expanded={openMenu === 'approval'} onClick={() => setOpenMenu(openMenu === 'approval' ? undefined : 'approval')}>
-                  <Shield size={12} />
-                  {approvalMode === 'bypass' ? <span>{approvalLabels[approvalMode]}</span> : null}
-                  {approvalMode === 'bypass' ? <ChevronDown className="model-chevron" size={10} strokeWidth={1.7} aria-hidden="true" /> : null}
+                  {approvalMode === 'bypass' ? <TriangleAlert size={12} /> : <Shield size={12} />}
+                  <ChevronDown className="model-chevron" size={10} strokeWidth={1.7} aria-hidden="true" />
                 </button>
                 {openMenu === 'approval' ? (
                   <div className="floating-menu permissions-menu" role="menu" data-menu="approval">
                     {approvalModes.map(mode => (
-                      <button key={mode} type="button" className={`floating-menu-item permissions-menu-item permissions-menu-item--${mode}`} role="menuitemradio" aria-checked={approvalMode === mode} onClick={() => { setApprovalMode(mode); setOpenMenu(undefined); }}>
-                        <Shield size={13} />
-                        <span>{approvalLabels[mode]}</span>
+                      <button key={mode} type="button" className={`floating-menu-item permissions-menu-item permissions-menu-item--${mode}`} role="menuitemradio" aria-label={approvalLabels[mode]} title={approvalLabels[mode]} aria-checked={approvalMode === mode} onClick={() => { setApprovalMode(mode); setOpenMenu(undefined); }}>
+                        {mode === 'bypass' ? <TriangleAlert size={13} /> : <Shield size={13} />}
                         {approvalMode === mode ? <Check size={12} /> : null}
                       </button>
                     ))}
