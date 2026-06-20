@@ -231,6 +231,7 @@ function toSharedSessionRecord(session: DaemonSessionRecord): NapSessionRecord {
   return {
     id: session.id,
     workspaceRoot: session.workspaceRoot,
+    appThreadId: session.appThreadId,
     title: session.title,
     mode: session.mode,
     modelId: session.modelId,

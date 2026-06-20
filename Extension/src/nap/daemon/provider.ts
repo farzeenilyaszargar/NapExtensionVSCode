@@ -23,12 +23,14 @@ export interface ProviderPromptRequest {
   debugMode: boolean;
   securityMode: NapSecurityMode;
   sessionId?: string;
+  appThreadId?: string;
   workspaceRoot?: string;
 }
 
 export interface ProviderPromptStream {
   onDelta(delta: string): void;
   onActivity(activity: ProviderActivity | undefined): void;
+  onThread?(threadId: string): void;
   onLog(message: string): void;
 }
 
@@ -174,6 +176,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     await this.appServer.start();
     const threadKey = request.sessionId ?? request.workspaceRoot ?? 'default';
     const threadId = await this.getOrStartThread(threadKey, request);
+    stream.onThread?.(threadId);
     stream.onLog(`Starting Nap app-server turn in thread ${threadId}.`);
 
     let turnId: string | undefined;
@@ -264,6 +267,16 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     const existing = this.appThreads.get(threadKey);
     if (existing) {
       return existing;
+    }
+
+    if (request.appThreadId) {
+      try {
+        const resumedThreadId = await resumeThread(this.appServer, request.appThreadId, request);
+        this.appThreads.set(threadKey, resumedThreadId);
+        return resumedThreadId;
+      } catch (error) {
+        appendDaemonLog(`[provider] failed to resume app-server thread ${request.appThreadId}: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
 
     const threadId = await getInitializedThread(this.appServer, request);
@@ -375,6 +388,17 @@ async function getInitializedThread(client: NapAppServerClient, request: Provide
     throw new Error('Nap app-server did not return a thread id.');
   }
   return threadId;
+}
+
+async function resumeThread(client: NapAppServerClient, threadId: string, request: ProviderPromptRequest): Promise<string> {
+  const result = await client.resumeThread({
+    threadId,
+    cwd: request.workspaceRoot ?? process.cwd(),
+    model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
+    approvalPolicy: 'on-request',
+    sandbox: request.securityMode === 'strict' ? 'read-only' : 'workspace-write'
+  });
+  return readThreadId(result) ?? threadId;
 }
 
 function buildTurnText(request: ProviderPromptRequest): string {

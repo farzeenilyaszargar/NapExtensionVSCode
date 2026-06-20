@@ -218,6 +218,23 @@ export class NapDaemon {
 
   private createSession(params: SessionCreateParams | undefined): NapSessionRecord {
     const now = Date.now();
+    if (params?.sessionId) {
+      const existing = this.storage.getSession(params.sessionId);
+      if (existing) {
+        const updated: NapSessionRecord = {
+          ...existing,
+          workspaceRoot: params.workspaceRoot ?? existing.workspaceRoot,
+          mode: params.mode ?? existing.mode,
+          modelId: normalizeModelId(params.modelId ?? existing.modelId),
+          debugMode: params.debugMode ?? existing.debugMode,
+          securityMode: params.securityMode ?? existing.securityMode,
+          updatedAt: now
+        };
+        this.storage.upsertSession(updated);
+        return updated;
+      }
+    }
+
     const session: NapSessionRecord = {
       id: params?.sessionId ?? createNapId('session'),
       workspaceRoot: params?.workspaceRoot,
@@ -307,6 +324,7 @@ export class NapDaemon {
         debugMode: params.debugMode,
         securityMode: params.securityMode,
         sessionId: session.id,
+        appThreadId: session.appThreadId,
         workspaceRoot: params.workspaceRoot
       }, {
         onDelta: delta => {
@@ -317,6 +335,17 @@ export class NapDaemon {
           this.storage.upsertJob(job);
           this.broadcast('session.message.delta', this.deltaEvent(session, assistantMessageId, job.id, delta));
           this.broadcast('job.progress', this.jobEvent(job));
+        },
+        onThread: appThreadId => {
+          const current = this.storage.getSession(session.id);
+          if (!current || current.appThreadId === appThreadId) {
+            return;
+          }
+          this.storage.upsertSession({
+            ...current,
+            appThreadId,
+            updatedAt: Date.now()
+          });
         },
         onActivity: activity => {
           this.broadcast('session.activity', this.activityEvent(session, job.id, activity));

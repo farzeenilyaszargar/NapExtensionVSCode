@@ -55,6 +55,7 @@ export interface NapSessionSummary {
 export interface NapSessionRecord {
   id: string;
   workspaceRoot?: string;
+  appThreadId?: string;
   title: string;
   mode: NapMode;
   modelId: string;
@@ -87,6 +88,7 @@ export interface NapMcpState {
 
 export interface NapSessionState {
   sessionId: string;
+  appThreadId?: string;
   title: string;
   status: NapRunStatus;
   mode: NapMode;

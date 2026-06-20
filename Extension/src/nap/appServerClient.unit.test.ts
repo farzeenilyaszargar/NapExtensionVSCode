@@ -79,6 +79,39 @@ describe('NapAppServerClient', () => {
     client.dispose();
   });
 
+  it('sends thread resume requests', async () => {
+    const fake = createFakeChild();
+    const client = new NapAppServerClient('1.2.3', (() => fake.child) as never);
+    const started = client.start();
+    await waitForWrites(fake.writes, 1);
+    fake.stdout.emit('data', Buffer.from('{"id":1,"result":{"ok":true}}\n'));
+    await started;
+
+    const resumed = client.resumeThread({
+      threadId: 'thread-existing',
+      cwd: '/repo',
+      model: 'gpt-5.4-mini',
+      approvalPolicy: 'on-request',
+      sandbox: 'workspace-write'
+    });
+    await waitForWrites(fake.writes, 3);
+    expect(JSON.parse(fake.writes[2])).toEqual({
+      id: 2,
+      method: 'thread/resume',
+      params: {
+        threadId: 'thread-existing',
+        cwd: '/repo',
+        model: 'gpt-5.4-mini',
+        approvalPolicy: 'on-request',
+        sandbox: 'workspace-write'
+      }
+    });
+    fake.stdout.emit('data', Buffer.from('{"id":2,"result":{"thread":{"threadId":"thread-existing"}}}\n'));
+    await expect(resumed).resolves.toMatchObject({ thread: { threadId: 'thread-existing' } });
+
+    client.dispose();
+  });
+
   it('responds to app-server auth refresh requests', async () => {
     const fake = createFakeChild();
     const client = new NapAppServerClient('1.2.3', (() => fake.child) as never);

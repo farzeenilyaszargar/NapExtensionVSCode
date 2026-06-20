@@ -41,6 +41,10 @@ export interface StartThreadParams {
   sandbox?: string;
 }
 
+export interface ResumeThreadParams extends StartThreadParams {
+  threadId: string;
+}
+
 export interface StartTurnParams {
   threadId: string;
   input: Array<{ type: 'text'; text: string }>;
@@ -137,6 +141,10 @@ export class NapAppServerClient {
 
   async startThread(params: StartThreadParams): Promise<unknown> {
     return this.request('thread/start', params);
+  }
+
+  async resumeThread(params: ResumeThreadParams): Promise<unknown> {
+    return this.request('thread/resume', params);
   }
 
   async startTurn(params: StartTurnParams): Promise<unknown> {

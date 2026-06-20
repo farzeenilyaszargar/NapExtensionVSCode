@@ -559,6 +559,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     return {
       ...this.state,
       sessionId: session.id,
+      appThreadId: session.appThreadId,
       title: session.title || 'New Chat',
       status: 'idle',
       mode: session.mode,
@@ -575,6 +576,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const firstUserMessage = this.state.messages.find(message => message.role === 'user')?.content.trim() ?? '';
     return {
       id: this.state.sessionId,
+      appThreadId: this.state.appThreadId,
       title: this.state.title || truncateText(firstUserMessage, 42) || 'New Chat',
       mode: this.state.mode,
       modelId: this.state.modelId,

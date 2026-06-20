@@ -110,6 +110,7 @@ export interface DaemonHealth {
 export interface NapSessionRecord {
   id: string;
   workspaceRoot?: string;
+  appThreadId?: string;
   title: string;
   mode: NapMode;
   modelId: string;
