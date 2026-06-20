@@ -347,6 +347,8 @@ select {
   min-height: 0;
   overflow-y: auto;
   padding: 0;
+  scroll-behavior: smooth;
+  will-change: scroll-position;
 }
 
 .timeline:focus {
@@ -1043,6 +1045,8 @@ textarea::-webkit-scrollbar,
   border-radius: 12px 12px 0 0;
   background: #181818;
   overflow: hidden;
+  animation: prompt-queue-in 180ms ease-out;
+  transition: opacity 160ms ease, transform 160ms ease;
 }
 
 .prompt-queue-item {
@@ -1056,6 +1060,19 @@ textarea::-webkit-scrollbar,
   border-radius: 0;
   color: #7f7f7f;
   background: transparent;
+  transition: min-height 160ms ease, opacity 160ms ease, background-color 160ms ease;
+}
+
+@keyframes prompt-queue-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .prompt-queue-text {

@@ -40,8 +40,9 @@ const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
 const SCROLL_BOTTOM_THRESHOLD = 80;
 const SCROLL_LOCK_THRESHOLD = 2;
-const PROGRAMMATIC_SCROLL_GRACE_MS = 260;
+const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const LIVE_SCROLL_BOTTOM_PADDING = 18;
+const SCROLL_ANIMATION_MS = 220;
 
 declare global {
   interface Window {
@@ -68,6 +69,7 @@ export function App() {
   const userScrollIntentRef = useRef(false);
   const ignoreScrollUntilRef = useRef(0);
   const scrollFrameRef = useRef<number>();
+  const scrollAnimationFrameRef = useRef<number>();
   const vscode = useMemo(() => getVsCodeApi(), []);
 
   const post = useCallback((message: WebviewToExtensionMessage) => {
@@ -84,6 +86,9 @@ export function App() {
       window.removeEventListener('message', listener);
       if (scrollFrameRef.current !== undefined) {
         window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      if (scrollAnimationFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(scrollAnimationFrameRef.current);
       }
     };
   }, [post]);
@@ -123,32 +128,58 @@ export function App() {
     if (scrollFrameRef.current !== undefined) {
       window.cancelAnimationFrame(scrollFrameRef.current);
     }
+    if (scrollAnimationFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
+      scrollAnimationFrameRef.current = undefined;
+    }
 
-    const applyScroll = (nextBehavior: ScrollBehavior) => {
+    const getTargetTop = () => {
       const currentTimeline = timelineRef.current;
       if (!currentTimeline) {
-        return;
+        return 0;
       }
 
       const contentEnd = timelineContentEndRef.current;
       const targetTop = contentEnd
         ? contentEnd.offsetTop - currentTimeline.clientHeight + LIVE_SCROLL_BOTTOM_PADDING
         : currentTimeline.scrollHeight;
-      currentTimeline.scrollTo({
-        top: Math.max(0, targetTop),
-        behavior: nextBehavior
-      });
+      return Math.max(0, targetTop);
+    };
+
+    const animateScroll = (fromTop: number, startedAt: number) => {
+      const currentTimeline = timelineRef.current;
+      if (!currentTimeline) {
+        scrollAnimationFrameRef.current = undefined;
+        return;
+      }
+
+      const targetTop = getTargetTop();
+      const elapsed = Math.min(1, (performance.now() - startedAt) / SCROLL_ANIMATION_MS);
+      const eased = 1 - Math.pow(1 - elapsed, 3);
+      currentTimeline.scrollTop = fromTop + (targetTop - fromTop) * eased;
+
+      if (elapsed < 1 && Math.abs(currentTimeline.scrollTop - targetTop) > 0.5) {
+        scrollAnimationFrameRef.current = window.requestAnimationFrame(() => animateScroll(fromTop, startedAt));
+        return;
+      }
+
+      currentTimeline.scrollTop = targetTop;
+      scrollAnimationFrameRef.current = undefined;
     };
 
     scrollFrameRef.current = window.requestAnimationFrame(() => {
-      applyScroll(behavior);
-      scrollFrameRef.current = window.requestAnimationFrame(() => {
-        if (isScrollPinnedRef.current) {
-          markProgrammaticScroll();
-          applyScroll('auto');
-        }
+      const currentTimeline = timelineRef.current;
+      if (!currentTimeline) {
         scrollFrameRef.current = undefined;
-      });
+        return;
+      }
+
+      if (behavior === 'smooth') {
+        animateScroll(currentTimeline.scrollTop, performance.now());
+      } else {
+        currentTimeline.scrollTop = getTargetTop();
+      }
+      scrollFrameRef.current = undefined;
     });
   }, [markProgrammaticScroll]);
 
@@ -283,6 +314,35 @@ export function App() {
       }
     });
   }, [isNearBottom, scrollToBottom, state.activityKind, state.activityText, state.messages, state.status]);
+
+  useLayoutEffect(() => {
+    const panel = composerPanelRef.current;
+    if (!panel || typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    let previousHeight = panel.getBoundingClientRect().height;
+    const observer = new ResizeObserver(entries => {
+      const nextHeight = entries[0]?.contentRect.height ?? panel.getBoundingClientRect().height;
+      if (Math.abs(nextHeight - previousHeight) < 0.5) {
+        return;
+      }
+
+      previousHeight = nextHeight;
+      const timeline = timelineRef.current;
+      if (!timeline) {
+        return;
+      }
+
+      if (isScrollPinnedRef.current || (!userScrollIntentRef.current && isNearBottom(timeline))) {
+        isScrollPinnedRef.current = true;
+        scrollToBottom('smooth');
+      }
+    });
+
+    observer.observe(panel);
+    return () => observer.disconnect();
+  }, [isNearBottom, scrollToBottom]);
 
   const resizeComposer = useCallback(() => {
     const textarea = textareaRef.current;
