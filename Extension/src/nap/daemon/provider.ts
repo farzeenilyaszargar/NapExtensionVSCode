@@ -10,6 +10,7 @@ import {
   NapAuthState,
   NapMode,
   NapModelOption,
+  NapPluginSummary,
   NapSecurityMode
 } from '../../shared/protocol';
 
@@ -49,6 +50,7 @@ export interface ProviderActivity {
 
 export interface ProviderAdapter {
   listModels(defaultModelId: string): Promise<NapModelOption[]>;
+  listPlugins(workspaceRoot?: string): Promise<NapPluginSummary[]>;
   authStatus(): Promise<NapAuthState>;
   login(): Promise<NapAuthState>;
   logout(): Promise<NapAuthState>;
@@ -92,6 +94,19 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       { id: 'minimax-m3', label: 'MiniMax M3', supportsTools: true },
       { id: 'minimax-m2.7', label: 'MiniMax M2.7', supportsTools: true }
     ];
+  }
+
+  async listPlugins(workspaceRoot?: string): Promise<NapPluginSummary[]> {
+    try {
+      await this.appServer.start();
+      const response = await this.appServer.request('plugin/list', {
+        cwds: workspaceRoot ? [workspaceRoot] : undefined
+      });
+      return parsePluginListResponse(response);
+    } catch (error) {
+      appendDaemonLog(`[provider] plugin list failed: ${error instanceof Error ? error.message : String(error)}`);
+      return [];
+    }
   }
 
   async authStatus(): Promise<NapAuthState> {
@@ -1245,6 +1260,52 @@ function parseModelOptions(output: string): NapModelOption[] {
     ids.add(match[0].replace(/^models\//, ''));
   }
   return [...ids].map(id => ({ id, label: id.replace(/-/g, ' '), supportsTools: true }));
+}
+
+function parsePluginListResponse(response: unknown): NapPluginSummary[] {
+  const record = readObject(response);
+  const marketplaces = Array.isArray(record?.marketplaces) ? record.marketplaces : [];
+  const plugins: NapPluginSummary[] = [];
+  const seen = new Set<string>();
+
+  for (const marketplace of marketplaces) {
+    const marketplaceRecord = readObject(marketplace);
+    const marketplacePlugins = Array.isArray(marketplaceRecord?.plugins) ? marketplaceRecord.plugins : [];
+    for (const item of marketplacePlugins) {
+      const plugin = readObject(item);
+      if (!plugin) {
+        continue;
+      }
+
+      const id = readString(plugin.id) ?? readString(plugin.name);
+      const name = readString(plugin.name) ?? id;
+      if (!id || !name || seen.has(id)) {
+        continue;
+      }
+
+      const pluginInterface = readObject(plugin.interface);
+      const label = readString(pluginInterface?.displayName) ?? titleCase(name) ?? name;
+      const description = readString(pluginInterface?.shortDescription)
+        ?? readString(pluginInterface?.longDescription);
+
+      seen.add(id);
+      plugins.push({
+        id,
+        name,
+        label,
+        description,
+        installed: plugin.installed === true,
+        enabled: plugin.enabled !== false
+      });
+    }
+  }
+
+  return plugins.sort((a, b) => {
+    if (a.installed !== b.installed) {
+      return a.installed ? -1 : 1;
+    }
+    return a.label.localeCompare(b.label);
+  });
 }
 
 function ensureDefaultModelOption(models: NapModelOption[]): NapModelOption[] {

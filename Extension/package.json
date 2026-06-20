@@ -54,7 +54,7 @@
     "vscode:prepublish": "npm run package"
   },
   "dependencies": {
-    "@nap-ai/cli": "^0.0.25",
+    "@nap-ai/cli-darwin-arm64": "npm:@nap-ai/cli@0.0.26-darwin-arm64",
     "markdown-it": "^14.2.0"
   },
   "devDependencies": {
@@ -160,7 +160,7 @@
         "nap.cliPath": {
           "type": "string",
           "default": "nap",
-          "description": "Nap CLI command used as a fallback when the bundled @nap-ai/cli app-server is unavailable. Install with npm i -g @nap-ai/cli."
+          "description": "Optional custom Nap CLI command. By default, the extension uses the bundled @nap-ai/cli@0.0.26-darwin-arm64 binary on macOS arm64."
         },
         "nap.accentColor": {
           "type": "string",

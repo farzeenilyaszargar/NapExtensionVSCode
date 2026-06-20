@@ -92,6 +92,15 @@ export interface NapMcpState {
   servers: NapMcpServerState[];
 }
 
+export interface NapPluginSummary {
+  id: string;
+  name: string;
+  label: string;
+  description?: string;
+  installed: boolean;
+  enabled: boolean;
+}
+
 export interface NapSessionState {
   sessionId: string;
   appThreadId?: string;
@@ -111,6 +120,7 @@ export interface NapSessionState {
   sessions: NapSessionSummary[];
   auth: NapAuthState;
   mcp: NapMcpState;
+  plugins: NapPluginSummary[];
   config: NapConfigurationSnapshot;
 }
 
@@ -165,6 +175,7 @@ export type WebviewToExtensionMessage =
   | { type: 'openFile'; filePath: string }
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
+  | { type: 'refreshPlugins' }
   | { type: 'openSettings' };
 
 export type ExtensionToWebviewMessage =
@@ -178,7 +189,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'modelsChanged'; models: NapModelOption[]; selectedModelId: string }
   | { type: 'sessionsChanged'; sessions: NapSessionSummary[] }
   | { type: 'authStateChanged'; auth: NapAuthState }
-  | { type: 'mcpStateChanged'; mcp: NapMcpState };
+  | { type: 'mcpStateChanged'; mcp: NapMcpState }
+  | { type: 'pluginsChanged'; plugins: NapPluginSummary[] };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -201,6 +213,7 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'newSession':
     case 'clearSession':
     case 'openSettings':
+    case 'refreshPlugins':
       return true;
     case 'sendPrompt':
       return typeof value.prompt === 'string';

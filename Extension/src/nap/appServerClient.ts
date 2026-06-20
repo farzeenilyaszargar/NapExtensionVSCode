@@ -1,4 +1,6 @@
 import { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { appendDaemonLog } from './runtimePaths';
 
 export type NapAppServerId = number;
@@ -80,6 +82,7 @@ export interface NapCliCommand {
 type PendingRequest = {
   resolve(value: unknown): void;
   reject(error: Error): void;
+  timeout: ReturnType<typeof setTimeout>;
 };
 
 type NotificationHandler = (notification: NapAppServerNotification) => void;
@@ -95,6 +98,8 @@ export class NapAppServerClient {
   private readonly requestHandlers = new Set<RequestHandler>();
   private startPromise: Promise<void> | undefined;
   private initialized = false;
+  private readonly requestTimeoutMs = 30000;
+  private readonly initializeTimeoutMs = 30000;
 
   constructor(
     private readonly extensionVersion: string,
@@ -138,16 +143,21 @@ export class NapAppServerClient {
     if (this.initialized) {
       return;
     }
-    await this.request('initialize', {
-      clientInfo: {
-        name: 'nap_extension',
-        title: 'Nap Extension',
-        version: this.extensionVersion
-      },
-      capabilities: {
-        experimentalApi: true
-      }
-    });
+    try {
+      await this.request('initialize', {
+        clientInfo: {
+          name: 'nap_extension',
+          title: 'Nap Extension',
+          version: this.extensionVersion
+        },
+        capabilities: {
+          experimentalApi: true
+        }
+      }, this.initializeTimeoutMs);
+    } catch (error) {
+      this.stop();
+      throw error;
+    }
     this.notify('initialized');
     this.initialized = true;
   }
@@ -176,16 +186,27 @@ export class NapAppServerClient {
     return this.request('account/logout');
   }
 
-  async request<TResult = unknown, TParams = unknown>(method: string, params?: TParams): Promise<TResult> {
+  async request<TResult = unknown, TParams = unknown>(method: string, params?: TParams, timeoutMs = this.requestTimeoutMs): Promise<TResult> {
     if (!this.child) {
       await this.start();
     }
     const id = this.nextId++;
     const message: NapAppServerRequest<TParams> = { id, method, params };
     return new Promise<TResult>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`Nap app-server request timed out: ${method}`));
+      }, timeoutMs);
       this.pending.set(id, {
-        resolve: value => resolve(value as TResult),
-        reject
+        resolve: value => {
+          clearTimeout(timeout);
+          resolve(value as TResult);
+        },
+        reject: error => {
+          clearTimeout(timeout);
+          reject(error);
+        },
+        timeout
       });
       this.write(message);
     });
@@ -205,6 +226,7 @@ export class NapAppServerClient {
     this.initialized = false;
 
     for (const pending of this.pending.values()) {
+      clearTimeout(pending.timeout);
       pending.reject(new Error('Nap app-server stopped.'));
     }
     this.pending.clear();
@@ -311,6 +333,7 @@ export class NapAppServerClient {
 
   private rejectAll(error: Error): void {
     for (const pending of this.pending.values()) {
+      clearTimeout(pending.timeout);
       pending.reject(error);
     }
     this.pending.clear();
@@ -356,24 +379,29 @@ export function resolveNapCliCommand(args: string[], cliPath = 'nap'): NapCliCom
     };
   }
 
-  return resolveBundledNapCommand(args) ?? {
-    command: 'nap',
-    args
-  };
+  return resolveBundledDarwinArm64NapCommand(args);
 }
 
-function resolveBundledNapCommand(args: string[]): NapCliCommand | undefined {
+function resolveBundledDarwinArm64NapCommand(args: string[]): NapCliCommand {
+  if (process.platform !== 'darwin' || process.arch !== 'arm64') {
+    throw new Error('Bundled Nap CLI is pinned to @nap-ai/cli@0.0.26-darwin-arm64 and can only run on macOS arm64.');
+  }
+
   try {
     // The extension is compiled to CommonJS, so require.resolve is available.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const napJs = require.resolve('@nap-ai/cli/bin/nap.js') as string;
+    const packageJson = require.resolve('@nap-ai/cli-darwin-arm64/package.json') as string;
+    const napBinary = path.join(path.dirname(packageJson), 'vendor', 'aarch64-apple-darwin', 'bin', 'nap');
+    if (!fs.existsSync(napBinary)) {
+      throw new Error(`Missing native Nap binary at ${napBinary}`);
+    }
     return {
-      command: process.execPath,
-      args: [napJs, ...args]
+      command: napBinary,
+      args
     };
   } catch (error) {
-    appendDaemonLog(`[app-server] bundled @nap-ai/cli not available: ${error instanceof Error ? error.message : String(error)}`);
-    return undefined;
+    appendDaemonLog(`[app-server] bundled @nap-ai/cli@0.0.26-darwin-arm64 not available: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
   }
 }
 

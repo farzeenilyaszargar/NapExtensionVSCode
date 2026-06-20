@@ -168,6 +168,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       case 'setModel':
         this.setModel(message.modelId);
         return;
+      case 'refreshPlugins':
+        await this.refreshEnvironment();
+        this.publishState();
+        return;
       case 'openSettings':
         NapSettingsPanel.open(this.extensionUri);
         return;
@@ -374,10 +378,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
   private async refreshEnvironment(): Promise<void> {
     const config = this.state.config;
-    const [modelsResult, authResult, mcpResult] = await Promise.allSettled([
+    const [modelsResult, authResult, mcpResult, pluginsResult] = await Promise.allSettled([
       this.cliService.getModels(config.defaultModel),
       this.cliService.getAuthState(),
-      this.cliService.getMcpState()
+      this.cliService.getMcpState(),
+      this.cliService.getPlugins()
     ]);
     const models = modelsResult.status === 'fulfilled'
       ? modelsResult.value
@@ -386,8 +391,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const mcp = mcpResult.status === 'fulfilled'
       ? mcpResult.value
       : { status: 'disabled' as const, servers: [] };
+    const plugins = pluginsResult.status === 'fulfilled'
+      ? pluginsResult.value
+      : [];
 
-    for (const result of [modelsResult, authResult, mcpResult]) {
+    for (const result of [modelsResult, authResult, mcpResult, pluginsResult]) {
       if (result.status === 'rejected') {
         this.output.appendLine(`[warn] ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`);
       }
@@ -405,12 +413,14 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       models,
       modelId: selectedModelId,
       auth,
-      mcp
+      mcp,
+      plugins
     };
 
     this.post({ type: 'modelsChanged', models, selectedModelId });
     this.post({ type: 'authStateChanged', auth });
     this.post({ type: 'mcpStateChanged', mcp });
+    this.post({ type: 'pluginsChanged', plugins });
   }
 
   private async refreshSessions(): Promise<void> {
@@ -640,6 +650,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         status: 'disabled',
         servers: []
       },
+      plugins: previousState?.plugins ?? [],
       config
     };
   }
@@ -657,7 +668,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       securityMode: session.securityMode,
       messages: session.messages,
       queuedPrompts: [],
-      logs: []
+      logs: [],
+      plugins: this.state.plugins
     };
   }
 

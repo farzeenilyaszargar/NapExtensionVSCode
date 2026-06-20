@@ -1495,14 +1495,15 @@ textarea:disabled {
   z-index: 5;
   display: grid;
   gap: 2px;
-  width: 126px;
-  max-width: calc(100vw - 8px);
+  width: max-content;
+  min-width: 126px;
+  max-width: calc(100% - 8px);
   max-height: min(148px, calc(100vh - 80px));
   padding: 4px;
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--vscode-dropdown-border, var(--nap-border));
-  border-radius: 5px;
+  border-radius: 10px;
   background: var(--vscode-dropdown-background, var(--vscode-editorWidget-background));
   box-shadow: 0 6px 18px color-mix(in srgb, black 24%, transparent);
   transform-origin: bottom left;
@@ -1527,9 +1528,93 @@ textarea:disabled {
 }
 
 .model-menu {
-  width: 150px;
-  max-width: calc(100vw - 8px);
+  min-width: 150px;
+  max-width: calc(100% - 8px);
   max-height: min(150px, calc(100vh - 80px));
+  transition: height 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.add-menu {
+  width: 244px;
+  min-width: min(244px, calc(100vw - 30px));
+  max-height: min(320px, calc(100vh - 92px));
+  gap: 8px;
+  padding: 8px;
+}
+
+.add-menu-section {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.add-menu-section--plugins {
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in srgb, var(--nap-border) 70%, transparent);
+}
+
+.add-menu-heading {
+  padding: 0 10px 3px;
+  color: var(--nap-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.add-menu-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 14px;
+  width: 100%;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.add-menu-item svg:last-child {
+  justify-self: end;
+}
+
+.plugin-menu-item:not(:disabled) svg:first-child {
+  color: #9aa8ff;
+}
+
+.add-menu-empty {
+  padding: 6px 10px 7px;
+  color: var(--nap-muted);
+  font-size: 10.5px;
+  line-height: 1.3;
+}
+
+.model-menu .floating-menu-item {
+  padding-left: 10px;
+  padding-right: 8px;
+}
+
+.model-menu .floating-menu-item span {
+  flex: 1 1 auto;
+}
+
+.model-menu .floating-menu-item svg {
+  margin-left: auto;
+}
+
+.model-menu--expanded .floating-menu-item:nth-child(n + 5) {
+  animation: model-menu-more-in 170ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.model-menu--expanding {
+  overflow-y: hidden;
+}
+
+@keyframes model-menu-more-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .floating-menu-item {
@@ -1542,16 +1627,20 @@ textarea:disabled {
   padding: 0 6px;
   border: 0;
   border-radius: 999px;
-  background: rgba(22, 22, 22, 0.72);
+  background: transparent;
   color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
   cursor: pointer;
   font-size: 10.5px;
   text-align: left;
 }
 
-.floating-menu-item:hover,
+.floating-menu-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(43, 43, 43, 0.92));
+}
+
 .floating-menu-item[aria-checked="true"] {
-  background: rgba(43, 43, 43, 0.92);
+  background: var(--vscode-list-activeSelectionBackground, rgba(43, 43, 43, 0.92));
+  color: var(--vscode-list-activeSelectionForeground, var(--vscode-dropdown-foreground, var(--vscode-foreground)));
 }
 
 .floating-menu-item:disabled {
@@ -1569,6 +1658,14 @@ textarea:disabled {
 
 .floating-menu-item svg {
   color: var(--nap-muted);
+}
+
+.floating-menu-item--more {
+  justify-content: space-between;
+}
+
+.floating-menu-item--more span {
+  flex: 1 1 auto;
 }
 
 .permissions-select--bypass,

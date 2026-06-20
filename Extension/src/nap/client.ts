@@ -18,6 +18,7 @@ import {
   NapRpcEvent,
   NapRpcMethod,
   NapSessionRecord,
+  PluginListResult,
   SessionCreateParams,
   SessionMessageDeltaEvent,
   SessionMessageDoneEvent,
@@ -154,6 +155,10 @@ export class NapDaemonClient {
 
   async mcpServers(): Promise<NapMcpState> {
     return this.request('mcp.listServers', this.withEnvelope({}));
+  }
+
+  async listPlugins(): Promise<PluginListResult> {
+    return this.request('plugins.list', this.withEnvelope({}));
   }
 
   async indexStatus(): Promise<WorkspaceIndexStatus> {

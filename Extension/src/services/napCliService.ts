@@ -8,6 +8,7 @@ import {
   NapMcpState,
   NapMode,
   NapModelOption,
+  NapPluginSummary,
   NapSecurityMode,
   NapSessionRecord,
   NapSessionSummary
@@ -42,6 +43,7 @@ export interface INapCliService extends vscode.Disposable {
   getModels(defaultModelId: string): Promise<NapModelOption[]>;
   getAuthState(): Promise<NapAuthState>;
   getMcpState(): Promise<NapMcpState>;
+  getPlugins(): Promise<NapPluginSummary[]>;
   listSessions(): Promise<NapSessionSummary[]>;
   getSession(sessionId: string): Promise<NapSessionRecord>;
   deleteSession(sessionId: string): Promise<void>;
@@ -105,6 +107,11 @@ export class NapDaemonService implements INapCliService {
 
   async getMcpState(): Promise<NapMcpState> {
     return this.client.mcpServers();
+  }
+
+  async getPlugins(): Promise<NapPluginSummary[]> {
+    const result = await this.client.listPlugins();
+    return result.plugins;
   }
 
   async listSessions(): Promise<NapSessionSummary[]> {

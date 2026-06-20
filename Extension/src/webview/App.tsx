@@ -5,14 +5,19 @@ import {
   ChevronDown,
   Copy,
   FileText,
+  FolderOpen,
+  Image,
   List,
   Lock,
   Plus,
+  ChevronRight,
+  Puzzle,
   Settings,
   Shield,
   SquareTerminal,
   Square,
   Sparkles,
+  Target,
   ThumbsDown,
   ThumbsUp,
   TriangleAlert,
@@ -26,7 +31,7 @@ import { renderMarkdown } from './markdown';
 
 const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
-type OpenMenu = 'approval' | 'model' | undefined;
+type OpenMenu = 'add' | 'approval' | 'model' | undefined;
 type ResponseVote = 'up' | 'down';
 type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
@@ -56,6 +61,7 @@ export function App() {
   const [draft, setDraft] = useState('');
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
+  const [showAllModels, setShowAllModels] = useState(false);
   const [activePage, setActivePage] = useState<ActivePage>('chat');
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
@@ -84,7 +90,7 @@ export function App() {
       if (event.data?.type === 'showChat') {
         setActivePage('chat');
       }
-      if (event.data?.type === 'authStateChanged') {
+      if (event.data?.type === 'sessionState' || event.data?.type === 'authStateChanged') {
         setIsInitialLoading(false);
         setIsAuthVerifying(false);
       }
@@ -259,6 +265,10 @@ export function App() {
   }, [scrollToBottom, state.messages]);
 
   useEffect(() => {
+    if (openMenu !== 'model') {
+      setShowAllModels(false);
+    }
+
     if (!openMenu) {
       return;
     }
@@ -287,15 +297,25 @@ export function App() {
         return;
       }
 
+      const shell = menu.closest<HTMLElement>('.nap-shell') ?? document.documentElement;
+      const dropdown = menu.closest<HTMLElement>('.floating-dropdown');
+      const shellRect = shell.getBoundingClientRect();
+      const dropdownRect = dropdown?.getBoundingClientRect();
+      const shellInset = 4;
+      const availableWidth = Math.max(120, shellRect.width - shellInset * 2);
+      const availableAbove = dropdownRect
+        ? dropdownRect.top - shellRect.top - shellInset
+        : shellRect.height - shellInset * 2;
+
       menu.classList.remove('floating-menu--align-end');
-      menu.style.maxWidth = `${Math.max(120, window.innerWidth - 8)}px`;
-      menu.style.maxHeight = `${Math.max(96, window.innerHeight - 80)}px`;
+      menu.style.maxWidth = `${availableWidth}px`;
+      menu.style.maxHeight = `${Math.max(96, availableAbove)}px`;
 
       const rect = menu.getBoundingClientRect();
-      if (rect.right > window.innerWidth - 4) {
+      if (rect.right > shellRect.right - shellInset) {
         menu.classList.add('floating-menu--align-end');
       }
-      if (rect.left < 4) {
+      if (rect.left < shellRect.left + shellInset) {
         menu.classList.remove('floating-menu--align-end');
       }
     };
@@ -307,6 +327,12 @@ export function App() {
       window.removeEventListener('resize', clampOpenMenu);
     };
   }, [openMenu]);
+
+  useEffect(() => {
+    if (openMenu === 'add') {
+      post({ type: 'refreshPlugins' });
+    }
+  }, [openMenu, post]);
 
   useEffect(() => {
     const latestStreamingAssistant = [...state.messages].reverse().find(message =>
@@ -391,6 +417,8 @@ export function App() {
     ? state.models
     : [{ id: state.modelId, label: state.modelId, description: 'Current model' }]
   ).filter(model => model.id !== 'auto');
+  const visibleModelOptions = showAllModels ? modelOptions : modelOptions.slice(0, 4);
+  const hasMoreModels = modelOptions.length > visibleModelOptions.length;
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
@@ -411,6 +439,57 @@ export function App() {
     const interval = window.setInterval(() => setElapsedNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, [latestStreamingAssistant?.id]);
+
+  const expandModelMenu = useCallback(() => {
+    const menu = document.querySelector<HTMLElement>('.floating-menu[data-menu="model"]');
+    if (menu) {
+      menu.classList.add('model-menu--expanding');
+      menu.style.height = `${menu.getBoundingClientRect().height}px`;
+    }
+
+    setShowAllModels(true);
+
+    window.requestAnimationFrame(() => {
+      const expandedMenu = document.querySelector<HTMLElement>('.floating-menu[data-menu="model"]');
+      if (!expandedMenu) {
+        return;
+      }
+
+      const maxHeight = Number.parseFloat(expandedMenu.style.maxHeight);
+      const targetHeight = Number.isFinite(maxHeight)
+        ? Math.min(expandedMenu.scrollHeight, maxHeight)
+        : expandedMenu.scrollHeight;
+      expandedMenu.style.height = `${targetHeight}px`;
+
+      window.setTimeout(() => {
+        expandedMenu.classList.remove('model-menu--expanding');
+        expandedMenu.style.height = '';
+      }, 210);
+    });
+  }, []);
+
+  const seedComposerText = useCallback((text: string) => {
+    setDraft(previous => previous.trim() ? `${previous.trimEnd()}\n${text}` : text);
+    window.requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
+
+  const chooseAddAction = useCallback((action: 'files' | 'plan' | 'goal' | 'image') => {
+    if (action === 'plan') {
+      post({ type: 'setMode', mode: 'plan' });
+    } else if (action === 'goal') {
+      seedComposerText('Goal: ');
+    } else if (action === 'files') {
+      seedComposerText('Add files and folders: ');
+    } else {
+      seedComposerText('Add image: ');
+    }
+    setOpenMenu(undefined);
+  }, [post, seedComposerText]);
+
+  const choosePlugin = useCallback((pluginName: string) => {
+    seedComposerText(`@${pluginName} `);
+    setOpenMenu(undefined);
+  }, [seedComposerText]);
 
   useEffect(() => {
     const focusComposerOnTyping = (event: globalThis.KeyboardEvent) => {
@@ -767,8 +846,8 @@ export function App() {
                   <ChevronDown className="model-chevron" size={11} strokeWidth={1.7} aria-hidden="true" />
                 </button>
                 {openMenu === 'model' ? (
-                  <div className="floating-menu model-menu" role="menu" data-menu="model">
-                    {modelOptions.map(model => (
+                  <div className={`floating-menu model-menu${showAllModels ? ' model-menu--expanded' : ''}`} role="menu" data-menu="model">
+                    {visibleModelOptions.map(model => (
                       <button
                         key={model.id}
                         type="button"
@@ -784,6 +863,18 @@ export function App() {
                         {state.modelId === model.id ? <Check size={12} /> : null}
                       </button>
                     ))}
+                    {hasMoreModels ? (
+                      <button
+                        type="button"
+                        className="floating-menu-item floating-menu-item--more"
+                        role="menuitem"
+                        aria-expanded={showAllModels}
+                        onClick={expandModelMenu}
+                      >
+                        <span>More</span>
+                        <ChevronRight size={12} strokeWidth={1.8} aria-hidden="true" />
+                      </button>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -798,9 +889,52 @@ export function App() {
               )}
             </div>
             <div className="composer-left-actions">
-              <button className="composer-plus-button" type="button" title="Add context" aria-label="Add context">
+              <button className="composer-plus-button" type="button" title="Add context" aria-label="Add context" aria-expanded={openMenu === 'add'} onClick={() => setOpenMenu(openMenu === 'add' ? undefined : 'add')}>
                 <Plus size={14} strokeWidth={1.9} />
               </button>
+              {openMenu === 'add' ? (
+                <div className="floating-menu add-menu" role="menu" data-menu="add">
+                  <div className="add-menu-section" role="group" aria-label="Add">
+                    <div className="add-menu-heading">Add</div>
+                    <button type="button" className="floating-menu-item add-menu-item" role="menuitem" onClick={() => chooseAddAction('files')}>
+                      <FolderOpen size={13} aria-hidden="true" />
+                      <span>Files and folders</span>
+                    </button>
+                    <button type="button" className="floating-menu-item add-menu-item" role="menuitem" onClick={() => chooseAddAction('plan')}>
+                      <List size={13} aria-hidden="true" />
+                      <span>Plan Mode</span>
+                    </button>
+                    <button type="button" className="floating-menu-item add-menu-item" role="menuitem" onClick={() => chooseAddAction('goal')}>
+                      <Target size={13} aria-hidden="true" />
+                      <span>Set Goal</span>
+                    </button>
+                    <button type="button" className="floating-menu-item add-menu-item" role="menuitem" onClick={() => chooseAddAction('image')}>
+                      <Image size={13} aria-hidden="true" />
+                      <span>Add Image</span>
+                    </button>
+                  </div>
+                  <div className="add-menu-section add-menu-section--plugins" role="group" aria-label="Plugins">
+                    <div className="add-menu-heading">Plugins</div>
+                    {state.plugins.length > 0 ? state.plugins.slice(0, 8).map(plugin => (
+                      <button
+                        key={plugin.id}
+                        type="button"
+                        className="floating-menu-item add-menu-item plugin-menu-item"
+                        role="menuitem"
+                        disabled={!plugin.enabled}
+                        title={plugin.description ?? plugin.label}
+                        onClick={() => choosePlugin(plugin.name)}
+                      >
+                        <Puzzle size={13} aria-hidden="true" />
+                        <span>{plugin.label}</span>
+                        {plugin.installed ? <Check size={12} aria-hidden="true" /> : null}
+                      </button>
+                    )) : (
+                      <div className="add-menu-empty">No plugins found</div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
               <div className="floating-dropdown permissions-dropdown">
                 <button type="button" className={`floating-select permissions-select permissions-select--${approvalMode}`} aria-label="Permissions" aria-expanded={openMenu === 'approval'} onClick={() => setOpenMenu(openMenu === 'approval' ? undefined : 'approval')}>
                   {approvalMode === 'bypass' ? <TriangleAlert size={12} /> : <Shield size={12} />}

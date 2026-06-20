@@ -194,6 +194,10 @@ export class NapDaemon {
       case 'mcp.disconnect':
         this.broadcast('mcp.server.changed', this.mcpEvent(undefined));
         return this.mcpState;
+      case 'plugins.list':
+        return {
+          plugins: await this.provider.listPlugins((params as { workspaceRoot?: string } | undefined)?.workspaceRoot)
+        };
       case 'workspace.open':
         return this.storage.getWorkspaceIndex((params as { workspaceRoot?: string } | undefined)?.workspaceRoot);
       case 'workspace.indexStatus':

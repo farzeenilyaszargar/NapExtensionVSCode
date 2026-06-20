@@ -30,6 +30,7 @@ export const initialViewState: NapViewState = {
     status: 'disabled',
     servers: []
   },
+  plugins: [],
   config: {
     cliPath: 'nap',
     accentColor: NAP_DEFAULT_ACCENT,
@@ -124,6 +125,11 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
       return {
         ...state,
         mcp: message.mcp
+      };
+    case 'pluginsChanged':
+      return {
+        ...state,
+        plugins: message.plugins
       };
   }
 }

@@ -7,6 +7,7 @@ import {
   NapMessage,
   NapMode,
   NapModelOption,
+  NapPluginSummary,
   NapSecurityMode
 } from '../shared/protocol';
 
@@ -66,6 +67,7 @@ export type NapRpcMethod =
   | 'mcp.listServers'
   | 'mcp.connect'
   | 'mcp.disconnect'
+  | 'plugins.list'
   | 'workspace.open'
   | 'workspace.indexStatus'
   | 'workspace.reindex'
@@ -163,6 +165,10 @@ export interface SessionStopParams extends NapRpcEnvelope {
 export interface ModelListResult {
   models: NapModelOption[];
   selectedModelId: string;
+}
+
+export interface PluginListResult {
+  plugins: NapPluginSummary[];
 }
 
 export interface WorkspaceIndexStatus {
