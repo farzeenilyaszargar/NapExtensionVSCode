@@ -158,6 +158,20 @@ describe('NapAppServerClient', () => {
     client.dispose();
   });
 
+  it('does not send initialize twice when initialize is called after start', async () => {
+    const fake = createFakeChild();
+    const client = new NapAppServerClient('1.2.3', (() => fake.child) as never);
+
+    const started = client.start();
+    await waitForWrites(fake.writes, 1);
+    fake.stdout.emit('data', Buffer.from('{"id":1,"result":{"ok":true}}\n'));
+    await started;
+
+    await client.initialize();
+    expect(fake.writes.map(write => JSON.parse(write).method)).toEqual(['initialize', 'initialized']);
+    client.dispose();
+  });
+
   it('prefers a custom CLI path when configured', () => {
     expect(resolveNapCliCommand(['login'], '/custom/nap')).toEqual({
       command: '/custom/nap',

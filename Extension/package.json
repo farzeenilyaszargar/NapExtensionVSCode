@@ -2,7 +2,7 @@
   "name": "nap",
   "displayName": "Nap Chat For VS Code",
   "description": "An AI coding agent chat experience for VS Code with a polished Nap sidebar interface.",
-  "version": "1.5.10",
+  "version": "1.5.11",
   "publisher": "NapCode",
   "icon": "icon.png",
   "license": "MIT",
@@ -50,7 +50,7 @@
     "test:unit": "vitest run",
     "test:integration": "npm run compile && node ./out/test/runTest.js",
     "test": "npm run test:unit && npm run test:integration",
-    "vsix": "npm run package && vsce package --no-dependencies",
+    "vsix": "npm run package && vsce package",
     "vscode:prepublish": "npm run package"
   },
   "dependencies": {

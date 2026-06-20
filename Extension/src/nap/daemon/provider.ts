@@ -175,7 +175,8 @@ export class NapCliProviderAdapter implements ProviderAdapter {
 
     await this.appServer.start();
     const threadKey = request.sessionId ?? request.workspaceRoot ?? 'default';
-    const threadId = await this.getOrStartThread(threadKey, request);
+    let threadId = await this.getOrStartThread(threadKey, request);
+    const activeThreadIds = new Set([threadId]);
     stream.onThread?.(threadId);
     stream.onLog(`Starting Nap app-server turn in thread ${threadId}.`);
 
@@ -184,7 +185,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     const activityBuffers = new Map<string, ProviderActivity>();
     const completed = new Promise<void>((resolve, reject) => {
       const cleanup = this.appServer.onNotification(notification => {
-        if (!notificationMatchesTurn(notification, threadId, turnId)) {
+        if (!notificationMatchesAnyTurn(notification, activeThreadIds, turnId)) {
           return;
         }
 
@@ -217,10 +218,10 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     });
 
     try {
-      const turnResult = await this.appServer.startTurn({
-        threadId,
-        input: [{ type: 'text', text: buildTurnText(request) }]
-      });
+      const started = await this.startTurnWithFreshThreadFallback(threadKey, threadId, activeThreadIds, request);
+      threadId = started.threadId;
+      stream.onThread?.(threadId);
+      const turnResult = started.result;
       turnId = readTurnId(turnResult);
       appendDaemonLog(`[provider] app-server turn started thread=${threadId} turn=${turnId ?? 'unknown'}`);
       await completed;
@@ -235,6 +236,11 @@ export class NapCliProviderAdapter implements ProviderAdapter {
   }
 
   private async handleAppServerRequest(request: NapAppServerRequest): Promise<unknown> {
+    if (request.method === 'item/commandExecution/requestApproval' || request.method === 'item/fileChange/requestApproval') {
+      appendDaemonLog(`[provider] auto-approving app-server request method=${request.method}`);
+      return { decision: 'accept' };
+    }
+
     if (request.method !== 'account/chatgptAuthTokens/refresh') {
       return undefined;
     }
@@ -282,6 +288,44 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     const threadId = await getInitializedThread(this.appServer, request);
     this.appThreads.set(threadKey, threadId);
     return threadId;
+  }
+
+  private async startTurnWithFreshThreadFallback(
+    threadKey: string,
+    threadId: string,
+    activeThreadIds: Set<string>,
+    request: ProviderPromptRequest
+  ): Promise<{ threadId: string; result: unknown }> {
+    try {
+      return { threadId, result: await this.startTurn(threadId, request) };
+    } catch (error) {
+      if (!isThreadNotFoundError(error)) {
+        throw error;
+      }
+
+      appendDaemonLog(`[provider] app-server thread ${threadId} was stale; starting a fresh thread and retrying turn.`);
+      this.appThreads.delete(threadKey);
+      const freshThreadId = await getInitializedThread(this.appServer, {
+        ...request,
+        appThreadId: undefined
+      });
+      this.appThreads.set(threadKey, freshThreadId);
+      activeThreadIds.add(freshThreadId);
+      return { threadId: freshThreadId, result: await this.startTurn(freshThreadId, request) };
+    }
+  }
+
+  private async startTurn(threadId: string, request: ProviderPromptRequest): Promise<unknown> {
+    return this.appServer.startTurn({
+      threadId,
+      input: [{ type: 'text', text: buildTurnText(request) }],
+      cwd: request.workspaceRoot ?? process.cwd(),
+      model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
+      approvalPolicy: 'on-request',
+      sandboxPolicy: request.securityMode === 'strict'
+        ? { mode: 'read-only' }
+        : { mode: 'workspace-write' }
+    });
   }
 
   private async runText(args: string[], timeoutMs: number): Promise<string> {
@@ -376,6 +420,10 @@ function isExternalAuthActiveError(error: unknown): boolean {
   return error instanceof Error && /External auth is active/i.test(error.message);
 }
 
+function isThreadNotFoundError(error: unknown): boolean {
+  return error instanceof Error && /thread not found/i.test(error.message);
+}
+
 async function getInitializedThread(client: NapAppServerClient, request: ProviderPromptRequest): Promise<string> {
   const result = await client.startThread({
     cwd: request.workspaceRoot ?? process.cwd(),
@@ -446,6 +494,15 @@ function notificationMatchesTurn(notification: NapAppServerNotification, threadI
     return false;
   }
   return true;
+}
+
+function notificationMatchesAnyTurn(notification: NapAppServerNotification, threadIds: Set<string>, turnId: string | undefined): boolean {
+  for (const threadId of threadIds) {
+    if (notificationMatchesTurn(notification, threadId, turnId)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function parseAppServerDelta(notification: NapAppServerNotification): string {

@@ -48,6 +48,12 @@ export interface ResumeThreadParams extends StartThreadParams {
 export interface StartTurnParams {
   threadId: string;
   input: Array<{ type: 'text'; text: string }>;
+  cwd?: string;
+  model?: string;
+  approvalPolicy?: string;
+  sandboxPolicy?: {
+    mode: string;
+  };
 }
 
 export type LoginAccountParams =
@@ -88,6 +94,7 @@ export class NapAppServerClient {
   private readonly notificationHandlers = new Set<NotificationHandler>();
   private readonly requestHandlers = new Set<RequestHandler>();
   private startPromise: Promise<void> | undefined;
+  private initialized = false;
 
   constructor(
     private readonly extensionVersion: string,
@@ -122,10 +129,15 @@ export class NapAppServerClient {
 
   async initialize(): Promise<void> {
     await this.start();
-    await this.sendInitialize();
+    if (!this.initialized) {
+      await this.sendInitialize();
+    }
   }
 
   private async sendInitialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
     await this.request('initialize', {
       clientInfo: {
         name: 'nap_extension',
@@ -137,6 +149,7 @@ export class NapAppServerClient {
       }
     });
     this.notify('initialized');
+    this.initialized = true;
   }
 
   async startThread(params: StartThreadParams): Promise<unknown> {
@@ -189,6 +202,7 @@ export class NapAppServerClient {
     const child = this.child;
     this.child = undefined;
     this.stdoutBuffer = '';
+    this.initialized = false;
 
     for (const pending of this.pending.values()) {
       pending.reject(new Error('Nap app-server stopped.'));

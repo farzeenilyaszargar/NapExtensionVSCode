@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
+import { NapCliProviderAdapter, buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
 
 describe('Nap CLI auth parsing', () => {
   it('treats profile JSON as authenticated even without a status field', () => {
@@ -307,6 +307,109 @@ describe('Nap app-server stream parsing', () => {
     });
   });
 });
+
+describe('Nap app-server provider streaming', () => {
+  it('starts a fresh thread and retries when a persisted app-server thread is stale', async () => {
+    const fakeAppServer = new FakeAppServer();
+    const provider = new NapCliProviderAdapter('nap', 'test', fakeAppServer as never);
+    const deltas: string[] = [];
+    const threads: string[] = [];
+
+    await provider.streamPrompt(
+      {
+        prompt: 'hello',
+        mode: 'chat',
+        modelId: 'gpt-5.4-mini',
+        debugMode: false,
+        securityMode: 'standard',
+        sessionId: 'session-1',
+        appThreadId: 'stale-thread',
+        workspaceRoot: '/repo'
+      },
+      {
+        onDelta: delta => deltas.push(delta),
+        onActivity: () => undefined,
+        onThread: threadId => threads.push(threadId),
+        onLog: () => undefined
+      },
+      new AbortController().signal
+    );
+
+    expect(fakeAppServer.resumeCalls).toEqual(['stale-thread']);
+    expect(fakeAppServer.startedThreads).toEqual(['/repo']);
+    expect(fakeAppServer.turnThreadIds).toEqual(['stale-thread', 'fresh-thread']);
+    expect(threads).toEqual(['stale-thread', 'fresh-thread']);
+    expect(deltas).toEqual(['hello from fresh thread']);
+  });
+});
+
+class FakeAppServer {
+  readonly resumeCalls: string[] = [];
+  readonly startedThreads: string[] = [];
+  readonly turnThreadIds: string[] = [];
+  private notificationHandler: ((notification: { method: string; params?: unknown }) => void) | undefined;
+
+  onRequest(): () => void {
+    return () => undefined;
+  }
+
+  onNotification(handler: (notification: { method: string; params?: unknown }) => void): () => void {
+    this.notificationHandler = handler;
+    return () => {
+      this.notificationHandler = undefined;
+    };
+  }
+
+  async start(): Promise<void> {
+    return undefined;
+  }
+
+  async readAccount(): Promise<unknown> {
+    return {
+      account: {
+        type: 'chatgpt',
+        email: 'farzeen@example.com'
+      }
+    };
+  }
+
+  async resumeThread(params: { threadId: string }): Promise<unknown> {
+    this.resumeCalls.push(params.threadId);
+    return { thread: { id: params.threadId } };
+  }
+
+  async startThread(params: { cwd: string }): Promise<unknown> {
+    this.startedThreads.push(params.cwd);
+    return { thread: { id: 'fresh-thread' } };
+  }
+
+  async startTurn(params: { threadId: string }): Promise<unknown> {
+    this.turnThreadIds.push(params.threadId);
+    if (params.threadId === 'stale-thread') {
+      throw new Error('thread not found: stale-thread');
+    }
+
+    queueMicrotask(() => {
+      this.notificationHandler?.({
+        method: 'item/agentMessage/delta',
+        params: {
+          threadId: params.threadId,
+          turnId: 'turn-1',
+          delta: 'hello from fresh thread'
+        }
+      });
+      this.notificationHandler?.({
+        method: 'turn/completed',
+        params: {
+          threadId: params.threadId,
+          turn: { id: 'turn-1' }
+        }
+      });
+    });
+
+    return { turn: { id: 'turn-1' } };
+  }
+}
 
 describe('Nap CLI command construction', () => {
   it('uses supported nap exec flags only', () => {

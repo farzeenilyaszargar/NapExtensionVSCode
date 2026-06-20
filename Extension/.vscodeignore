@@ -4,6 +4,9 @@
 .gitignore
 src/**
 node_modules/**
+!node_modules/
+!node_modules/@nap-ai/
+!node_modules/@nap-ai/**
 out/test/**
 out/**/*.map
 dist/**/*.map
