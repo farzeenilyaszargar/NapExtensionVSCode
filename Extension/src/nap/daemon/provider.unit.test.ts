@@ -338,6 +338,10 @@ describe('Nap app-server provider streaming', () => {
     expect(fakeAppServer.resumeCalls).toEqual(['stale-thread']);
     expect(fakeAppServer.startedThreads).toEqual(['/repo']);
     expect(fakeAppServer.turnThreadIds).toEqual(['stale-thread', 'fresh-thread']);
+    expect(fakeAppServer.turnInputs).toEqual([
+      [{ type: 'text', text: 'hello', text_elements: [] }],
+      [{ type: 'text', text: 'hello', text_elements: [] }]
+    ]);
     expect(threads).toEqual(['stale-thread', 'fresh-thread']);
     expect(deltas).toEqual(['hello from fresh thread']);
   });
@@ -347,6 +351,7 @@ class FakeAppServer {
   readonly resumeCalls: string[] = [];
   readonly startedThreads: string[] = [];
   readonly turnThreadIds: string[] = [];
+  readonly turnInputs: Array<Array<{ type: 'text'; text: string; text_elements: [] }>> = [];
   private notificationHandler: ((notification: { method: string; params?: unknown }) => void) | undefined;
 
   onRequest(): () => void {
@@ -383,8 +388,9 @@ class FakeAppServer {
     return { thread: { id: 'fresh-thread' } };
   }
 
-  async startTurn(params: { threadId: string }): Promise<unknown> {
+  async startTurn(params: { threadId: string; input: Array<{ type: 'text'; text: string; text_elements: [] }> }): Promise<unknown> {
     this.turnThreadIds.push(params.threadId);
+    this.turnInputs.push(params.input);
     if (params.threadId === 'stale-thread') {
       throw new Error('thread not found: stale-thread');
     }

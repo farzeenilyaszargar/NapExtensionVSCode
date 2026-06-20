@@ -335,13 +335,10 @@ export class NapCliProviderAdapter implements ProviderAdapter {
   private async startTurn(threadId: string, request: ProviderPromptRequest): Promise<unknown> {
     return this.appServer.startTurn({
       threadId,
-      input: [{ type: 'text', text: buildTurnText(request) }],
+      input: [{ type: 'text', text: buildTurnText(request), text_elements: [] }],
       cwd: request.workspaceRoot ?? process.cwd(),
       model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
-      approvalPolicy: 'on-request',
-      sandboxPolicy: request.securityMode === 'strict'
-        ? { mode: 'read-only' }
-        : { mode: 'workspace-write' }
+      approvalPolicy: 'on-request'
     });
   }
 

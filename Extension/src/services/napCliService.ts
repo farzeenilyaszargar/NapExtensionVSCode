@@ -53,7 +53,6 @@ export interface INapCliService extends vscode.Disposable {
 
 export class NapDaemonService implements INapCliService {
   private readonly client: NapDaemonClient;
-  private cachedAuth: NapAuthState | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -206,16 +205,6 @@ export class NapDaemonService implements INapCliService {
   }
 
   private rememberAuth(auth: NapAuthState): NapAuthState {
-    if (auth.status === 'authenticated') {
-      this.cachedAuth = auth;
-      return auth;
-    }
-
-    if (this.cachedAuth?.status === 'authenticated') {
-      this.output.appendLine(`[Nap] Keeping cached authenticated account while auth probe returned ${auth.status}.`);
-      return this.cachedAuth;
-    }
-
     return auth;
   }
 }

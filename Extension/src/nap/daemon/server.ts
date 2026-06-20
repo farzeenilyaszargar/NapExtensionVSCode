@@ -401,13 +401,8 @@ export class NapDaemon {
 
   private async refreshAuthState(): Promise<NapAuthState> {
     const providerAuth = await this.provider.authStatus();
-    if (providerAuth.status === 'authenticated') {
-      this.authState = providerAuth;
-      this.storage.setAuthState(providerAuth);
-    } else if (this.authState.status !== 'authenticated') {
-      this.authState = providerAuth;
-      this.storage.setAuthState(providerAuth);
-    }
+    this.authState = providerAuth;
+    this.storage.setAuthState(providerAuth);
     return this.authState;
   }
 

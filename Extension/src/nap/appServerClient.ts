@@ -49,13 +49,10 @@ export interface ResumeThreadParams extends StartThreadParams {
 
 export interface StartTurnParams {
   threadId: string;
-  input: Array<{ type: 'text'; text: string }>;
+  input: Array<{ type: 'text'; text: string; text_elements: [] }>;
   cwd?: string;
   model?: string;
   approvalPolicy?: string;
-  sandboxPolicy?: {
-    mode: string;
-  };
 }
 
 export type LoginAccountParams =
