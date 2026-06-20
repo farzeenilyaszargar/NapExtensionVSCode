@@ -15,6 +15,7 @@ export const initialViewState: NapViewState = {
   debugMode: false,
   securityMode: 'standard',
   messages: [],
+  queuedPrompts: [],
   activityText: undefined,
   activityKind: undefined,
   activityItems: [],

@@ -323,6 +323,7 @@ export function App() {
   const waitingText = state.activityText;
   const waitingKind = state.activityKind ?? 'thinking';
   const activityItems = state.activityItems ?? [];
+  const queuedPrompts = state.queuedPrompts ?? [];
   const latestAssistantMessageId = [...state.messages].reverse().find(message => message.role === 'assistant')?.id;
   const editedActivityItems = getEditedActivityItems(activityItems);
 
@@ -364,7 +365,7 @@ export function App() {
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const prompt = draft.trim();
-    if (!prompt || isStreaming) {
+    if (!prompt) {
       return;
     }
     post({ type: 'sendPrompt', prompt });
@@ -582,6 +583,25 @@ export function App() {
 
       {activePage === 'chat' ? (
         <footer className="composer-panel" ref={composerPanelRef}>
+        {queuedPrompts.length > 0 ? (
+          <section className="prompt-queue" aria-label="Queued prompts">
+            {queuedPrompts.map((item, index) => (
+              <div key={item.id} className="prompt-queue-item">
+                <span className="prompt-queue-index">{index + 1}</span>
+                <span className="prompt-queue-text">{item.prompt}</span>
+                <button
+                  type="button"
+                  className="prompt-queue-delete"
+                  title="Remove queued prompt"
+                  aria-label="Remove queued prompt"
+                  onClick={() => post({ type: 'deleteQueuedPrompt', promptId: item.id })}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
+            ))}
+          </section>
+        ) : null}
         <form className="composer" onSubmit={onSubmit}>
           <div className="composer-input">
             <textarea

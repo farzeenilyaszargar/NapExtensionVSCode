@@ -1032,6 +1032,71 @@ textarea::-webkit-scrollbar,
   background: transparent;
 }
 
+.prompt-queue {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.prompt-queue-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 22px;
+  align-items: center;
+  min-height: 28px;
+  gap: 6px;
+  padding: 4px 5px 4px 7px;
+  border: 1px solid rgba(60, 60, 60, 0.7);
+  border-radius: 10px;
+  color: #8f8f8f;
+  background: rgba(23, 23, 23, 0.78);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  backdrop-filter: blur(14px) saturate(1.08);
+}
+
+.prompt-queue-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  color: #707070;
+  background: rgba(50, 50, 50, 0.42);
+  font-size: 9.5px;
+  line-height: 1;
+}
+
+.prompt-queue-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #9b9b9b;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.prompt-queue-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: #6f6f6f;
+  background: transparent;
+  cursor: pointer;
+}
+
+.prompt-queue-delete:hover {
+  color: #d0d0d0;
+  background: rgba(54, 54, 54, 0.72);
+}
+
 .composer {
   min-width: 0;
   background: transparent;

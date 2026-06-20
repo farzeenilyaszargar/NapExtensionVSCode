@@ -12,6 +12,7 @@ import {
   NapMessage,
   NapAuthState,
   NapMode,
+  NapQueuedPrompt,
   NapSessionRecord,
   NapSessionState,
   WebviewToExtensionMessage
@@ -23,6 +24,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | undefined;
   private currentCancellation: vscode.CancellationTokenSource | undefined;
   private state: NapSessionState;
+  private isDrainingQueue = false;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -87,6 +89,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       ...this.state,
       status: 'idle',
       messages: [],
+      queuedPrompts: [],
       logs: []
     };
     await this.refreshSessions();
@@ -127,6 +130,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'sendPrompt':
         await this.sendPrompt(message.prompt);
+        return;
+      case 'deleteQueuedPrompt':
+        this.deleteQueuedPrompt(message.promptId);
         return;
       case 'stopGeneration':
         this.stopGeneration();
@@ -171,7 +177,61 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     if (this.state.status === 'streaming') {
-      this.post({ type: 'error', message: 'Nap is already streaming a response.' });
+      this.enqueuePrompt(prompt);
+      return;
+    }
+
+    await this.runPrompt(prompt);
+  }
+
+  private enqueuePrompt(prompt: string): void {
+    const item: NapQueuedPrompt = {
+      id: createId('queued'),
+      prompt,
+      createdAt: Date.now()
+    };
+    this.state = {
+      ...this.state,
+      queuedPrompts: [
+        ...this.state.queuedPrompts,
+        item
+      ]
+    };
+    this.publishState();
+  }
+
+  private deleteQueuedPrompt(promptId: string): void {
+    this.state = {
+      ...this.state,
+      queuedPrompts: this.state.queuedPrompts.filter(item => item.id !== promptId)
+    };
+    this.publishState();
+  }
+
+  private async drainQueuedPrompts(): Promise<void> {
+    if (this.isDrainingQueue || this.state.status === 'streaming') {
+      return;
+    }
+
+    this.isDrainingQueue = true;
+    try {
+      while (this.state.queuedPrompts.length > 0 && this.state.status !== 'streaming') {
+        const [next, ...remaining] = this.state.queuedPrompts;
+        this.state = {
+          ...this.state,
+          queuedPrompts: remaining
+        };
+        this.publishState();
+        await this.runPrompt(next.prompt, { skipQueueDrain: true });
+      }
+    } finally {
+      this.isDrainingQueue = false;
+    }
+  }
+
+  private async runPrompt(rawPrompt: string, options: { skipQueueDrain?: boolean } = {}): Promise<void> {
+    const prompt = rawPrompt.trim();
+    if (!prompt) {
       return;
     }
 
@@ -281,6 +341,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       cancellation.dispose();
       await this.refreshSessions();
       this.publishState();
+      if (!options.skipQueueDrain) {
+        await this.drainQueuedPrompts();
+      }
     }
   }
 
@@ -540,6 +603,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       debugMode: config.debugMode,
       securityMode: config.securityMode,
       messages: [],
+      queuedPrompts: [],
       logs: [],
       models: [],
       sessions: [],
@@ -567,6 +631,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       debugMode: session.debugMode,
       securityMode: session.securityMode,
       messages: session.messages,
+      queuedPrompts: [],
       logs: []
     };
   }

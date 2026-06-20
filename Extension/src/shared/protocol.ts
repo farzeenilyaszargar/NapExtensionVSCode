@@ -52,6 +52,12 @@ export interface NapSessionSummary {
   updatedAt: number;
 }
 
+export interface NapQueuedPrompt {
+  id: string;
+  prompt: string;
+  createdAt: number;
+}
+
 export interface NapSessionRecord {
   id: string;
   workspaceRoot?: string;
@@ -96,6 +102,7 @@ export interface NapSessionState {
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
+  queuedPrompts: NapQueuedPrompt[];
   activityText?: string;
   activityKind?: NapActivityKind;
   activityItems?: NapActivityItem[];
@@ -146,6 +153,7 @@ export type NapActivityKind =
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'sendPrompt'; prompt: string }
+  | { type: 'deleteQueuedPrompt'; promptId: string }
   | { type: 'stopGeneration' }
   | { type: 'authLogin' }
   | { type: 'refreshSessions' }
@@ -194,6 +202,8 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
       return true;
     case 'sendPrompt':
       return typeof value.prompt === 'string';
+    case 'deleteQueuedPrompt':
+      return typeof value.promptId === 'string' && value.promptId.length > 0;
     case 'openSession':
     case 'deleteSession':
       return typeof value.sessionId === 'string' && value.sessionId.length > 0;
