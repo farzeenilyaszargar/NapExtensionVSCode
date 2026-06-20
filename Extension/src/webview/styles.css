@@ -1027,7 +1027,7 @@ textarea::-webkit-scrollbar,
 .composer-panel {
   display: grid;
   gap: 6px;
-  padding: 0 0 8px;
+  padding: 0 0 16px;
   border-top: 0;
   background: transparent;
 }
