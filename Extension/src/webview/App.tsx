@@ -710,6 +710,9 @@ export function App() {
               <div
                 key={item.id}
                 className={`prompt-queue-item${draggedQueuedPromptId === item.id ? ' is-dragging' : ''}`}
+                draggable
+                onDragStart={event => onQueueDragStart(event, item.id)}
+                onDragEnd={() => setDraggedQueuedPromptId(undefined)}
                 onDragOver={onQueueDragOver}
                 onDrop={event => onQueueDrop(event, item.id)}
               >
@@ -718,22 +721,11 @@ export function App() {
                   className="prompt-queue-action prompt-queue-drag"
                   title="Drag queued prompt"
                   aria-label="Drag queued prompt"
-                  draggable
-                  onDragStart={event => onQueueDragStart(event, item.id)}
-                  onDragEnd={() => setDraggedQueuedPromptId(undefined)}
+                  tabIndex={-1}
                 >
                   <LocalIcon name="drag" />
                 </button>
                 <span className="prompt-queue-text">{item.prompt}</span>
-                <button
-                  type="button"
-                  className="prompt-queue-action prompt-queue-edit"
-                  title="Edit queued prompt"
-                  aria-label="Edit queued prompt"
-                  onClick={() => editQueuedPrompt(item)}
-                >
-                  <LocalIcon name="edit" />
-                </button>
                 <button
                   type="button"
                   className="prompt-queue-action prompt-queue-delete"
@@ -742,6 +734,15 @@ export function App() {
                   onClick={() => post({ type: 'deleteQueuedPrompt', promptId: item.id })}
                 >
                   <Trash2 size={11} />
+                </button>
+                <button
+                  type="button"
+                  className="prompt-queue-action prompt-queue-edit"
+                  title="Edit queued prompt"
+                  aria-label="Edit queued prompt"
+                  onClick={() => editQueuedPrompt(item)}
+                >
+                  <LocalIcon name="edit" />
                 </button>
               </div>
             ))}

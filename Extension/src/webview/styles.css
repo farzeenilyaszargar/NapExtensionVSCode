@@ -1106,11 +1106,13 @@ textarea::-webkit-scrollbar,
   border-radius: 0;
   color: #7f7f7f;
   background: transparent;
+  cursor: grab;
   transition: min-height 160ms ease, opacity 160ms ease, background-color 160ms ease;
 }
 
 .prompt-queue-item.is-dragging {
   opacity: 0.58;
+  cursor: grabbing;
 }
 
 @keyframes prompt-queue-in {
@@ -1156,6 +1158,7 @@ textarea::-webkit-scrollbar,
 
 .prompt-queue-drag {
   cursor: grab;
+  pointer-events: none;
 }
 
 .prompt-queue-drag:active {
