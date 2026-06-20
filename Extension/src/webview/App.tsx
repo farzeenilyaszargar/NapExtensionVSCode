@@ -585,9 +585,8 @@ export function App() {
         <footer className="composer-panel" ref={composerPanelRef}>
         {queuedPrompts.length > 0 ? (
           <section className="prompt-queue" aria-label="Queued prompts">
-            {queuedPrompts.map((item, index) => (
+            {queuedPrompts.map(item => (
               <div key={item.id} className="prompt-queue-item">
-                <span className="prompt-queue-index">{index + 1}</span>
                 <span className="prompt-queue-text">{item.prompt}</span>
                 <button
                   type="button"

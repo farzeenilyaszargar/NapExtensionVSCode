@@ -1026,7 +1026,7 @@ textarea::-webkit-scrollbar,
 
 .composer-panel {
   display: grid;
-  gap: 6px;
+  gap: 0;
   padding: 0 0 15px;
   border-top: 0;
   background: transparent;
@@ -1034,38 +1034,28 @@ textarea::-webkit-scrollbar,
 
 .prompt-queue {
   display: grid;
-  gap: 5px;
+  gap: 0;
   min-width: 0;
-  padding: 0;
-  background: transparent;
+  width: calc(100% - 60px);
+  margin: 0 auto -1px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 12px 12px 0 0;
+  background: #181818;
+  overflow: hidden;
 }
 
 .prompt-queue-item {
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 22px;
+  grid-template-columns: minmax(0, 1fr) 22px;
   align-items: center;
-  min-height: 28px;
+  min-height: 24px;
   gap: 6px;
-  padding: 4px 5px 4px 7px;
-  border: 1px solid rgba(60, 60, 60, 0.7);
-  border-radius: 10px;
-  color: #8f8f8f;
-  background: rgba(23, 23, 23, 0.78);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
-  backdrop-filter: blur(14px) saturate(1.08);
-}
-
-.prompt-queue-index {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  color: #707070;
-  background: rgba(50, 50, 50, 0.42);
-  font-size: 9.5px;
-  line-height: 1;
+  padding: 2px 5px 2px 9px;
+  border: 0;
+  border-radius: 0;
+  color: #7f7f7f;
+  background: transparent;
 }
 
 .prompt-queue-text {
@@ -1073,8 +1063,8 @@ textarea::-webkit-scrollbar,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #9b9b9b;
-  font-size: 11px;
+  color: #828282;
+  font-size: 10.5px;
   line-height: 1.2;
 }
 
