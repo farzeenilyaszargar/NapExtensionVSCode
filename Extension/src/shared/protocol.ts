@@ -176,6 +176,7 @@ export type WebviewToExtensionMessage =
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
   | { type: 'refreshPlugins' }
+  | { type: 'openExternal'; url: string }
   | { type: 'openSettings' };
 
 export type ExtensionToWebviewMessage =
@@ -215,6 +216,8 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'openSettings':
     case 'refreshPlugins':
       return true;
+    case 'openExternal':
+      return typeof value.url === 'string' && /^https:\/\/(?:www\.)?nap-code\.com(?:\/|$)/.test(value.url);
     case 'sendPrompt':
       return typeof value.prompt === 'string';
     case 'deleteQueuedPrompt':

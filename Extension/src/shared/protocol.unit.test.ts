@@ -11,6 +11,7 @@ describe('Nap bridge protocol', () => {
     expect(isWebviewToExtensionMessage({ type: 'openFile', filePath: 'src/extension.ts:12' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'setMode', mode: 'plan' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'setModel', modelId: 'nap-default' })).toBe(true);
+    expect(isWebviewToExtensionMessage({ type: 'openExternal', url: 'https://www.nap-code.com/docs' })).toBe(true);
   });
 
   it('rejects malformed or unsupported messages', () => {
@@ -21,5 +22,6 @@ describe('Nap bridge protocol', () => {
     expect(isWebviewToExtensionMessage({ type: 'openFile', filePath: '   ' })).toBe(false);
     expect(isWebviewToExtensionMessage({ type: 'setMode', mode: 'edit' })).toBe(false);
     expect(isWebviewToExtensionMessage({ type: 'setModel', modelId: '' })).toBe(false);
+    expect(isWebviewToExtensionMessage({ type: 'openExternal', url: 'https://example.com/docs' })).toBe(false);
   });
 });

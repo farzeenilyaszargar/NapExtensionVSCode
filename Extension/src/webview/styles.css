@@ -440,6 +440,102 @@ textarea::-webkit-scrollbar,
   opacity: 0.3;
 }
 
+.auth-landing {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 22px 4px 30px;
+  overflow: auto;
+  background: var(--nap-surface);
+}
+
+.auth-landing-content {
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 420px;
+  min-height: 70%;
+}
+
+.auth-landing-logo {
+  display: block;
+  width: 42px;
+  height: auto;
+  opacity: 0.82;
+}
+
+.auth-landing-copy {
+  display: grid;
+  gap: 9px;
+  min-width: 0;
+}
+
+.auth-landing-copy h1 {
+  margin: 0;
+  color: var(--vscode-foreground);
+  font-size: 31px;
+  line-height: 1.03;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.auth-landing-copy p {
+  max-width: 33rem;
+  margin: 0;
+  color: #9a9a9a;
+  font-size: 13px;
+  line-height: 1.48;
+}
+
+.auth-landing-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+}
+
+.auth-landing-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 86px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #303030;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 520;
+}
+
+.auth-landing-button--primary {
+  color: #171717;
+  border-color: #f2f2f2;
+  background: #f2f2f2;
+}
+
+.auth-landing-button--secondary {
+  color: var(--vscode-foreground);
+  background: #1b1b1b;
+}
+
+.auth-landing-button--primary:hover {
+  background: #dcdcdc;
+}
+
+.auth-landing-button--secondary:hover {
+  background: #252525;
+}
+
+.auth-landing-button:focus-visible {
+  outline: 1px solid #6c6c6c;
+  outline-offset: 2px;
+}
+
 .auth-gate {
   display: grid;
   justify-items: center;

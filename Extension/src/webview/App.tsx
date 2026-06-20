@@ -600,8 +600,13 @@ export function App() {
     post({ type: 'authLogin' });
   }, [post]);
 
+  const openDocs = useCallback(() => {
+    post({ type: 'openExternal', url: 'https://www.nap-code.com/docs' });
+  }, [post]);
+
   const showLoadingOverlay = isInitialLoading || isAuthVerifying;
   const loadingLabel = isInitialLoading ? 'Loading Nap' : 'Verifying auth';
+  const showAuthLanding = activePage === 'chat' && !isAuthenticated;
 
   return (
     <div className="nap-shell">
@@ -610,6 +615,29 @@ export function App() {
           <div className="loading-spinner" aria-hidden="true" />
           <span>{loadingLabel}</span>
         </div>
+      ) : null}
+      {showAuthLanding ? (
+        <main className="auth-landing" aria-label="Nap sign in">
+          <section className="auth-landing-content">
+            {window.__NAP_LOGO_URI__ ? (
+              <img className="auth-landing-logo" src={window.__NAP_LOGO_URI__} alt="Nap" />
+            ) : null}
+            <div className="auth-landing-copy">
+              <h1>Nap in your environment</h1>
+              <p>Nap can index codebase, edit code, run commands, review changes and fix vulnerabilities.</p>
+            </div>
+            <div className="auth-landing-actions">
+              <button type="button" className="auth-landing-button auth-landing-button--secondary" onClick={openDocs}>
+                <FileText size={14} aria-hidden="true" />
+                <span>Docs</span>
+              </button>
+              <button type="button" className="auth-landing-button auth-landing-button--primary" onClick={startAuthLogin}>
+                <Lock size={14} aria-hidden="true" />
+                <span>Login</span>
+              </button>
+            </div>
+          </section>
+        </main>
       ) : null}
       {activePage === 'sessions' ? (
         <section className="sessions-page" aria-label="Nap sessions">
@@ -662,7 +690,7 @@ export function App() {
         </section>
       ) : null}
 
-      {activePage === 'chat' ? (
+      {activePage === 'chat' && isAuthenticated ? (
         <header className="app-page-header">
           <button type="button" className="header-nav-button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
             <ArrowLeft size={14} strokeWidth={1.8} />
@@ -682,7 +710,7 @@ export function App() {
         </header>
       ) : null}
 
-      {activePage === 'chat' ? (
+      {activePage === 'chat' && isAuthenticated ? (
         <main
           className="timeline"
           ref={timelineRef}
@@ -701,17 +729,7 @@ export function App() {
             {window.__NAP_LOGO_URI__ ? (
               <img className="empty-state-logo" src={window.__NAP_LOGO_URI__} alt="Nap" />
             ) : null}
-            {isAuthenticated ? (
-              <p>Start a Nap Chat below</p>
-            ) : (
-              <div className="auth-gate">
-                <Lock size={16} />
-                <p>Sign in to start Nap Chat</p>
-                <button type="button" onClick={startAuthLogin}>
-                  Sign in with Nap CLI
-                </button>
-              </div>
-            )}
+            <p>Start a Nap Chat below</p>
           </div>
         ) : state.messages.map((message, index) => {
           const followingAssistant = message.role === 'user'
@@ -781,7 +799,7 @@ export function App() {
         </main>
       ) : null}
 
-      {activePage === 'chat' ? (
+      {activePage === 'chat' && isAuthenticated ? (
         <footer className="composer-panel" ref={composerPanelRef}>
         {queuedPrompts.length > 0 ? (
           <section className="prompt-queue" aria-label="Queued prompts">

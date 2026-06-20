@@ -185,6 +185,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         await this.refreshEnvironment();
         this.publishState();
         return;
+      case 'openExternal':
+        await vscode.env.openExternal(vscode.Uri.parse(message.url));
+        return;
       case 'openSettings':
         NapSettingsPanel.open(this.extensionUri);
         return;
