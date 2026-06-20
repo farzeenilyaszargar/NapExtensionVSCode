@@ -1036,7 +1036,7 @@ textarea::-webkit-scrollbar,
   display: grid;
   gap: 0;
   min-width: 0;
-  width: calc(100% - 60px);
+  width: calc(100% - 30px);
   margin: 0 auto -1px;
   padding: 4px 0;
   border: 0;
