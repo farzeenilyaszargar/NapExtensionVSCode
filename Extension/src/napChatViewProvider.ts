@@ -25,6 +25,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private currentCancellation: vscode.CancellationTokenSource | undefined;
   private state: NapSessionState;
   private isDrainingQueue = false;
+  private loginPromise: Promise<void> | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -98,6 +99,18 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   async login(): Promise<void> {
+    if (this.loginPromise) {
+      this.log('info', 'Nap sign in is already in progress.');
+      return this.loginPromise;
+    }
+
+    this.loginPromise = this.performLogin().finally(() => {
+      this.loginPromise = undefined;
+    });
+    return this.loginPromise;
+  }
+
+  private async performLogin(): Promise<void> {
     this.log('info', 'Starting Nap sign in.');
     try {
       const auth = await this.cliService.login();

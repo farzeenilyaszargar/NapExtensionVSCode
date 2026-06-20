@@ -60,6 +60,7 @@ export interface ProviderAdapter {
 
 export class NapCliProviderAdapter implements ProviderAdapter {
   private authStatusInFlight: Promise<NapAuthState> | undefined;
+  private loginInFlight: Promise<NapAuthState> | undefined;
   private readonly appServer: NapAppServerClient;
   private readonly appThreads = new Map<string, string>();
 
@@ -72,19 +73,8 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     this.appServer.onRequest(request => this.handleAppServerRequest(request));
   }
 
-  async listModels(defaultModelId: string): Promise<NapModelOption[]> {
-    for (const args of [['models', '--json'], ['models'], ['model', 'list', '--json']]) {
-      try {
-        const models = parseModelOptions(await this.runText(args, 5000));
-        if (models.length > 0) {
-          return ensureDefaultModelOption(models.filter(model => model.id !== 'auto'));
-        }
-      } catch {
-        // Try the next common CLI shape.
-      }
-    }
-
-    return [
+  async listModels(_defaultModelId: string): Promise<NapModelOption[]> {
+    const models = [
       { id: 'gpt-5.5', label: 'GPT-5.5', supportsTools: true },
       { id: 'gpt-5.4', label: 'GPT-5.4', supportsTools: true },
       DEFAULT_MODEL_OPTION,
@@ -94,6 +84,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       { id: 'minimax-m3', label: 'MiniMax M3', supportsTools: true },
       { id: 'minimax-m2.7', label: 'MiniMax M2.7', supportsTools: true }
     ];
+    return ensureDefaultModelOption(models.filter(model => model.id !== 'auto'));
   }
 
   async listPlugins(workspaceRoot?: string): Promise<NapPluginSummary[]> {
@@ -155,6 +146,17 @@ export class NapCliProviderAdapter implements ProviderAdapter {
   }
 
   async login(): Promise<NapAuthState> {
+    if (this.loginInFlight) {
+      return this.loginInFlight;
+    }
+
+    this.loginInFlight = this.performLogin().finally(() => {
+      this.loginInFlight = undefined;
+    });
+    return this.loginInFlight;
+  }
+
+  private async performLogin(): Promise<NapAuthState> {
     try {
       await this.appServer.start();
       const login = await this.startManagedAppServerLogin();
@@ -400,6 +402,21 @@ export class NapCliProviderAdapter implements ProviderAdapter {
         cleanup();
         reject(new Error('Nap login timed out.'));
       }, 10 * 60 * 1000);
+      const poll = setInterval(() => {
+        void this.appServer.readAccount({ refreshToken: true }).then(result => {
+          const auth = parseAppServerAccountAuthState(result);
+          if (auth.status !== 'authenticated') {
+            return;
+          }
+          cleanup();
+          clearTimeout(timeout);
+          clearInterval(poll);
+          appendDaemonLog(`[provider] app-server login detected account while polling id=${loginId}`);
+          resolve();
+        }, error => {
+          appendDaemonLog(`[provider] app-server login poll failed: ${error instanceof Error ? error.message : String(error)}`);
+        });
+      }, 1500);
       const cleanup = this.appServer.onNotification(notification => {
         if (notification.method !== 'account/login/completed') {
           return;
@@ -411,6 +428,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
         }
         cleanup();
         clearTimeout(timeout);
+        clearInterval(poll);
         if (params?.success === true) {
           resolve();
           return;
