@@ -59,6 +59,8 @@ export function App() {
   const [activePage, setActivePage] = useState<ActivePage>('chat');
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [isAuthVerifying, setIsAuthVerifying] = useState(true);
   const [elapsedNow, setElapsedNow] = useState(() => Date.now());
   const timelineRef = useRef<HTMLDivElement>(null);
   const timelineContentEndRef = useRef<HTMLDivElement>(null);
@@ -80,6 +82,14 @@ export function App() {
     const listener = (event: MessageEvent) => {
       if (event.data?.type === 'showChat') {
         setActivePage('chat');
+      }
+      if (event.data?.type === 'authStateChanged') {
+        setIsInitialLoading(false);
+        setIsAuthVerifying(false);
+      }
+      if (event.data?.type === 'error') {
+        setIsInitialLoading(false);
+        setIsAuthVerifying(false);
       }
       dispatch({ type: 'extensionMessage', message: event.data });
     };
@@ -478,8 +488,22 @@ export function App() {
     post({ type: 'newSession' });
   }, [post]);
 
+  const startAuthLogin = useCallback(() => {
+    setIsAuthVerifying(true);
+    post({ type: 'authLogin' });
+  }, [post]);
+
+  const showLoadingOverlay = isInitialLoading || isAuthVerifying;
+  const loadingLabel = isInitialLoading ? 'Loading Nap' : 'Verifying auth';
+
   return (
     <div className="nap-shell">
+      {showLoadingOverlay ? (
+        <div className="loading-overlay" role="status" aria-live="polite" aria-label={loadingLabel}>
+          <div className="loading-spinner" aria-hidden="true" />
+          <span>{loadingLabel}</span>
+        </div>
+      ) : null}
       {activePage === 'sessions' ? (
         <section className="sessions-page" aria-label="Nap sessions">
           <header className="app-page-header app-page-header--sessions">
@@ -576,7 +600,7 @@ export function App() {
               <div className="auth-gate">
                 <Lock size={16} />
                 <p>Sign in to start Nap Chat</p>
-                <button type="button" onClick={() => post({ type: 'authLogin' })}>
+                <button type="button" onClick={startAuthLogin}>
                   Sign in with Nap CLI
                 </button>
               </div>
