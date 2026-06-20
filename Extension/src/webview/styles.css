@@ -1086,9 +1086,10 @@ textarea::-webkit-scrollbar,
   width: calc(100% - 30px);
   margin: 0 auto -1px;
   padding: 4px 0;
-  border: 0;
+  border: 1px solid #282828;
+  border-bottom: 0;
   border-radius: 12px 12px 0 0;
-  background: #181818;
+  background: var(--nap-surface);
   overflow: hidden;
   animation: prompt-queue-in 180ms ease-out;
   transition: opacity 160ms ease, transform 160ms ease;
@@ -1096,16 +1097,20 @@ textarea::-webkit-scrollbar,
 
 .prompt-queue-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22px;
+  grid-template-columns: 20px minmax(0, 1fr) 20px 20px;
   align-items: center;
   min-height: 24px;
-  gap: 6px;
-  padding: 2px 5px 2px 9px;
+  gap: 4px;
+  padding: 2px 5px;
   border: 0;
   border-radius: 0;
   color: #7f7f7f;
   background: transparent;
   transition: min-height 160ms ease, opacity 160ms ease, background-color 160ms ease;
+}
+
+.prompt-queue-item.is-dragging {
+  opacity: 0.58;
 }
 
 @keyframes prompt-queue-in {
@@ -1130,12 +1135,12 @@ textarea::-webkit-scrollbar,
   line-height: 1.2;
 }
 
-.prompt-queue-delete {
+.prompt-queue-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -1144,7 +1149,20 @@ textarea::-webkit-scrollbar,
   cursor: pointer;
 }
 
-.prompt-queue-delete:hover {
+.prompt-queue-action .local-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.prompt-queue-drag {
+  cursor: grab;
+}
+
+.prompt-queue-drag:active {
+  cursor: grabbing;
+}
+
+.prompt-queue-action:hover {
   color: #d0d0d0;
   background: rgba(54, 54, 54, 0.72);
 }

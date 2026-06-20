@@ -135,6 +135,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       case 'deleteQueuedPrompt':
         this.deleteQueuedPrompt(message.promptId);
         return;
+      case 'reorderQueuedPrompt':
+        this.reorderQueuedPrompt(message.promptId, message.targetPromptId);
+        return;
       case 'stopGeneration':
         this.stopGeneration();
         return;
@@ -205,6 +208,27 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     this.state = {
       ...this.state,
       queuedPrompts: this.state.queuedPrompts.filter(item => item.id !== promptId)
+    };
+    this.publishState();
+  }
+
+  private reorderQueuedPrompt(promptId: string, targetPromptId: string): void {
+    if (promptId === targetPromptId) {
+      return;
+    }
+
+    const items = [...this.state.queuedPrompts];
+    const fromIndex = items.findIndex(item => item.id === promptId);
+    const toIndex = items.findIndex(item => item.id === targetPromptId);
+    if (fromIndex < 0 || toIndex < 0) {
+      return;
+    }
+
+    const [moved] = items.splice(fromIndex, 1);
+    items.splice(toIndex, 0, moved);
+    this.state = {
+      ...this.state,
+      queuedPrompts: items
     };
     this.publishState();
   }
@@ -707,6 +731,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const iconUris = {
       archive: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'archive.svg')).toString(),
       arrowUp: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'arrow-up.svg')).toString(),
+      drag: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'drag.svg')).toString(),
+      edit: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'edit.svg')).toString(),
       new: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'new.svg')).toString(),
       settings: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'settings.svg')).toString()
     };

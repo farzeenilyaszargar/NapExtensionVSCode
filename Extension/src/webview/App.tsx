@@ -18,7 +18,7 @@ import {
   TriangleAlert,
   Trash2
 } from 'lucide-react';
-import { Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { NapActivityItem, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
@@ -29,7 +29,7 @@ type ApprovalMode = typeof approvalModes[number];
 type OpenMenu = 'approval' | 'model' | undefined;
 type ResponseVote = 'up' | 'down';
 type ActivePage = 'chat' | 'sessions';
-type LocalIconName = 'archive' | 'arrowUp' | 'new' | 'settings';
+type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
 
 const approvalLabels: Record<ApprovalMode, string> = {
   default: 'Default approval',
@@ -61,6 +61,7 @@ export function App() {
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAuthVerifying, setIsAuthVerifying] = useState(true);
+  const [draggedQueuedPromptId, setDraggedQueuedPromptId] = useState<string>();
   const [elapsedNow, setElapsedNow] = useState(() => Date.now());
   const timelineRef = useRef<HTMLDivElement>(null);
   const timelineContentEndRef = useRef<HTMLDivElement>(null);
@@ -488,6 +489,33 @@ export function App() {
     post({ type: 'newSession' });
   }, [post]);
 
+  const editQueuedPrompt = useCallback((item: { id: string; prompt: string }) => {
+    post({ type: 'deleteQueuedPrompt', promptId: item.id });
+    setDraft(item.prompt);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [post]);
+
+  const onQueueDragStart = useCallback((event: DragEvent<HTMLElement>, promptId: string) => {
+    setDraggedQueuedPromptId(promptId);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', promptId);
+  }, []);
+
+  const onQueueDragOver = useCallback((event: DragEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onQueueDrop = useCallback((event: DragEvent<HTMLElement>, targetPromptId: string) => {
+    event.preventDefault();
+    const promptId = event.dataTransfer.getData('text/plain') || draggedQueuedPromptId;
+    setDraggedQueuedPromptId(undefined);
+    if (!promptId || promptId === targetPromptId) {
+      return;
+    }
+    post({ type: 'reorderQueuedPrompt', promptId, targetPromptId });
+  }, [draggedQueuedPromptId, post]);
+
   const startAuthLogin = useCallback(() => {
     setIsAuthVerifying(true);
     post({ type: 'authLogin' });
@@ -679,11 +707,36 @@ export function App() {
         {queuedPrompts.length > 0 ? (
           <section className="prompt-queue" aria-label="Queued prompts">
             {queuedPrompts.map(item => (
-              <div key={item.id} className="prompt-queue-item">
+              <div
+                key={item.id}
+                className={`prompt-queue-item${draggedQueuedPromptId === item.id ? ' is-dragging' : ''}`}
+                onDragOver={onQueueDragOver}
+                onDrop={event => onQueueDrop(event, item.id)}
+              >
+                <button
+                  type="button"
+                  className="prompt-queue-action prompt-queue-drag"
+                  title="Drag queued prompt"
+                  aria-label="Drag queued prompt"
+                  draggable
+                  onDragStart={event => onQueueDragStart(event, item.id)}
+                  onDragEnd={() => setDraggedQueuedPromptId(undefined)}
+                >
+                  <LocalIcon name="drag" />
+                </button>
                 <span className="prompt-queue-text">{item.prompt}</span>
                 <button
                   type="button"
-                  className="prompt-queue-delete"
+                  className="prompt-queue-action prompt-queue-edit"
+                  title="Edit queued prompt"
+                  aria-label="Edit queued prompt"
+                  onClick={() => editQueuedPrompt(item)}
+                >
+                  <LocalIcon name="edit" />
+                </button>
+                <button
+                  type="button"
+                  className="prompt-queue-action prompt-queue-delete"
                   title="Remove queued prompt"
                   aria-label="Remove queued prompt"
                   onClick={() => post({ type: 'deleteQueuedPrompt', promptId: item.id })}

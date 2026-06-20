@@ -154,6 +154,7 @@ export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'sendPrompt'; prompt: string }
   | { type: 'deleteQueuedPrompt'; promptId: string }
+  | { type: 'reorderQueuedPrompt'; promptId: string; targetPromptId: string }
   | { type: 'stopGeneration' }
   | { type: 'authLogin' }
   | { type: 'refreshSessions' }
@@ -205,6 +206,9 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
       return typeof value.prompt === 'string';
     case 'deleteQueuedPrompt':
       return typeof value.promptId === 'string' && value.promptId.length > 0;
+    case 'reorderQueuedPrompt':
+      return typeof value.promptId === 'string' && value.promptId.length > 0
+        && typeof value.targetPromptId === 'string' && value.targetPromptId.length > 0;
     case 'openSession':
     case 'deleteSession':
       return typeof value.sessionId === 'string' && value.sessionId.length > 0;
