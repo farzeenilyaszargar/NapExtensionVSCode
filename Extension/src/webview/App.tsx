@@ -1057,12 +1057,12 @@ export function App() {
             </div>
             <div className="composer-left-actions">
               <button className="composer-plus-button" type="button" title="Add context" aria-label="Add context" aria-expanded={openMenu === 'add'} onClick={() => setOpenMenu(openMenu === 'add' ? undefined : 'add')}>
-                <Plus size={14} strokeWidth={1.9} />
+                <Plus size={16} strokeWidth={1.9} />
               </button>
               <div className="floating-dropdown permissions-dropdown">
                 <button type="button" className={`floating-select permissions-select permissions-select--${approvalMode}`} aria-label="Permissions" aria-expanded={openMenu === 'approval'} onClick={() => setOpenMenu(openMenu === 'approval' ? undefined : 'approval')}>
-                  {approvalMode === 'bypass' ? <TriangleAlert size={12} /> : <Shield size={12} />}
-                  <ChevronDown className="model-chevron" size={10} strokeWidth={1.7} aria-hidden="true" />
+                  {approvalMode === 'bypass' ? <TriangleAlert size={14} /> : <Shield size={14} />}
+                  <ChevronDown className="model-chevron" size={11} strokeWidth={1.7} aria-hidden="true" />
                 </button>
                 {openMenu === 'approval' ? (
                   <div className="floating-menu permissions-menu" role="menu" data-menu="approval">
