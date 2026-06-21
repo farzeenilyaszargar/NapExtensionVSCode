@@ -47,7 +47,8 @@ const SCROLL_BOTTOM_THRESHOLD = 80;
 const SCROLL_LOCK_THRESHOLD = 2;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const LIVE_SCROLL_BOTTOM_PADDING = 18;
-const SCROLL_ANIMATION_MS = 220;
+const SCROLL_ANIMATION_MIN_MS = 70;
+const SCROLL_ANIMATION_MAX_MS = 150;
 
 declare global {
   interface Window {
@@ -177,7 +178,10 @@ export function App() {
       return Math.max(0, targetTop);
     };
 
-    const animateScroll = (fromTop: number, startedAt: number) => {
+    const getScrollAnimationDuration = (distance: number) =>
+      Math.min(SCROLL_ANIMATION_MAX_MS, Math.max(SCROLL_ANIMATION_MIN_MS, distance * 0.28));
+
+    const animateScroll = (fromTop: number, startedAt: number, duration: number) => {
       const currentTimeline = timelineRef.current;
       if (!currentTimeline) {
         scrollAnimationFrameRef.current = undefined;
@@ -185,12 +189,12 @@ export function App() {
       }
 
       const targetTop = getTargetTop();
-      const elapsed = Math.min(1, (performance.now() - startedAt) / SCROLL_ANIMATION_MS);
-      const eased = 1 - Math.pow(1 - elapsed, 3);
+      const elapsed = Math.min(1, (performance.now() - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - elapsed, 4);
       currentTimeline.scrollTop = fromTop + (targetTop - fromTop) * eased;
 
       if (elapsed < 1 && Math.abs(currentTimeline.scrollTop - targetTop) > 0.5) {
-        scrollAnimationFrameRef.current = window.requestAnimationFrame(() => animateScroll(fromTop, startedAt));
+        scrollAnimationFrameRef.current = window.requestAnimationFrame(() => animateScroll(fromTop, startedAt, duration));
         return;
       }
 
@@ -206,7 +210,9 @@ export function App() {
       }
 
       if (behavior === 'smooth') {
-        animateScroll(currentTimeline.scrollTop, performance.now());
+        const fromTop = currentTimeline.scrollTop;
+        const duration = getScrollAnimationDuration(Math.abs(getTargetTop() - fromTop));
+        animateScroll(fromTop, performance.now(), duration);
       } else {
         currentTimeline.scrollTop = getTargetTop();
       }
