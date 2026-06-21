@@ -9,6 +9,7 @@ import {
   Image,
   List,
   Lock,
+  LogOut,
   Plus,
   ChevronRight,
   Settings,
@@ -21,14 +22,14 @@ import {
   Trash2
 } from 'lucide-react';
 import { ChangeEvent, DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, SyntheticEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { NapActivityItem, NapMode, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
+import { NapActivityItem, NapAuthState, NapMode, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
 import { renderMarkdown } from './markdown';
 
 const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
-type OpenMenu = 'add' | 'approval' | 'model' | 'slash' | undefined;
+type OpenMenu = 'account' | 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
 type SlashAction = 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search';
@@ -321,7 +322,10 @@ export function App() {
 
     const closeOnOutsideClick = (event: PointerEvent) => {
       const target = event.target;
-      if (!(target instanceof Node) || composerPanelRef.current?.contains(target)) {
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (composerPanelRef.current?.contains(target) || target instanceof Element && target.closest('[data-menu-root="true"]')) {
         return;
       }
 
@@ -803,9 +807,21 @@ export function App() {
               <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
                 <LocalIcon name="archive" />
               </button>
-              <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
-                <LocalIcon name="settings" />
-              </button>
+              <HeaderSettingsDropdown
+                auth={state.auth}
+                open={openMenu === 'account'}
+                onToggle={() => setOpenMenu(openMenu === 'account' ? undefined : 'account')}
+                onOpenSettings={() => {
+                  setOpenMenu(undefined);
+                  post({ type: 'openSettings' });
+                }}
+                onLogout={() => {
+                  setOpenMenu(undefined);
+                  window.localStorage.removeItem('nap.authLandingSeen');
+                  setHasSeenAuthLanding(false);
+                  post({ type: 'authLogout' });
+                }}
+              />
               <button type="button" title="New chat" aria-label="New chat" onClick={startNewChat}>
                 <LocalIcon name="new" />
               </button>
@@ -856,9 +872,21 @@ export function App() {
             <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
               <LocalIcon name="archive" />
             </button>
-            <button type="button" title="Settings" aria-label="Settings" onClick={() => post({ type: 'openSettings' })}>
-              <LocalIcon name="settings" />
-            </button>
+            <HeaderSettingsDropdown
+              auth={state.auth}
+              open={openMenu === 'account'}
+              onToggle={() => setOpenMenu(openMenu === 'account' ? undefined : 'account')}
+              onOpenSettings={() => {
+                setOpenMenu(undefined);
+                post({ type: 'openSettings' });
+              }}
+              onLogout={() => {
+                setOpenMenu(undefined);
+                window.localStorage.removeItem('nap.authLandingSeen');
+                setHasSeenAuthLanding(false);
+                post({ type: 'authLogout' });
+              }}
+            />
             <button type="button" title="New chat" aria-label="New chat" onClick={startNewChat}>
               <LocalIcon name="new" />
             </button>
@@ -1226,6 +1254,49 @@ function ChangeSummaryBar({ summary, onReview }: { summary: NapWorkspaceChangeSu
         </button>
       </span>
     </section>
+  );
+}
+
+function HeaderSettingsDropdown({
+  auth,
+  open,
+  onToggle,
+  onOpenSettings,
+  onLogout
+}: {
+  auth: NapAuthState;
+  open: boolean;
+  onToggle(): void;
+  onOpenSettings(): void;
+  onLogout(): void;
+}) {
+  const email = auth.accountEmail ?? auth.accountName ?? auth.label;
+  return (
+    <div className="floating-dropdown header-settings-dropdown" data-menu-root="true">
+      <button type="button" title="Settings" aria-label="Settings" aria-expanded={open} onClick={onToggle}>
+        <LocalIcon name="settings" />
+      </button>
+      {open ? (
+        <div className="floating-menu account-menu floating-menu--align-end" role="menu" data-menu="account">
+          <div className="account-menu-email" aria-disabled="true">
+            <Lock size={12} aria-hidden="true" />
+            <span>{email}</span>
+          </div>
+          <button type="button" className="floating-menu-item account-menu-item" role="menuitem" onClick={onOpenSettings}>
+            {window.__NAP_LOGO_URI__ ? (
+              <img className="account-menu-logo" src={window.__NAP_LOGO_URI__} alt="" aria-hidden="true" />
+            ) : (
+              <Settings size={13} aria-hidden="true" />
+            )}
+            <span>Nap Settings</span>
+          </button>
+          <button type="button" className="floating-menu-item account-menu-item account-menu-item--logout" role="menuitem" onClick={onLogout}>
+            <LogOut size={13} aria-hidden="true" />
+            <span>Log out</span>
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

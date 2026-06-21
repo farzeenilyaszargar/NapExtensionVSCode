@@ -162,6 +162,71 @@ button {
   cursor: pointer;
 }
 
+.header-settings-dropdown {
+  position: relative;
+}
+
+.account-menu {
+  top: calc(100% + 6px);
+  right: 0;
+  bottom: auto;
+  left: auto;
+  z-index: 28;
+  width: min(220px, calc(100vw - 16px));
+  min-width: 188px;
+  max-height: min(220px, calc(100vh - 48px));
+  padding: 6px;
+  gap: 4px;
+  transform-origin: top right;
+}
+
+.account-menu-email,
+.account-menu-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+}
+
+.account-menu-email {
+  height: 30px;
+  padding: 0 9px;
+  color: var(--nap-muted);
+  cursor: default;
+  font-size: 11px;
+}
+
+.account-menu-email span,
+.account-menu-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu-item {
+  justify-content: stretch;
+  height: 30px;
+  padding: 0 9px;
+}
+
+.account-menu-logo {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.account-menu-item--logout {
+  color: #e2a4a4;
+}
+
+.account-menu-item--logout:hover {
+  color: #ffd0d0;
+}
+
 .header-nav-button:hover,
 .header-actions button:hover,
 .sessions-page-header button:hover {
@@ -2015,6 +2080,28 @@ textarea:disabled {
 
 .floating-menu-item svg {
   color: var(--nap-muted);
+}
+
+.account-menu .account-menu-item {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  width: 100%;
+  height: 30px;
+  padding: 0 9px;
+  gap: 7px;
+  font-size: 11px;
+}
+
+.account-menu .account-menu-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-menu .account-menu-logo {
+  width: 15px;
+  height: 15px;
 }
 
 .floating-menu-item--more {

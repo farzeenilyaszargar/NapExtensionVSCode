@@ -42,6 +42,7 @@ export interface INapCliService extends vscode.Disposable {
   ensureInteractiveTerminal(): void;
   sendSlashCommand(command: string): void;
   login(): Promise<NapAuthState>;
+  logout(): Promise<NapAuthState>;
   getModels(defaultModelId: string): Promise<NapModelOption[]>;
   getAuthState(): Promise<NapAuthState>;
   getMcpState(): Promise<NapMcpState>;
@@ -91,6 +92,13 @@ export class NapDaemonService implements INapCliService {
 
   async login(): Promise<NapAuthState> {
     const auth = await this.client.login();
+    this.rememberAuth(auth);
+    this.output.appendLine(`[Nap] Auth: ${auth.label}`);
+    return auth;
+  }
+
+  async logout(): Promise<NapAuthState> {
+    const auth = await this.client.logout();
     this.rememberAuth(auth);
     this.output.appendLine(`[Nap] Auth: ${auth.label}`);
     return auth;

@@ -174,6 +174,7 @@ export type WebviewToExtensionMessage =
   | { type: 'reorderQueuedPrompt'; promptId: string; targetPromptId: string }
   | { type: 'stopGeneration' }
   | { type: 'authLogin' }
+  | { type: 'authLogout' }
   | { type: 'refreshSessions' }
   | { type: 'newSession' }
   | { type: 'clearSession' }
@@ -219,6 +220,7 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'ready':
     case 'stopGeneration':
     case 'authLogin':
+    case 'authLogout':
     case 'refreshSessions':
     case 'newSession':
     case 'clearSession':

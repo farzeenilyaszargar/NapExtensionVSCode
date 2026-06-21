@@ -5,6 +5,7 @@ describe('Nap bridge protocol', () => {
   it('accepts valid webview messages', () => {
     expect(isWebviewToExtensionMessage({ type: 'ready' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'authLogin' })).toBe(true);
+    expect(isWebviewToExtensionMessage({ type: 'authLogout' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'refreshSessions' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'reviewChanges' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'sendPrompt', prompt: 'hello' })).toBe(true);

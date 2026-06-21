@@ -140,6 +140,23 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
+  private async logout(): Promise<void> {
+    this.log('info', 'Signing out of Nap.');
+    try {
+      const auth = await this.cliService.logout();
+      this.state = {
+        ...this.state,
+        auth
+      };
+      this.post({ type: 'authStateChanged', auth });
+      this.log('info', auth.label);
+      this.publishState();
+      await this.refreshEnvironment();
+    } catch (error) {
+      this.reportError(error);
+    }
+  }
+
   stopGeneration(): void {
     if (this.currentCancellation && !this.currentCancellation.token.isCancellationRequested) {
       this.currentCancellation.cancel();
@@ -170,6 +187,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'authLogin':
         await this.login();
+        return;
+      case 'authLogout':
+        await this.logout();
         return;
       case 'refreshSessions':
         await this.refreshSessions();
