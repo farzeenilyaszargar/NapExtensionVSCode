@@ -173,7 +173,7 @@ button {
 .account-menu {
   position: absolute;
   display: grid;
-  top: calc(100% + 6px);
+  top: calc(100% + 4px);
   right: 0;
   bottom: auto;
   left: auto;
@@ -181,8 +181,8 @@ button {
   width: min(220px, calc(100vw - 16px));
   min-width: 188px;
   max-height: min(220px, calc(100vh - 48px));
-  padding: 6px;
-  gap: 4px;
+  padding: 4px;
+  gap: 2px;
   border: 1px solid var(--vscode-dropdown-border, var(--nap-border));
   border-radius: 16px;
   color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
@@ -198,14 +198,14 @@ button {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   width: 100%;
   min-width: 0;
 }
 
 .account-menu-email {
-  height: 30px;
-  padding: 0 9px;
+  height: 25px;
+  padding: 0 8px;
   color: var(--nap-muted);
   cursor: default;
   font-size: 11px;
@@ -221,8 +221,8 @@ button {
 
 .account-menu-item {
   justify-content: stretch;
-  height: 30px;
-  padding: 0 9px;
+  height: 26px;
+  padding: 0 8px;
   border: 0;
   border-radius: 999px;
   color: var(--vscode-dropdown-foreground, var(--vscode-foreground));

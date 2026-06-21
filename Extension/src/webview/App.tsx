@@ -3,6 +3,7 @@ import {
   Brain,
   Check,
   ChevronDown,
+  CircleUserRound,
   Copy,
   FileText,
   FolderOpen,
@@ -1336,7 +1337,7 @@ function HeaderSettingsDropdown({
       {open ? (
         <div className="account-menu" role="menu" data-menu="account">
           <div className="account-menu-email" aria-disabled="true">
-            <Lock size={12} aria-hidden="true" />
+            <CircleUserRound size={12} aria-hidden="true" />
             <span>{email}</span>
           </div>
           <button type="button" className="account-menu-item" role="menuitem" onClick={onOpenSettings}>
