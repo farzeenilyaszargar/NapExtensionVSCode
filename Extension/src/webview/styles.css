@@ -1193,6 +1193,56 @@ textarea::-webkit-scrollbar,
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
+.change-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  width: calc(100% - 30px);
+  min-height: 28px;
+  margin: 0 auto -1px;
+  padding: 4px 9px;
+  border: 1px solid #282828;
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  color: #828282;
+  background: rgba(20, 20, 20, 0.9);
+  overflow: hidden;
+  animation: prompt-queue-in 180ms ease-out;
+}
+
+.change-summary-files {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.change-summary-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.change-summary-add {
+  color: #7fbf7f;
+}
+
+.change-summary-del {
+  color: #c77777;
+}
+
+.change-summary-bar + .prompt-queue {
+  border-radius: 0;
+}
+
 .prompt-queue-item {
   display: grid;
   grid-template-columns: 20px minmax(0, 1fr) 20px 20px;

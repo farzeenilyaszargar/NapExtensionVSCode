@@ -820,50 +820,53 @@ export function App() {
 
       {activePage === 'chat' && isAuthenticated ? (
         <footer className="composer-panel" ref={composerPanelRef}>
-        {queuedPrompts.length > 0 ? (
-          <section className="prompt-queue" aria-label="Queued prompts">
-            {queuedPrompts.map(item => (
-              <div
-                key={item.id}
-                className={`prompt-queue-item${draggedQueuedPromptId === item.id ? ' is-dragging' : ''}`}
-                draggable
-                onDragStart={event => onQueueDragStart(event, item.id)}
-                onDragEnd={() => setDraggedQueuedPromptId(undefined)}
-                onDragOver={onQueueDragOver}
-                onDrop={event => onQueueDrop(event, item.id)}
-              >
-                <button
-                  type="button"
-                  className="prompt-queue-action prompt-queue-drag"
-                  title="Drag queued prompt"
-                  aria-label="Drag queued prompt"
-                  tabIndex={-1}
+          {editedActivityItems.length > 0 ? (
+            <ChangeSummaryBar items={editedActivityItems} />
+          ) : null}
+          {queuedPrompts.length > 0 ? (
+            <section className="prompt-queue" aria-label="Queued prompts">
+              {queuedPrompts.map(item => (
+                <div
+                  key={item.id}
+                  className={`prompt-queue-item${draggedQueuedPromptId === item.id ? ' is-dragging' : ''}`}
+                  draggable
+                  onDragStart={event => onQueueDragStart(event, item.id)}
+                  onDragEnd={() => setDraggedQueuedPromptId(undefined)}
+                  onDragOver={onQueueDragOver}
+                  onDrop={event => onQueueDrop(event, item.id)}
                 >
-                  <LocalIcon name="drag" />
-                </button>
-                <span className="prompt-queue-text">{item.prompt}</span>
-                <button
-                  type="button"
-                  className="prompt-queue-action prompt-queue-delete"
-                  title="Remove queued prompt"
-                  aria-label="Remove queued prompt"
-                  onClick={() => post({ type: 'deleteQueuedPrompt', promptId: item.id })}
-                >
-                  <Trash2 size={11} />
-                </button>
-                <button
-                  type="button"
-                  className="prompt-queue-action prompt-queue-edit"
-                  title="Edit queued prompt"
-                  aria-label="Edit queued prompt"
-                  onClick={() => editQueuedPrompt(item)}
-                >
-                  <LocalIcon name="edit" />
-                </button>
-              </div>
-            ))}
-          </section>
-        ) : null}
+                  <button
+                    type="button"
+                    className="prompt-queue-action prompt-queue-drag"
+                    title="Drag queued prompt"
+                    aria-label="Drag queued prompt"
+                    tabIndex={-1}
+                  >
+                    <LocalIcon name="drag" />
+                  </button>
+                  <span className="prompt-queue-text">{item.prompt}</span>
+                  <button
+                    type="button"
+                    className="prompt-queue-action prompt-queue-delete"
+                    title="Remove queued prompt"
+                    aria-label="Remove queued prompt"
+                    onClick={() => post({ type: 'deleteQueuedPrompt', promptId: item.id })}
+                  >
+                    <Trash2 size={11} />
+                  </button>
+                  <button
+                    type="button"
+                    className="prompt-queue-action prompt-queue-edit"
+                    title="Edit queued prompt"
+                    aria-label="Edit queued prompt"
+                    onClick={() => editQueuedPrompt(item)}
+                  >
+                    <LocalIcon name="edit" />
+                  </button>
+                </div>
+              ))}
+            </section>
+          ) : null}
         <form className="composer" onSubmit={onSubmit}>
           <div className="composer-input">
             <textarea
@@ -1101,6 +1104,22 @@ function ActivityStats({ item }: { item: NapActivityItem }) {
       <span className="activity-stat-add">+{item.additions ?? 0}</span>
       <span className="activity-stat-del">-{item.deletions ?? 0}</span>
     </span>
+  );
+}
+
+function ChangeSummaryBar({ items }: { items: NapActivityItem[] }) {
+  const additions = items.reduce((sum, item) => sum + (item.additions ?? 0), 0);
+  const deletions = items.reduce((sum, item) => sum + (item.deletions ?? 0), 0);
+  return (
+    <section className="change-summary-bar" aria-label="Changed files summary">
+      <span className="change-summary-files">
+        {items.length} {items.length === 1 ? 'file' : 'files'} changed
+      </span>
+      <span className="change-summary-stats" aria-label={`${additions} additions and ${deletions} deletions`}>
+        <span className="change-summary-add">+{additions}</span>
+        <span className="change-summary-del">-{deletions}</span>
+      </span>
+    </section>
   );
 }
 
