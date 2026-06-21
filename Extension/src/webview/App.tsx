@@ -108,6 +108,7 @@ export function App() {
   const composerPanelRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastAnchoredUserMessageId = useRef<string>();
+  const lastOpenedSessionId = useRef<string>();
   const isScrollPinnedRef = useRef(true);
   const userScrollIntentRef = useRef(false);
   const ignoreScrollUntilRef = useRef(0);
@@ -297,6 +298,21 @@ export function App() {
       isScrollPinnedRef.current = false;
     }
   }, [markUserScrollIntent]);
+
+  useEffect(() => {
+    if (state.sessionId === 'pending' || state.sessionId === lastOpenedSessionId.current) {
+      return;
+    }
+
+    lastOpenedSessionId.current = state.sessionId;
+    lastAnchoredUserMessageId.current = [...state.messages].reverse().find(message => message.role === 'user')?.id;
+    isScrollPinnedRef.current = true;
+    userScrollIntentRef.current = false;
+    requestAnimationFrame(() => {
+      scrollToBottom('auto');
+      requestAnimationFrame(() => scrollToBottom('auto'));
+    });
+  }, [scrollToBottom, state.messages, state.sessionId]);
 
   useEffect(() => {
     const latestUserMessage = [...state.messages].reverse().find(message => message.role === 'user');
