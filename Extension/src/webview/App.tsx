@@ -54,6 +54,7 @@ const approvalLabels: Record<ApprovalMode, string> = {
 
 const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
+const COMPOSER_SINGLE_LINE_GROW_THRESHOLD = 20;
 const SCROLL_BOTTOM_THRESHOLD = 80;
 const SCROLL_LOCK_THRESHOLD = 2;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
@@ -430,9 +431,14 @@ export function App() {
     }
 
     textarea.style.height = 'auto';
-    const nextHeight = Math.min(Math.max(textarea.scrollHeight, COMPOSER_MIN_HEIGHT), COMPOSER_MAX_HEIGHT);
+    const measuredHeight = textarea.scrollHeight;
+    const isSingleLine = !textarea.value.includes('\n');
+    const shouldStayAtBaseHeight = isSingleLine && measuredHeight <= COMPOSER_MIN_HEIGHT + COMPOSER_SINGLE_LINE_GROW_THRESHOLD;
+    const nextHeight = shouldStayAtBaseHeight
+      ? COMPOSER_MIN_HEIGHT
+      : Math.min(Math.max(measuredHeight, COMPOSER_MIN_HEIGHT), COMPOSER_MAX_HEIGHT);
     textarea.style.height = `${nextHeight}px`;
-    textarea.style.overflowY = textarea.scrollHeight > COMPOSER_MAX_HEIGHT ? 'auto' : 'hidden';
+    textarea.style.overflowY = measuredHeight > COMPOSER_MAX_HEIGHT ? 'auto' : 'hidden';
   }, []);
 
   useEffect(() => {
