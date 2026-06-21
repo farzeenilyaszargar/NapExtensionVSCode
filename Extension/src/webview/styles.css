@@ -625,15 +625,21 @@ textarea::-webkit-scrollbar,
 
 .turn-divider {
   display: grid;
-  grid-template-columns: minmax(18px, 1fr) auto minmax(18px, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: 0;
   width: 100%;
   margin: 22px 0 8px;
   color: #6f6f6f;
   font-size: 10.5px;
   line-height: 1;
   letter-spacing: 0;
+}
+
+.turn-divider--active {
+  grid-template-columns: minmax(18px, 1fr) auto minmax(18px, 1fr);
+  gap: 10px;
+  color: #8a8a8a;
 }
 
 .turn-divider::before,
@@ -654,18 +660,24 @@ textarea::-webkit-scrollbar,
 }
 
 .turn-divider::after {
+  display: none;
   background: linear-gradient(90deg, rgba(74, 74, 74, 0.36) 0%, transparent 100%);
 }
 
+.turn-divider--active::after {
+  display: block;
+}
+
 .turn-divider span {
+  display: none;
   min-width: 0;
   padding: 0 2px;
   color: inherit;
   white-space: nowrap;
 }
 
-.turn-divider--active {
-  color: #8a8a8a;
+.turn-divider--active span {
+  display: inline;
 }
 
 .markdown-body {
