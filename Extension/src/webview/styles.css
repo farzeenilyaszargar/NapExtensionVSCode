@@ -1173,6 +1173,8 @@ textarea::-webkit-scrollbar,
   padding: 0 0 15px;
   border-top: 0;
   background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
 }
 
 .prompt-queue {
@@ -1269,6 +1271,8 @@ textarea::-webkit-scrollbar,
 .composer {
   min-width: 0;
   background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
   border: 0;
   box-shadow: none;
 }
@@ -1277,6 +1281,8 @@ textarea::-webkit-scrollbar,
   position: relative;
   min-width: 0;
   background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
   border: 0;
   box-shadow: none;
 }
@@ -1295,6 +1301,7 @@ textarea::-webkit-scrollbar,
   box-shadow: none;
   -webkit-backdrop-filter: blur(18px) saturate(1.12);
   backdrop-filter: blur(18px) saturate(1.12);
+  opacity: 0.9;
 }
 
 .composer-input textarea:hover {
