@@ -254,30 +254,6 @@ export class NapSettingsPanel {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .quick-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .metric {
-      padding: 12px 13px;
-      border: 1px solid var(--nap-border);
-      border-radius: 10px;
-      background: var(--nap-card);
-    }
-    .metric-label {
-      color: var(--nap-muted);
-      font-size: 11px;
-    }
-    .metric-value {
-      margin-top: 6px;
-      color: #e2e2e2;
-      font-size: 13px;
-      font-weight: 600;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
     section.setting-section {
       overflow: hidden;
       border: 1px solid var(--nap-border);
@@ -357,9 +333,6 @@ export class NapSettingsPanel {
       .hero {
         grid-template-columns: 1fr;
       }
-      .quick-grid {
-        grid-template-columns: 1fr;
-      }
       .row {
         grid-template-columns: 1fr;
         gap: 5px;
@@ -390,11 +363,6 @@ export class NapSettingsPanel {
         <div class="status-pill"><span class="status-dot"></span>${escapeHtml(account.status)}</div>
       </header>
       ${accountHero(account)}
-      <div class="quick-grid">
-        ${metric('Model', config.defaultModel)}
-        ${metric('Security', config.securityMode)}
-        ${metric('Auth', account.refreshToken)}
-      </div>
       <div id="account">${section('Account', accountRows)}</div>
       <div id="usage">${section('Usage & Billing', usageRows)}</div>
       <div id="config">${section('Current Configuration', configRows)}</div>
@@ -418,10 +386,6 @@ function accountHero(account: LocalAccountInfo): string {
   const initials = initialsFromName(name);
   const meta = account.email !== 'Unknown' ? account.email : account.accountId !== 'Unknown' ? account.accountId : account.status;
   return `<section class="account-card" aria-label="Nap account summary"><div class="avatar">${escapeHtml(initials)}</div><div class="account-main"><p class="account-name">${escapeHtml(name)}</p><div class="account-meta">${escapeHtml(meta)}</div></div></section>`;
-}
-
-function metric(label: string, value: string): string {
-  return `<div class="metric"><div class="metric-label">${escapeHtml(label)}</div><div class="metric-value">${escapeHtml(value)}</div></div>`;
 }
 
 function initialsFromName(value: string): string {
