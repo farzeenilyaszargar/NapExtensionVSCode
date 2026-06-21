@@ -1316,7 +1316,7 @@ textarea::-webkit-scrollbar,
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid #2a2a2a;
-  border-radius: 18px;
+  border-radius: 24px;
   color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
   background: rgba(20, 20, 20, 0.94);
   box-shadow: 0 10px 26px color-mix(in srgb, black 28%, transparent);
@@ -1859,7 +1859,7 @@ textarea:disabled {
   overflow-y: auto;
   overflow-x: hidden;
   border: 1px solid var(--vscode-dropdown-border, var(--nap-border));
-  border-radius: 10px;
+  border-radius: 16px;
   background: var(--vscode-dropdown-background, var(--vscode-editorWidget-background));
   box-shadow: 0 6px 18px color-mix(in srgb, black 24%, transparent);
   transform-origin: bottom left;
