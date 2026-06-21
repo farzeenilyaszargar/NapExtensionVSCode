@@ -1277,12 +1277,12 @@ function HeaderSettingsDropdown({
         <LocalIcon name="settings" />
       </button>
       {open ? (
-        <div className="floating-menu account-menu floating-menu--align-end" role="menu" data-menu="account">
+        <div className="account-menu" role="menu" data-menu="account">
           <div className="account-menu-email" aria-disabled="true">
             <Lock size={12} aria-hidden="true" />
             <span>{email}</span>
           </div>
-          <button type="button" className="floating-menu-item account-menu-item" role="menuitem" onClick={onOpenSettings}>
+          <button type="button" className="account-menu-item" role="menuitem" onClick={onOpenSettings}>
             {window.__NAP_LOGO_URI__ ? (
               <img className="account-menu-logo" src={window.__NAP_LOGO_URI__} alt="" aria-hidden="true" />
             ) : (
@@ -1290,7 +1290,7 @@ function HeaderSettingsDropdown({
             )}
             <span>Nap Settings</span>
           </button>
-          <button type="button" className="floating-menu-item account-menu-item account-menu-item--logout" role="menuitem" onClick={onLogout}>
+          <button type="button" className="account-menu-item account-menu-item--logout" role="menuitem" onClick={onLogout}>
             <LogOut size={13} aria-hidden="true" />
             <span>Log out</span>
           </button>

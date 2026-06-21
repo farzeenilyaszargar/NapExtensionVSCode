@@ -171,6 +171,8 @@ button {
 }
 
 .account-menu {
+  position: absolute;
+  display: grid;
   top: calc(100% + 6px);
   right: 0;
   bottom: auto;
@@ -181,8 +183,14 @@ button {
   max-height: min(220px, calc(100vh - 48px));
   padding: 6px;
   gap: 4px;
+  border: 1px solid var(--vscode-dropdown-border, var(--nap-border));
+  border-radius: 16px;
+  color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+  background: var(--vscode-dropdown-background, var(--vscode-editorWidget-background));
+  box-shadow: 0 10px 24px color-mix(in srgb, black 30%, transparent);
   transform-origin: top right;
   overflow: hidden;
+  animation: floating-menu-in 150ms ease-out;
 }
 
 .account-menu-email,
@@ -215,6 +223,17 @@ button {
   justify-content: stretch;
   height: 30px;
   padding: 0 9px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+}
+
+.account-menu-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(43, 43, 43, 0.92));
 }
 
 .account-menu-logo {
@@ -233,7 +252,8 @@ button {
 }
 
 .header-nav-button:hover,
-.header-actions button:hover,
+.header-actions > button:hover,
+.header-actions > .header-settings-dropdown > button:hover,
 .sessions-page-header button:hover {
   color: var(--vscode-foreground);
   background: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground));
@@ -2085,25 +2105,6 @@ textarea:disabled {
 
 .floating-menu-item svg {
   color: var(--nap-muted);
-}
-
-.header-actions .account-menu .account-menu-item {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  width: 100%;
-  min-width: 0;
-  height: 30px;
-  padding: 0 9px;
-  gap: 7px;
-  font-size: 11px;
-  justify-content: stretch;
-}
-
-.header-actions .account-menu .account-menu-item span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .account-menu .account-menu-logo {
