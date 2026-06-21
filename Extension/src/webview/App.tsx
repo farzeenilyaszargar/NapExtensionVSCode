@@ -463,6 +463,14 @@ export function App() {
   const hasDraft = draft.trim().length > 0;
   const latestAssistantMessageId = [...state.messages].reverse().find(message => message.role === 'assistant')?.id;
 
+  const stopGeneration = useCallback(() => {
+    if (!isStreaming) {
+      return;
+    }
+
+    post({ type: 'stopGeneration' });
+  }, [isStreaming, post]);
+
   useEffect(() => {
     if (!latestStreamingAssistant) {
       return;
@@ -581,6 +589,20 @@ export function App() {
     return () => window.removeEventListener('keydown', focusComposerOnTyping);
   }, [activePage, openMenu]);
 
+  useEffect(() => {
+    const stopOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || !isStreaming) {
+        return;
+      }
+
+      event.preventDefault();
+      stopGeneration();
+    };
+
+    window.addEventListener('keydown', stopOnEscape);
+    return () => window.removeEventListener('keydown', stopOnEscape);
+  }, [isStreaming, stopGeneration]);
+
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     const prompt = draft.trim();
@@ -604,6 +626,12 @@ export function App() {
   };
 
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Escape' && isStreaming) {
+      event.preventDefault();
+      stopGeneration();
+      return;
+    }
+
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
@@ -982,8 +1010,8 @@ export function App() {
                   </div>
                 ) : null}
               </div>
-              {isStreaming && !hasDraft ? (
-                <button className="send-button send-button--stop" type="button" title="Stop" aria-label="Stop" onClick={() => post({ type: 'stopGeneration' })}>
+              {isStreaming ? (
+                <button className="send-button send-button--stop" type="button" title="Stop" aria-label="Stop" onClick={stopGeneration}>
                   <Square size={10} />
                 </button>
               ) : (
