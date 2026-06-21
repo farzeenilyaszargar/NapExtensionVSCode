@@ -17,6 +17,7 @@ import { NapDaemonClient } from '../nap/client';
 import {
   NapSessionRecord as DaemonSessionRecord,
   SessionActivityEvent,
+  SessionDiffUpdatedEvent,
   SessionMessageDeltaEvent,
   SessionMessageDoneEvent
 } from '../nap/protocol';
@@ -33,6 +34,7 @@ export interface NapPromptRequest {
 export interface NapPromptStream {
   onDelta(delta: string): void;
   onActivity(activity: Partial<SessionActivityEvent> | undefined): void;
+  onTurnDiff?(event: SessionDiffUpdatedEvent): void;
   onLog(event: NapLogEvent): void;
 }
 
@@ -151,6 +153,7 @@ export class NapDaemonService implements INapCliService {
     let doneStatus: SessionMessageDoneEvent['status'] | undefined;
     let cleanupActivity: (() => void) | undefined;
     let cleanupDelta: (() => void) | undefined;
+    let cleanupDiff: (() => void) | undefined;
     let cleanupDone: (() => void) | undefined;
     let cleanupClose: (() => void) | undefined;
 
@@ -163,6 +166,11 @@ export class NapDaemonService implements INapCliService {
       cleanupDelta = this.client.on<SessionMessageDeltaEvent>('session.message.delta', event => {
         if (event.sessionId === request.sessionId && (!jobId || event.jobId === jobId)) {
           stream.onDelta(event.delta);
+        }
+      });
+      cleanupDiff = this.client.on<SessionDiffUpdatedEvent>('session.diff.updated', event => {
+        if (event.sessionId === request.sessionId && (!jobId || event.jobId === jobId)) {
+          stream.onTurnDiff?.(event);
         }
       });
       cleanupDone = this.client.on<SessionMessageDoneEvent>('session.message.done', event => {
@@ -198,6 +206,7 @@ export class NapDaemonService implements INapCliService {
     } finally {
       cleanupActivity?.();
       cleanupDelta?.();
+      cleanupDiff?.();
       cleanupDone?.();
       cleanupClose?.();
       cancellation.dispose();

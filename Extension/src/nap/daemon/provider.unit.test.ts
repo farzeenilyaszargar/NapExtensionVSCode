@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { NapCliProviderAdapter, buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
+import { NapCliProviderAdapter, buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAppServerTurnDiff, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
 
 describe('Nap CLI auth parsing', () => {
   it('treats profile JSON as authenticated even without a status field', () => {
@@ -236,6 +236,22 @@ describe('Nap app-server stream parsing', () => {
       params: {
         delta: 'This should render as paragraph text.'
       }
+    })).toBeUndefined();
+  });
+
+  it('extracts app-server turn diffs for review', () => {
+    expect(parseAppServerTurnDiff({
+      method: 'turn/diff/updated',
+      params: {
+        threadId: 'thread-1',
+        turnId: 'turn-1',
+        diff: 'diff --git a/a.txt b/a.txt\n+new line\n'
+      }
+    })).toBe('diff --git a/a.txt b/a.txt\n+new line');
+
+    expect(parseAppServerTurnDiff({
+      method: 'item/agentMessage/delta',
+      params: { delta: 'hello' }
     })).toBeUndefined();
   });
 

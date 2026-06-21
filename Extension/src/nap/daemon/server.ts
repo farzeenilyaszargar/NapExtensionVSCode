@@ -21,6 +21,7 @@ import {
   NapSessionRecord,
   SessionCreateParams,
   SessionActivityEvent,
+  SessionDiffUpdatedEvent,
   SessionMessageDeltaEvent,
   SessionMessageDoneEvent,
   SessionSendMessageParams,
@@ -356,6 +357,9 @@ export class NapDaemon {
         onActivity: activity => {
           this.broadcast('session.activity', this.activityEvent(session, job.id, activity));
         },
+        onTurnDiff: diff => {
+          this.broadcast('session.diff.updated', this.diffEvent(session, job.id, diff));
+        },
         onLog: message => this.log('info', message, params.workspaceRoot, session.id, job.id)
       }, abort.signal);
 
@@ -520,6 +524,20 @@ export class NapDaemon {
     };
   }
 
+  private diffEvent(session: NapSessionRecord, jobId: string, diff: string): SessionDiffUpdatedEvent {
+    const summary = summarizeUnifiedDiff(diff);
+    return {
+      eventId: createNapId('event'),
+      createdAt: Date.now(),
+      workspaceRoot: session.workspaceRoot,
+      sessionId: session.id,
+      clientId: 'napd',
+      jobId,
+      diff,
+      ...summary
+    };
+  }
+
   private jobEvent(job: NapJobRecord): JobEvent {
     return {
       eventId: createNapId('event'),
@@ -579,6 +597,34 @@ export class NapDaemon {
   private error(id: string | number | null, code: number, message: string): JsonRpcFailure {
     return { jsonrpc: '2.0', id, error: { code, message } };
   }
+}
+
+function summarizeUnifiedDiff(diff: string): { filesChanged: number; additions: number; deletions: number } {
+  const files = new Set<string>();
+  let additions = 0;
+  let deletions = 0;
+
+  for (const line of diff.split(/\r?\n/)) {
+    if (line.startsWith('diff --git ')) {
+      const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+      files.add(match?.[2] ?? line.slice('diff --git '.length));
+      continue;
+    }
+    if (line.startsWith('+++ ') || line.startsWith('--- ')) {
+      continue;
+    }
+    if (line.startsWith('+')) {
+      additions += 1;
+    } else if (line.startsWith('-')) {
+      deletions += 1;
+    }
+  }
+
+  return {
+    filesChanged: files.size,
+    additions,
+    deletions
+  };
 }
 
 function isRequest(message: JsonRpcMessage): message is JsonRpcRequest {

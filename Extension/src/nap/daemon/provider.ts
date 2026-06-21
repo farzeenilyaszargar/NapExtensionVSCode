@@ -31,6 +31,7 @@ export interface ProviderPromptRequest {
 export interface ProviderPromptStream {
   onDelta(delta: string): void;
   onActivity(activity: ProviderActivity | undefined): void;
+  onTurnDiff?(diff: string): void;
   onThread?(threadId: string): void;
   onLog(message: string): void;
 }
@@ -213,6 +214,10 @@ export class NapCliProviderAdapter implements ProviderAdapter {
         const activity = parseAppServerActivityEvent(notification);
         if (activity !== undefined) {
           stream.onActivity(mergeActivity(activityBuffers, activity));
+        }
+        const turnDiff = parseAppServerTurnDiff(notification);
+        if (turnDiff) {
+          stream.onTurnDiff?.(turnDiff);
         }
 
         if (notification.method === 'turn/completed') {
@@ -561,6 +566,16 @@ export function parseAppServerDelta(notification: NapAppServerNotification): str
 
 export function parseAppServerActivity(notification: NapAppServerNotification): string | undefined {
   return parseAppServerActivityEvent(notification)?.text;
+}
+
+export function parseAppServerTurnDiff(notification: NapAppServerNotification): string | undefined {
+  if (notification.method !== 'turn/diff/updated') {
+    return undefined;
+  }
+
+  const params = readObject(notification.params);
+  const diff = readString(params?.diff);
+  return diff && diff.trim() ? diff : undefined;
 }
 
 export function parseAppServerActivityEvent(notification: NapAppServerNotification): ProviderActivity | undefined {

@@ -78,6 +78,7 @@ export type NapRpcEvent =
   | 'session.message.delta'
   | 'session.message.done'
   | 'session.activity'
+  | 'session.diff.updated'
   | 'job.created'
   | 'job.progress'
   | 'job.done'
@@ -215,6 +216,16 @@ export interface SessionActivityEvent extends NapRpcEnvelope {
   additions?: number;
   deletions?: number;
   itemId?: string;
+}
+
+export interface SessionDiffUpdatedEvent extends NapRpcEnvelope {
+  eventId: string;
+  createdAt: number;
+  jobId: string;
+  diff: string;
+  filesChanged: number;
+  additions: number;
+  deletions: number;
 }
 
 export interface JobEvent extends NapRpcEnvelope {

@@ -22,6 +22,7 @@ import {
   SessionCreateParams,
   SessionMessageDeltaEvent,
   SessionMessageDoneEvent,
+  SessionDiffUpdatedEvent,
   SessionSendMessageParams,
   SessionStopParams,
   WorkspaceIndexStatus,
@@ -34,6 +35,7 @@ import { NapAuthState, NapMcpState } from '../shared/protocol';
 export type NapDaemonEvent =
   | JsonRpcNotification<SessionMessageDeltaEvent>
   | JsonRpcNotification<SessionMessageDoneEvent>
+  | JsonRpcNotification<SessionDiffUpdatedEvent>
   | JsonRpcNotification<JobEvent>
   | JsonRpcNotification<AuthChangedEvent>
   | JsonRpcNotification<McpChangedEvent>

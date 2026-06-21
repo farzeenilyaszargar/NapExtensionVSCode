@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import * as vscode from 'vscode';
@@ -31,6 +32,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private workspaceChangeTimer: NodeJS.Timeout | undefined;
   private workspaceWatchers: vscode.Disposable[] = [];
   private conversationChangeBaseline: GitChangeSnapshot | undefined;
+  private conversationTurnDiff: string | undefined;
   private workspaceChangeGeneration = 0;
 
   constructor(
@@ -229,6 +231,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    if (this.conversationTurnDiff?.trim()) {
+      await openUnifiedDiffReview(this.conversationTurnDiff, this.state.sessionId);
+      return;
+    }
+
     if (!this.conversationChangeBaseline) {
       this.conversationChangeBaseline = await getGitChangeSnapshot();
     }
@@ -381,6 +388,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
               persistent: activity ? isPersistentActivityKind(activity.kind) : false,
               activity
             });
+          },
+          onTurnDiff: event => {
+            this.updateConversationTurnDiff(event.diff);
           },
           onLog: event => {
             this.appendLog(event);
@@ -686,6 +696,19 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'error', message });
   }
 
+  private updateConversationTurnDiff(diff: string): void {
+    const trimmed = diff.trim();
+    this.conversationTurnDiff = trimmed ? `${trimmed}\n` : undefined;
+    const workspaceChanges = this.conversationTurnDiff
+      ? summarizeUnifiedDiff(this.conversationTurnDiff)
+      : emptyWorkspaceChangeSummary();
+    this.state = {
+      ...this.state,
+      workspaceChanges
+    };
+    this.post({ type: 'workspaceChangesChanged', workspaceChanges });
+  }
+
   private createInitialState(): NapSessionState {
     const config = getNapConfiguration();
     const previousState = this.state;
@@ -810,6 +833,16 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
+    if (this.conversationTurnDiff?.trim()) {
+      const workspaceChanges = summarizeUnifiedDiff(this.conversationTurnDiff);
+      this.state = {
+        ...this.state,
+        workspaceChanges
+      };
+      this.post({ type: 'workspaceChangesChanged', workspaceChanges });
+      return;
+    }
+
     if (!this.conversationChangeBaseline) {
       this.conversationChangeBaseline = await getGitChangeSnapshot();
     }
@@ -842,6 +875,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
     this.conversationChangeBaseline = baseline;
+    this.conversationTurnDiff = undefined;
     this.state = {
       ...this.state,
       workspaceChanges: emptyWorkspaceChangeSummary()
@@ -1193,6 +1227,17 @@ async function openChangedFilesReview(files: ConversationChangedFiles): Promise<
   }
 }
 
+async function openUnifiedDiffReview(diff: string, sessionId: string): Promise<void> {
+  const directory = path.join(os.tmpdir(), 'nap-review-diffs');
+  await fs.promises.mkdir(directory, { recursive: true });
+  const fileName = `${safeFileSegment(sessionId)}-${Date.now()}.diff`;
+  const uri = vscode.Uri.file(path.join(directory, fileName));
+  await fs.promises.writeFile(uri.fsPath, diff.endsWith('\n') ? diff : `${diff}\n`, 'utf8');
+  const document = await vscode.workspace.openTextDocument(uri);
+  await vscode.languages.setTextDocumentLanguage(document, 'diff');
+  await vscode.window.showTextDocument(document, { preview: false });
+}
+
 async function openTrackedFileDiff(workspaceRoot: string, filePath: string): Promise<void> {
   const absolutePath = path.join(workspaceRoot, filePath);
   const workingUri = vscode.Uri.file(absolutePath);
@@ -1290,6 +1335,45 @@ function summarizeConversationChanges(
     additions,
     deletions
   };
+}
+
+function summarizeUnifiedDiff(diff: string): NapWorkspaceChangeSummary {
+  const files = new Set<string>();
+  let additions = 0;
+  let deletions = 0;
+
+  for (const line of diff.split(/\r?\n/)) {
+    if (line.startsWith('diff --git ')) {
+      const filePath = readUnifiedDiffFilePath(line);
+      if (filePath) {
+        files.add(filePath);
+      }
+      continue;
+    }
+    if (line.startsWith('+++ ') || line.startsWith('--- ')) {
+      continue;
+    }
+    if (line.startsWith('+')) {
+      additions += 1;
+    } else if (line.startsWith('-')) {
+      deletions += 1;
+    }
+  }
+
+  return {
+    filesChanged: files.size,
+    additions,
+    deletions
+  };
+}
+
+function readUnifiedDiffFilePath(line: string): string | undefined {
+  const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
+  return match?.[2] ?? match?.[1];
+}
+
+function safeFileSegment(value: string): string {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'session';
 }
 
 function parseGitNumstatValue(value: string | undefined): number {
