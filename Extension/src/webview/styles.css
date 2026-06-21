@@ -1213,6 +1213,7 @@ textarea::-webkit-scrollbar,
 }
 
 .change-summary-files {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1221,11 +1222,18 @@ textarea::-webkit-scrollbar,
   line-height: 1.2;
 }
 
+.change-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
 .change-summary-stats {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: 0 0 auto;
   font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
   font-size: 10.5px;
   line-height: 1.2;
@@ -1237,6 +1245,31 @@ textarea::-webkit-scrollbar,
 
 .change-summary-del {
   color: #c77777;
+}
+
+.change-summary-review {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid #343434;
+  border-radius: 999px;
+  color: #d0d0d0;
+  background: #242424;
+  cursor: pointer;
+  font-size: 10.5px;
+  line-height: 1;
+}
+
+.change-summary-review:hover {
+  color: #f0f0f0;
+  background: #303030;
+}
+
+.change-summary-review:focus-visible {
+  outline: 1px solid #555;
+  outline-offset: 1px;
 }
 
 .change-summary-bar + .prompt-queue {

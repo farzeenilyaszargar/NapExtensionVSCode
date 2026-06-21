@@ -180,6 +180,7 @@ export type WebviewToExtensionMessage =
   | { type: 'openSession'; sessionId: string }
   | { type: 'deleteSession'; sessionId: string }
   | { type: 'openFile'; filePath: string }
+  | { type: 'reviewChanges' }
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
   | { type: 'refreshPlugins' }
@@ -223,6 +224,7 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'clearSession':
     case 'openSettings':
     case 'refreshPlugins':
+    case 'reviewChanges':
       return true;
     case 'openExternal':
       return typeof value.url === 'string' && /^https:\/\/(?:www\.)?nap-code\.com(?:\/|$)/.test(value.url);

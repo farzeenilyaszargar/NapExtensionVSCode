@@ -30,6 +30,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private loginPromise: Promise<void> | undefined;
   private workspaceChangeTimer: NodeJS.Timeout | undefined;
   private workspaceWatchers: vscode.Disposable[] = [];
+  private conversationChangeBaseline: GitChangeSnapshot | undefined;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -51,7 +52,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     };
     webviewView.webview.html = this.getHtml(webviewView.webview);
     this.ensureWorkspaceChangeWatchers();
-    void this.refreshWorkspaceChanges();
+    void this.resetConversationChangeBaseline();
 
     webviewView.webview.onDidReceiveMessage(async (message: unknown) => {
       if (!isWebviewToExtensionMessage(message)) {
@@ -84,6 +85,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   async newSession(): Promise<void> {
     this.stopGeneration();
     this.state = this.createInitialState();
+    await this.resetConversationChangeBaseline();
     await this.refreshEnvironment();
     await this.refreshSessions();
     this.log('info', `New Nap session ${this.state.sessionId} created.`);
@@ -98,8 +100,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       status: 'idle',
       messages: [],
       queuedPrompts: [],
-      logs: []
+      logs: [],
+      workspaceChanges: emptyWorkspaceChangeSummary()
     };
+    await this.resetConversationChangeBaseline();
     await this.refreshSessions();
     this.publishState();
   }
@@ -182,6 +186,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       case 'openFile':
         await this.openFileReference(message.filePath);
         return;
+      case 'reviewChanges':
+        await this.reviewConversationChanges();
+        return;
       case 'setMode':
         this.setMode(message.mode);
         return;
@@ -214,6 +221,20 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     await this.runPrompt(prompt);
+  }
+
+  private async reviewConversationChanges(): Promise<void> {
+    if (this.state.workspaceChanges.filesChanged <= 0) {
+      return;
+    }
+
+    const prompt = [
+      'Review the files changed in this conversation.',
+      'Focus on bugs, regressions, missing tests, security issues, and behavior that may not match the request.',
+      'Use the current Git diff as the source of truth and keep the findings concise.'
+    ].join(' ');
+
+    await this.sendPrompt(prompt);
   }
 
   private enqueuePrompt(prompt: string): void {
@@ -286,6 +307,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const prompt = rawPrompt.trim();
     if (!prompt) {
       return;
+    }
+
+    if (this.state.messages.length === 0) {
+      await this.resetConversationChangeBaseline();
     }
 
     const userMessage = this.createMessage('user', prompt, 'complete');
@@ -479,6 +504,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     try {
       const session = await this.cliService.getSession(latest.id);
       this.state = this.toSessionState(session);
+      await this.resetConversationChangeBaseline();
     } catch (error) {
       this.output.appendLine(`[warn] Failed to restore latest session: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -489,6 +515,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
     const session = await this.cliService.getSession(sessionId);
     this.state = this.toSessionState(session);
+    await this.resetConversationChangeBaseline();
     await this.refreshEnvironment();
     await this.refreshSessions();
     this.publishState();
@@ -504,8 +531,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       if (latest) {
         const session = await this.cliService.getSession(latest.id);
         this.state = this.toSessionState(session);
+        await this.resetConversationChangeBaseline();
       } else {
         this.state = this.createInitialState();
+        await this.resetConversationChangeBaseline();
         await this.refreshEnvironment();
       }
       await this.refreshSessions();
@@ -676,11 +705,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         servers: []
       },
       plugins: previousState?.plugins ?? [],
-      workspaceChanges: previousState?.workspaceChanges ?? {
-        filesChanged: 0,
-        additions: 0,
-        deletions: 0
-      },
+      workspaceChanges: emptyWorkspaceChangeSummary(),
       config
     };
   }
@@ -700,7 +725,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       queuedPrompts: [],
       logs: [],
       plugins: this.state.plugins,
-      workspaceChanges: this.state.workspaceChanges
+      workspaceChanges: emptyWorkspaceChangeSummary()
     };
   }
 
@@ -769,12 +794,31 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async refreshWorkspaceChanges(): Promise<void> {
-    const workspaceChanges = await getWorkspaceChangeSummary();
+    if (this.state.messages.length === 0) {
+      await this.resetConversationChangeBaseline();
+      return;
+    }
+
+    if (!this.conversationChangeBaseline) {
+      this.conversationChangeBaseline = await getGitChangeSnapshot();
+    }
+
+    const current = await getGitChangeSnapshot();
+    const workspaceChanges = summarizeConversationChanges(this.conversationChangeBaseline, current);
     this.state = {
       ...this.state,
       workspaceChanges
     };
     this.post({ type: 'workspaceChangesChanged', workspaceChanges });
+  }
+
+  private async resetConversationChangeBaseline(): Promise<void> {
+    this.conversationChangeBaseline = await getGitChangeSnapshot();
+    this.state = {
+      ...this.state,
+      workspaceChanges: emptyWorkspaceChangeSummary()
+    };
+    this.post({ type: 'workspaceChangesChanged', workspaceChanges: this.state.workspaceChanges });
   }
 
   private resolveRefreshedAuth(authResult: PromiseSettledResult<NapAuthState>): NapAuthState {
@@ -1041,10 +1085,20 @@ function createInlineActivityMarkdown(activity: Partial<NapActivityItem> & { ite
   return `\n\n:::nap-activity ${encoded}\n:::\n\n`;
 }
 
-async function getWorkspaceChangeSummary(): Promise<NapWorkspaceChangeSummary> {
+interface GitFileChangeStats {
+  additions: number;
+  deletions: number;
+}
+
+interface GitChangeSnapshot {
+  tracked: Map<string, GitFileChangeStats>;
+  untracked: Set<string>;
+}
+
+async function getGitChangeSnapshot(): Promise<GitChangeSnapshot> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
-    return emptyWorkspaceChangeSummary();
+    return emptyGitChangeSnapshot();
   }
 
   try {
@@ -1054,18 +1108,21 @@ async function getWorkspaceChangeSummary(): Promise<NapWorkspaceChangeSummary> {
       runGit(workspaceRoot, ['ls-files', '--others', '--exclude-standard'])
     ]);
 
-    let filesChanged = 0;
-    let additions = 0;
-    let deletions = 0;
+    const tracked = new Map<string, GitFileChangeStats>();
 
     for (const line of numstat.split(/\r?\n/)) {
       if (!line.trim()) {
         continue;
       }
-      const [added, deleted] = line.split(/\s+/, 3);
-      filesChanged += 1;
-      additions += parseGitNumstatValue(added);
-      deletions += parseGitNumstatValue(deleted);
+      const [added, deleted, ...fileParts] = line.split('\t');
+      const filePath = fileParts.join('\t');
+      if (!filePath) {
+        continue;
+      }
+      tracked.set(filePath, {
+        additions: parseGitNumstatValue(added),
+        deletions: parseGitNumstatValue(deleted)
+      });
     }
 
     const untrackedFiles = untracked
@@ -1074,13 +1131,55 @@ async function getWorkspaceChangeSummary(): Promise<NapWorkspaceChangeSummary> {
       .filter(Boolean);
 
     return {
-      filesChanged: filesChanged + untrackedFiles.length,
-      additions,
-      deletions
+      tracked,
+      untracked: new Set(untrackedFiles)
     };
   } catch {
-    return emptyWorkspaceChangeSummary();
+    return emptyGitChangeSnapshot();
   }
+}
+
+function summarizeConversationChanges(
+  baseline: GitChangeSnapshot,
+  current: GitChangeSnapshot
+): NapWorkspaceChangeSummary {
+  const changedFiles = new Set<string>();
+  let additions = 0;
+  let deletions = 0;
+
+  const trackedPaths = new Set([
+    ...baseline.tracked.keys(),
+    ...current.tracked.keys()
+  ]);
+
+  for (const filePath of trackedPaths) {
+    const before = baseline.tracked.get(filePath) ?? { additions: 0, deletions: 0 };
+    const after = current.tracked.get(filePath) ?? { additions: 0, deletions: 0 };
+    if (before.additions === after.additions && before.deletions === after.deletions) {
+      continue;
+    }
+    changedFiles.add(filePath);
+    additions += Math.max(0, after.additions - before.additions);
+    deletions += Math.max(0, after.deletions - before.deletions);
+  }
+
+  for (const filePath of current.untracked) {
+    if (!baseline.untracked.has(filePath)) {
+      changedFiles.add(filePath);
+    }
+  }
+
+  for (const filePath of baseline.untracked) {
+    if (!current.untracked.has(filePath)) {
+      changedFiles.add(filePath);
+    }
+  }
+
+  return {
+    filesChanged: changedFiles.size,
+    additions,
+    deletions
+  };
 }
 
 function parseGitNumstatValue(value: string | undefined): number {
@@ -1096,6 +1195,13 @@ function emptyWorkspaceChangeSummary(): NapWorkspaceChangeSummary {
     filesChanged: 0,
     additions: 0,
     deletions: 0
+  };
+}
+
+function emptyGitChangeSnapshot(): GitChangeSnapshot {
+  return {
+    tracked: new Map(),
+    untracked: new Set()
   };
 }
 

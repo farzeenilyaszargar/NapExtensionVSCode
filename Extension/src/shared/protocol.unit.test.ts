@@ -6,6 +6,7 @@ describe('Nap bridge protocol', () => {
     expect(isWebviewToExtensionMessage({ type: 'ready' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'authLogin' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'refreshSessions' })).toBe(true);
+    expect(isWebviewToExtensionMessage({ type: 'reviewChanges' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'sendPrompt', prompt: 'hello' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'openSession', sessionId: 'session-1' })).toBe(true);
     expect(isWebviewToExtensionMessage({ type: 'openFile', filePath: 'src/extension.ts:12' })).toBe(true);

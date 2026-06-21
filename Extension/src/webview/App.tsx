@@ -821,7 +821,7 @@ export function App() {
       {activePage === 'chat' && isAuthenticated ? (
         <footer className="composer-panel" ref={composerPanelRef}>
           {workspaceChanges.filesChanged > 0 ? (
-            <ChangeSummaryBar summary={workspaceChanges} />
+            <ChangeSummaryBar summary={workspaceChanges} onReview={() => post({ type: 'reviewChanges' })} />
           ) : null}
           {queuedPrompts.length > 0 ? (
             <section className="prompt-queue" aria-label="Queued prompts">
@@ -1107,15 +1107,20 @@ function ActivityStats({ item }: { item: NapActivityItem }) {
   );
 }
 
-function ChangeSummaryBar({ summary }: { summary: NapWorkspaceChangeSummary }) {
+function ChangeSummaryBar({ summary, onReview }: { summary: NapWorkspaceChangeSummary; onReview(): void }) {
   return (
     <section className="change-summary-bar" aria-label="Changed files summary">
       <span className="change-summary-files">
         {summary.filesChanged} {summary.filesChanged === 1 ? 'file' : 'files'} changed
       </span>
-      <span className="change-summary-stats" aria-label={`${summary.additions} additions and ${summary.deletions} deletions`}>
-        <span className="change-summary-add">+{summary.additions}</span>
-        <span className="change-summary-del">-{summary.deletions}</span>
+      <span className="change-summary-actions">
+        <span className="change-summary-stats" aria-label={`${summary.additions} additions and ${summary.deletions} deletions`}>
+          <span className="change-summary-add">+{summary.additions}</span>
+          <span className="change-summary-del">-{summary.deletions}</span>
+        </span>
+        <button type="button" className="change-summary-review" onClick={onReview}>
+          Review
+        </button>
       </span>
     </section>
   );
