@@ -1184,10 +1184,13 @@ textarea::-webkit-scrollbar,
 }
 
 .composer-panel {
+  --composer-bottom-padding: 15px;
+  --composer-chatbox-height: 92px;
+  --composer-overlay-gap: 10px;
   position: relative;
   display: grid;
   gap: 0;
-  padding: 0 0 15px;
+  padding: 0 0 var(--composer-bottom-padding);
   border-top: 0;
   background: transparent !important;
   background-color: transparent !important;
@@ -1198,7 +1201,7 @@ textarea::-webkit-scrollbar,
   position: absolute;
   left: 0;
   right: 0;
-  bottom: calc(15px + 92px + 8px);
+  bottom: calc(var(--composer-bottom-padding) + var(--composer-chatbox-height) + var(--composer-overlay-gap));
   z-index: 24;
   pointer-events: none;
 }
