@@ -1290,14 +1290,16 @@ async function openChangedFilesReview(files: ConversationChangedFiles): Promise<
 }
 
 async function openUnifiedDiffReview(diff: string, sessionId: string, title = 'Suggested Edits'): Promise<void> {
-  const directory = path.join(os.tmpdir(), 'nap-review-diffs');
-  await fs.promises.mkdir(directory, { recursive: true });
-  const fileName = `${safeFileSegment(title)}-${safeFileSegment(sessionId)}-${Date.now()}.diff`;
-  const uri = vscode.Uri.file(path.join(directory, fileName));
-  await fs.promises.writeFile(uri.fsPath, diff.endsWith('\n') ? diff : `${diff}\n`, 'utf8');
-  const document = await vscode.workspace.openTextDocument(uri);
-  await vscode.languages.setTextDocumentLanguage(document, 'diff');
-  await vscode.window.showTextDocument(document, { preview: false });
+  const panel = vscode.window.createWebviewPanel(
+    'napSuggestedEdits',
+    title,
+    vscode.ViewColumn.Active,
+    {
+      enableScripts: false,
+      retainContextWhenHidden: true
+    }
+  );
+  panel.webview.html = renderSuggestedEditsHtml(diff, title, sessionId);
 }
 
 async function openTrackedFileDiff(workspaceRoot: string, filePath: string): Promise<void> {
@@ -1321,6 +1323,163 @@ async function openTrackedFileDiff(workspaceRoot: string, filePath: string): Pro
       await openExistingFile(workingUri);
     }
   }
+}
+
+function renderSuggestedEditsHtml(diff: string, title: string, sessionId: string): string {
+  const entries = extractUnifiedDiffFileEntries(diff);
+  const files = entries.length > 0
+    ? entries
+    : [{ filePath: 'Suggested Edits', additions: 0, deletions: 0, diff }];
+  const totalAdditions = files.reduce((total, file) => total + file.additions, 0);
+  const totalDeletions = files.reduce((total, file) => total + file.deletions, 0);
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: var(--vscode-editor-background, #141414);
+      --fg: var(--vscode-editor-foreground, #d4d4d4);
+      --muted: var(--vscode-descriptionForeground, #858585);
+      --border: var(--vscode-panel-border, #2d2d2d);
+      --card: var(--vscode-editorWidget-background, #1b1b1b);
+      --add-bg: color-mix(in srgb, var(--vscode-gitDecoration-addedResourceForeground, #73c991) 16%, transparent);
+      --add-fg: var(--vscode-gitDecoration-addedResourceForeground, #73c991);
+      --del-bg: color-mix(in srgb, var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c) 16%, transparent);
+      --del-fg: var(--vscode-gitDecoration-deletedResourceForeground, #f14c4c);
+      --hunk-bg: color-mix(in srgb, var(--vscode-editorInfo-foreground, #3794ff) 15%, transparent);
+      --hunk-fg: var(--vscode-editorInfo-foreground, #3794ff);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 18px;
+      color: var(--fg);
+      background: var(--bg);
+      font: 12px var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+    }
+    header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+      font-family: var(--vscode-font-family, system-ui, sans-serif);
+    }
+    h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .meta {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .stats {
+      display: inline-flex;
+      gap: 10px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .add-stat { color: var(--add-fg); }
+    .del-stat { color: var(--del-fg); }
+    .file {
+      overflow: hidden;
+      margin: 0 0 14px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--card);
+    }
+    .file-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 12px;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--vscode-font-family, system-ui, sans-serif);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .file-path {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    pre {
+      margin: 0;
+      padding: 0;
+      overflow-x: auto;
+      line-height: 1.45;
+      tab-size: 2;
+    }
+    .line {
+      display: block;
+      min-height: 18px;
+      padding: 0 12px;
+      white-space: pre;
+    }
+    .line.add {
+      color: var(--add-fg);
+      background: var(--add-bg);
+    }
+    .line.del {
+      color: var(--del-fg);
+      background: var(--del-bg);
+    }
+    .line.hunk {
+      color: var(--hunk-fg);
+      background: var(--hunk-bg);
+    }
+    .line.file-marker {
+      color: var(--muted);
+      background: color-mix(in srgb, var(--border) 30%, transparent);
+    }
+    .line.context {
+      color: var(--fg);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>${escapeHtml(title)}</h1>
+      <div class="meta">${files.length} ${files.length === 1 ? 'file' : 'files'} · ${escapeHtml(sessionId)}</div>
+    </div>
+    <div class="stats"><span class="add-stat">+${totalAdditions}</span><span class="del-stat">-${totalDeletions}</span></div>
+  </header>
+  ${files.map(renderDiffFileHtml).join('')}
+</body>
+</html>`;
+}
+
+function renderDiffFileHtml(file: UnifiedDiffFileEntry): string {
+  return `<section class="file">
+    <div class="file-header">
+      <span class="file-path">${escapeHtml(file.filePath)}</span>
+      <span class="stats"><span class="add-stat">+${file.additions}</span><span class="del-stat">-${file.deletions}</span></span>
+    </div>
+    <pre>${file.diff.split(/\r?\n/).filter((line, index, lines) => line || index < lines.length - 1).map(renderDiffLineHtml).join('')}</pre>
+  </section>`;
+}
+
+function renderDiffLineHtml(line: string): string {
+  const className = line.startsWith('@@')
+    ? 'hunk'
+    : line.startsWith('diff --git ') || line.startsWith('index ') || line.startsWith('--- ') || line.startsWith('+++ ')
+      ? 'file-marker'
+      : line.startsWith('+')
+        ? 'add'
+        : line.startsWith('-')
+          ? 'del'
+          : 'context';
+  return `<span class="line ${className}">${escapeHtml(line || ' ')}</span>`;
 }
 
 async function openUntrackedFileReview(workspaceRoot: string, filePath: string): Promise<void> {
@@ -1479,6 +1638,14 @@ function readUnifiedDiffFilePath(line: string): string | undefined {
 
 function safeFileSegment(value: string): string {
   return value.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'session';
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function parseGitNumstatValue(value: string | undefined): number {
