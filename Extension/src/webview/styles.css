@@ -656,12 +656,16 @@ textarea::-webkit-scrollbar,
 }
 
 .turn-divider::before {
-  background: linear-gradient(90deg, transparent 0%, rgba(74, 74, 74, 0.36) 100%);
+  background: rgba(74, 74, 74, 0.36);
 }
 
 .turn-divider::after {
   display: none;
   background: linear-gradient(90deg, rgba(74, 74, 74, 0.36) 0%, transparent 100%);
+}
+
+.turn-divider--active::before {
+  background: linear-gradient(90deg, transparent 0%, rgba(74, 74, 74, 0.36) 100%);
 }
 
 .turn-divider--active::after {
