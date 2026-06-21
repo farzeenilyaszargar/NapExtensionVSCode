@@ -263,7 +263,7 @@ export class NapDaemonClient {
   private async getOrStartRuntime(): Promise<DaemonRuntimeInfo> {
     const existing = readRuntimeInfo();
     if (existing) {
-      if (existing.version !== NAP_DAEMON_PROTOCOL_VERSION) {
+      if (this.isStaleRuntime(existing)) {
         this.stopStaleRuntime(existing);
         clearRuntimeInfo();
       } else {
@@ -287,7 +287,7 @@ export class NapDaemonClient {
       await delay(150);
       const runtime = readRuntimeInfo();
       if (runtime) {
-        if (runtime.version !== NAP_DAEMON_PROTOCOL_VERSION) {
+        if (this.isStaleRuntime(runtime)) {
           this.stopStaleRuntime(runtime);
           clearRuntimeInfo();
           continue;
@@ -326,6 +326,35 @@ export class NapDaemonClient {
     } catch {
       // Best-effort cleanup; clearing metadata is enough for the new daemon to start.
     }
+  }
+
+  private isStaleRuntime(runtime: DaemonRuntimeInfo): boolean {
+    if (runtime.version !== NAP_DAEMON_PROTOCOL_VERSION) {
+      return true;
+    }
+
+    const daemonEntry = this.options.daemonEntry
+      ? path.resolve(this.options.daemonEntry)
+      : undefined;
+    const runtimeDaemonEntry = runtime.daemonEntry
+      ? path.resolve(runtime.daemonEntry)
+      : undefined;
+    if (daemonEntry && runtimeDaemonEntry && daemonEntry !== runtimeDaemonEntry) {
+      return true;
+    }
+    if (daemonEntry && !runtimeDaemonEntry) {
+      return true;
+    }
+
+    const extensionVersion = this.options.extensionVersion;
+    if (extensionVersion && runtime.extensionVersion && extensionVersion !== runtime.extensionVersion) {
+      return true;
+    }
+    if (extensionVersion && !runtime.extensionVersion) {
+      return true;
+    }
+
+    return false;
   }
 }
 

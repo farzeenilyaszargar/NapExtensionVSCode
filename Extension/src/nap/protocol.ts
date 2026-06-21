@@ -100,6 +100,8 @@ export interface DaemonRuntimeInfo {
   port: number;
   token: string;
   startedAt: number;
+  daemonEntry?: string;
+  extensionVersion?: string;
 }
 
 export interface DaemonHealth {

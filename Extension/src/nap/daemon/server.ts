@@ -94,7 +94,9 @@ export class NapDaemon {
       pid: process.pid,
       port: address.port,
       token: this.token,
-      startedAt: this.startedAt
+      startedAt: this.startedAt,
+      daemonEntry: process.argv[1],
+      extensionVersion: process.env.NAP_EXTENSION_VERSION
     });
 
     await this.refreshAuthState();
