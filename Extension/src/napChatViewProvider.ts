@@ -229,13 +229,18 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const prompt = [
-      'Review the files changed in this conversation.',
-      'Focus on bugs, regressions, missing tests, security issues, and behavior that may not match the request.',
-      'Use the current Git diff as the source of truth and keep the findings concise.'
-    ].join(' ');
+    if (!this.conversationChangeBaseline) {
+      this.conversationChangeBaseline = await getGitChangeSnapshot();
+    }
 
-    await this.sendPrompt(prompt);
+    const current = await getGitChangeSnapshot();
+    const changedFiles = getConversationChangedFiles(this.conversationChangeBaseline, current);
+    if (changedFiles.tracked.length === 0 && changedFiles.untracked.length === 0) {
+      await this.refreshWorkspaceChanges();
+      return;
+    }
+
+    await openChangedFilesReview(changedFiles);
   }
 
   private enqueuePrompt(prompt: string): void {
@@ -1118,6 +1123,11 @@ interface GitChangeSnapshot {
   untracked: Set<string>;
 }
 
+interface ConversationChangedFiles {
+  tracked: string[];
+  untracked: string[];
+}
+
 async function getGitChangeSnapshot(): Promise<GitChangeSnapshot> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
@@ -1162,11 +1172,101 @@ async function getGitChangeSnapshot(): Promise<GitChangeSnapshot> {
   }
 }
 
+async function openChangedFilesReview(files: ConversationChangedFiles): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    return;
+  }
+
+  await vscode.extensions.getExtension('vscode.git')?.activate();
+  await vscode.commands.executeCommand('workbench.view.scm');
+
+  const tracked = [...files.tracked].sort((first, second) => first.localeCompare(second));
+  const untracked = [...files.untracked].sort((first, second) => first.localeCompare(second));
+
+  for (const filePath of tracked) {
+    await openTrackedFileDiff(workspaceRoot, filePath);
+  }
+
+  for (const filePath of untracked) {
+    await openUntrackedFileReview(workspaceRoot, filePath);
+  }
+}
+
+async function openTrackedFileDiff(workspaceRoot: string, filePath: string): Promise<void> {
+  const absolutePath = path.join(workspaceRoot, filePath);
+  const workingUri = vscode.Uri.file(absolutePath);
+  const headUri = workingUri.with({
+    scheme: 'git',
+    query: JSON.stringify({
+      path: absolutePath,
+      ref: 'HEAD'
+    })
+  });
+  const title = `${filePath} (HEAD ↔ Working Tree)`;
+
+  try {
+    await vscode.commands.executeCommand('vscode.diff', headUri, workingUri, title, { preview: false });
+  } catch {
+    try {
+      await vscode.commands.executeCommand('git.openChange', workingUri);
+    } catch {
+      await openExistingFile(workingUri);
+    }
+  }
+}
+
+async function openUntrackedFileReview(workspaceRoot: string, filePath: string): Promise<void> {
+  const uri = vscode.Uri.file(path.join(workspaceRoot, filePath));
+  await openExistingFile(uri);
+}
+
+async function openExistingFile(uri: vscode.Uri): Promise<void> {
+  try {
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document, { preview: false });
+  } catch {
+    // The file may have been deleted after the review bar was rendered.
+  }
+}
+
+function getConversationChangedFiles(
+  baseline: GitChangeSnapshot,
+  current: GitChangeSnapshot
+): ConversationChangedFiles {
+  const tracked = new Set<string>();
+  const untracked = new Set<string>();
+
+  const trackedPaths = new Set([
+    ...baseline.tracked.keys(),
+    ...current.tracked.keys()
+  ]);
+
+  for (const filePath of trackedPaths) {
+    const before = baseline.tracked.get(filePath) ?? { additions: 0, deletions: 0 };
+    const after = current.tracked.get(filePath) ?? { additions: 0, deletions: 0 };
+    if (before.additions !== after.additions || before.deletions !== after.deletions) {
+      tracked.add(filePath);
+    }
+  }
+
+  for (const filePath of current.untracked) {
+    if (!baseline.untracked.has(filePath)) {
+      untracked.add(filePath);
+    }
+  }
+
+  return {
+    tracked: [...tracked],
+    untracked: [...untracked]
+  };
+}
+
 function summarizeConversationChanges(
   baseline: GitChangeSnapshot,
   current: GitChangeSnapshot
 ): NapWorkspaceChangeSummary {
-  const changedFiles = new Set<string>();
+  const changedFiles = getConversationChangedFiles(baseline, current);
   let additions = 0;
   let deletions = 0;
 
@@ -1181,25 +1281,12 @@ function summarizeConversationChanges(
     if (before.additions === after.additions && before.deletions === after.deletions) {
       continue;
     }
-    changedFiles.add(filePath);
     additions += Math.max(0, after.additions - before.additions);
     deletions += Math.max(0, after.deletions - before.deletions);
   }
 
-  for (const filePath of current.untracked) {
-    if (!baseline.untracked.has(filePath)) {
-      changedFiles.add(filePath);
-    }
-  }
-
-  for (const filePath of baseline.untracked) {
-    if (!current.untracked.has(filePath)) {
-      changedFiles.add(filePath);
-    }
-  }
-
   return {
-    filesChanged: changedFiles.size,
+    filesChanged: changedFiles.tracked.length + changedFiles.untracked.length,
     additions,
     deletions
   };
