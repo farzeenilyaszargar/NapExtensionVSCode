@@ -95,6 +95,8 @@ button {
 }
 
 .app-page-header {
+  position: relative;
+  z-index: 32;
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
@@ -104,6 +106,7 @@ button {
   border-bottom: 0;
   color: #b8b8b8;
   background: color-mix(in srgb, var(--nap-surface) 94%, #1c1c1c);
+  overflow: visible;
 }
 
 .app-page-header--sessions {
@@ -148,7 +151,8 @@ button {
   min-width: 0;
 }
 
-.header-actions button {
+.header-actions > button,
+.header-actions > .header-settings-dropdown > button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -178,6 +182,7 @@ button {
   padding: 6px;
   gap: 4px;
   transform-origin: top right;
+  overflow: hidden;
 }
 
 .account-menu-email,
@@ -2082,17 +2087,19 @@ textarea:disabled {
   color: var(--nap-muted);
 }
 
-.account-menu .account-menu-item {
+.header-actions .account-menu .account-menu-item {
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
   width: 100%;
+  min-width: 0;
   height: 30px;
   padding: 0 9px;
   gap: 7px;
   font-size: 11px;
+  justify-content: stretch;
 }
 
-.account-menu .account-menu-item span {
+.header-actions .account-menu .account-menu-item span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
