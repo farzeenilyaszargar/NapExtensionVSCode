@@ -129,6 +129,14 @@ export interface NapWorkspaceChangeSummary {
   filesChanged: number;
   additions: number;
   deletions: number;
+  files?: NapWorkspaceChangedFile[];
+}
+
+export interface NapWorkspaceChangedFile {
+  filePath: string;
+  additions: number;
+  deletions: number;
+  status?: 'tracked' | 'untracked';
 }
 
 export interface NapActivityItem {
@@ -182,6 +190,7 @@ export type WebviewToExtensionMessage =
   | { type: 'deleteSession'; sessionId: string }
   | { type: 'openFile'; filePath: string }
   | { type: 'reviewChanges' }
+  | { type: 'reviewFileChanges'; filePath: string }
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
   | { type: 'refreshPlugins' }
@@ -228,6 +237,8 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'refreshPlugins':
     case 'reviewChanges':
       return true;
+    case 'reviewFileChanges':
+      return typeof value.filePath === 'string' && value.filePath.trim().length > 0;
     case 'openExternal':
       return typeof value.url === 'string' && /^https:\/\/(?:www\.)?nap-code\.com(?:\/|$)/.test(value.url);
     case 'sendPrompt':

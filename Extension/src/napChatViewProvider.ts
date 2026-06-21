@@ -212,6 +212,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       case 'reviewChanges':
         await this.reviewConversationChanges();
         return;
+      case 'reviewFileChanges':
+        await this.reviewConversationFile(message.filePath);
+        return;
       case 'setMode':
         this.setMode(message.mode);
         return;
@@ -252,7 +255,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     if (this.conversationTurnDiff?.trim()) {
-      await openUnifiedDiffReview(this.conversationTurnDiff, this.state.sessionId);
+      await openUnifiedDiffReview(this.conversationTurnDiff, this.state.sessionId, 'Suggested Edits');
       return;
     }
 
@@ -268,6 +271,38 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     await openChangedFilesReview(changedFiles);
+  }
+
+  private async reviewConversationFile(filePath: string): Promise<void> {
+    const normalizedPath = filePath.trim();
+    if (!normalizedPath) {
+      return;
+    }
+
+    if (this.conversationTurnDiff?.trim()) {
+      const entry = extractUnifiedDiffFileEntries(this.conversationTurnDiff).find(item => item.filePath === normalizedPath);
+      if (entry?.diff.trim()) {
+        await openUnifiedDiffReview(entry.diff, this.state.sessionId, `Suggested Edits - ${normalizedPath}`);
+        return;
+      }
+    }
+
+    if (!this.conversationChangeBaseline) {
+      this.conversationChangeBaseline = await getGitChangeSnapshot();
+    }
+
+    const current = await getGitChangeSnapshot();
+    const changedFiles = getConversationChangedFiles(this.conversationChangeBaseline, current);
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      return;
+    }
+
+    if (changedFiles.tracked.includes(normalizedPath)) {
+      await openTrackedFileDiff(workspaceRoot, normalizedPath);
+    } else if (changedFiles.untracked.includes(normalizedPath)) {
+      await openUntrackedFileReview(workspaceRoot, normalizedPath);
+    }
   }
 
   private enqueuePrompt(prompt: string): void {
@@ -1182,6 +1217,13 @@ interface ConversationChangedFiles {
   untracked: string[];
 }
 
+interface UnifiedDiffFileEntry {
+  filePath: string;
+  additions: number;
+  deletions: number;
+  diff: string;
+}
+
 async function getGitChangeSnapshot(): Promise<GitChangeSnapshot> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
@@ -1247,10 +1289,10 @@ async function openChangedFilesReview(files: ConversationChangedFiles): Promise<
   }
 }
 
-async function openUnifiedDiffReview(diff: string, sessionId: string): Promise<void> {
+async function openUnifiedDiffReview(diff: string, sessionId: string, title = 'Suggested Edits'): Promise<void> {
   const directory = path.join(os.tmpdir(), 'nap-review-diffs');
   await fs.promises.mkdir(directory, { recursive: true });
-  const fileName = `${safeFileSegment(sessionId)}-${Date.now()}.diff`;
+  const fileName = `${safeFileSegment(title)}-${safeFileSegment(sessionId)}-${Date.now()}.diff`;
   const uri = vscode.Uri.file(path.join(directory, fileName));
   await fs.promises.writeFile(uri.fsPath, diff.endsWith('\n') ? diff : `${diff}\n`, 'utf8');
   const document = await vscode.workspace.openTextDocument(uri);
@@ -1334,6 +1376,7 @@ function summarizeConversationChanges(
   const changedFiles = getConversationChangedFiles(baseline, current);
   let additions = 0;
   let deletions = 0;
+  const files: NapWorkspaceChangeSummary['files'] = [];
 
   const trackedPaths = new Set([
     ...baseline.tracked.keys(),
@@ -1346,45 +1389,87 @@ function summarizeConversationChanges(
     if (before.additions === after.additions && before.deletions === after.deletions) {
       continue;
     }
-    additions += Math.max(0, after.additions - before.additions);
-    deletions += Math.max(0, after.deletions - before.deletions);
+    const fileAdditions = Math.max(0, after.additions - before.additions);
+    const fileDeletions = Math.max(0, after.deletions - before.deletions);
+    additions += fileAdditions;
+    deletions += fileDeletions;
+    files.push({
+      filePath,
+      additions: fileAdditions,
+      deletions: fileDeletions,
+      status: 'tracked'
+    });
   }
+
+  for (const filePath of changedFiles.untracked) {
+    files.push({
+      filePath,
+      additions: 0,
+      deletions: 0,
+      status: 'untracked'
+    });
+  }
+
+  files.sort((first, second) => first.filePath.localeCompare(second.filePath));
 
   return {
     filesChanged: changedFiles.tracked.length + changedFiles.untracked.length,
     additions,
-    deletions
+    deletions,
+    files
   };
 }
 
 function summarizeUnifiedDiff(diff: string): NapWorkspaceChangeSummary {
-  const files = new Set<string>();
-  let additions = 0;
-  let deletions = 0;
+  const files = extractUnifiedDiffFileEntries(diff);
+  const additions = files.reduce((total, file) => total + file.additions, 0);
+  const deletions = files.reduce((total, file) => total + file.deletions, 0);
+
+  return {
+    filesChanged: files.length,
+    additions,
+    deletions,
+    files: files.map(file => ({
+      filePath: file.filePath,
+      additions: file.additions,
+      deletions: file.deletions,
+      status: 'tracked'
+    }))
+  };
+}
+
+function extractUnifiedDiffFileEntries(diff: string): UnifiedDiffFileEntry[] {
+  const entries: UnifiedDiffFileEntry[] = [];
+  let current: UnifiedDiffFileEntry | undefined;
 
   for (const line of diff.split(/\r?\n/)) {
     if (line.startsWith('diff --git ')) {
       const filePath = readUnifiedDiffFilePath(line);
-      if (filePath) {
-        files.add(filePath);
+      current = filePath
+        ? { filePath, additions: 0, deletions: 0, diff: `${line}\n` }
+        : undefined;
+      if (current) {
+        entries.push(current);
       }
       continue;
     }
+
+    if (!current) {
+      continue;
+    }
+
+    current.diff += `${line}\n`;
     if (line.startsWith('+++ ') || line.startsWith('--- ')) {
       continue;
     }
     if (line.startsWith('+')) {
-      additions += 1;
+      current.additions += 1;
     } else if (line.startsWith('-')) {
-      deletions += 1;
+      current.deletions += 1;
     }
   }
 
-  return {
-    filesChanged: files.size,
-    additions,
-    deletions
-  };
+  return entries;
 }
 
 function readUnifiedDiffFilePath(line: string): string | undefined {
@@ -1408,7 +1493,8 @@ function emptyWorkspaceChangeSummary(): NapWorkspaceChangeSummary {
   return {
     filesChanged: 0,
     additions: 0,
-    deletions: 0
+    deletions: 0,
+    files: []
   };
 }
 

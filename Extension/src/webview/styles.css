@@ -1313,15 +1313,13 @@ textarea::-webkit-scrollbar,
 }
 
 .change-summary-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  gap: 4px;
   min-width: 0;
   width: calc(100% - 30px);
   min-height: 28px;
   margin: 0 auto -1px;
-  padding: 4px 9px;
+  padding: 4px 6px;
   border: 1px solid #282828;
   border-bottom: 0;
   border-radius: 12px 12px 0 0;
@@ -1331,8 +1329,47 @@ textarea::-webkit-scrollbar,
   animation: prompt-queue-in 180ms ease-out;
 }
 
+.change-summary-main {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+
+.change-summary-expand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  color: #7f7f7f;
+  background: transparent;
+  cursor: pointer;
+}
+
+.change-summary-expand svg {
+  transition: transform 140ms ease;
+}
+
+.change-summary-expand[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+
+.change-summary-expand:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.change-summary-expand:not(:disabled):hover {
+  color: #d0d0d0;
+  background: rgba(54, 54, 54, 0.72);
+}
+
 .change-summary-files {
-  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1389,6 +1426,57 @@ textarea::-webkit-scrollbar,
 .change-summary-review:focus-visible {
   outline: 1px solid #555;
   outline-offset: 1px;
+}
+
+.change-summary-file-list {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 1px 0 2px 25px;
+}
+
+.change-summary-file {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  padding: 0 7px;
+  border: 0;
+  border-radius: 999px;
+  color: #a0a0a0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 10.5px;
+  text-align: left;
+}
+
+.change-summary-file:hover {
+  color: #f0f0f0;
+  background: rgba(54, 54, 54, 0.72);
+}
+
+.change-summary-file svg {
+  color: #777;
+}
+
+.change-summary-file span {
+  min-width: 0;
+}
+
+.change-summary-file > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.change-summary-file-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
 }
 
 .change-summary-bar + .prompt-queue {

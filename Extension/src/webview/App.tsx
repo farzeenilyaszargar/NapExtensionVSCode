@@ -966,7 +966,11 @@ export function App() {
       {activePage === 'chat' && isAuthenticated ? (
         <footer className="composer-panel" ref={composerPanelRef}>
           {workspaceChanges.filesChanged > 0 ? (
-            <ChangeSummaryBar summary={workspaceChanges} onReview={() => post({ type: 'reviewChanges' })} />
+            <ChangeSummaryBar
+              summary={workspaceChanges}
+              onReview={() => post({ type: 'reviewChanges' })}
+              onReviewFile={filePath => post({ type: 'reviewFileChanges', filePath })}
+            />
           ) : null}
           {queuedPrompts.length > 0 ? (
             <section className="prompt-queue" aria-label="Queued prompts">
@@ -1238,21 +1242,58 @@ function ActivityStats({ item }: { item: NapActivityItem }) {
   );
 }
 
-function ChangeSummaryBar({ summary, onReview }: { summary: NapWorkspaceChangeSummary; onReview(): void }) {
+function ChangeSummaryBar({
+  summary,
+  onReview,
+  onReviewFile
+}: {
+  summary: NapWorkspaceChangeSummary;
+  onReview(): void;
+  onReviewFile(filePath: string): void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const files = summary.files ?? [];
+  const canExpand = files.length > 0;
   return (
-    <section className="change-summary-bar" aria-label="Changed files summary">
-      <span className="change-summary-files">
-        {summary.filesChanged} {summary.filesChanged === 1 ? 'file' : 'files'} changed
-      </span>
-      <span className="change-summary-actions">
-        <span className="change-summary-stats" aria-label={`${summary.additions} additions and ${summary.deletions} deletions`}>
-          <span className="change-summary-add">+{summary.additions}</span>
-          <span className="change-summary-del">-{summary.deletions}</span>
-        </span>
-        <button type="button" className="change-summary-review" onClick={onReview}>
-          Review
+    <section className={`change-summary-bar${expanded ? ' is-expanded' : ''}`} aria-label="Changed files summary">
+      <div className="change-summary-main">
+        <button
+          type="button"
+          className="change-summary-expand"
+          aria-label={expanded ? 'Hide changed files' : 'Show changed files'}
+          aria-expanded={expanded}
+          disabled={!canExpand}
+          onClick={() => setExpanded(current => !current)}
+        >
+          <ChevronRight size={13} aria-hidden="true" />
         </button>
-      </span>
+        <span className="change-summary-files">
+          {summary.filesChanged} {summary.filesChanged === 1 ? 'file' : 'files'} changed
+        </span>
+        <span className="change-summary-actions">
+          <span className="change-summary-stats" aria-label={`${summary.additions} additions and ${summary.deletions} deletions`}>
+            <span className="change-summary-add">+{summary.additions}</span>
+            <span className="change-summary-del">-{summary.deletions}</span>
+          </span>
+          <button type="button" className="change-summary-review" onClick={onReview}>
+            Review
+          </button>
+        </span>
+      </div>
+      {expanded && files.length > 0 ? (
+        <div className="change-summary-file-list" aria-label="Changed files">
+          {files.map(file => (
+            <button key={file.filePath} type="button" className="change-summary-file" onClick={() => onReviewFile(file.filePath)}>
+              <FileText size={12} aria-hidden="true" />
+              <span>{file.filePath}</span>
+              <span className="change-summary-file-stats">
+                <span className="change-summary-add">+{file.additions}</span>
+                <span className="change-summary-del">-{file.deletions}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }
