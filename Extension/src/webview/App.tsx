@@ -17,8 +17,6 @@ import {
   Square,
   Sparkles,
   Target,
-  ThumbsDown,
-  ThumbsUp,
   TriangleAlert,
   Trash2
 } from 'lucide-react';
@@ -31,7 +29,6 @@ import { renderMarkdown } from './markdown';
 const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
 type OpenMenu = 'add' | 'approval' | 'model' | 'slash' | undefined;
-type ResponseVote = 'up' | 'down';
 type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
 type SlashAction = 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search';
@@ -91,7 +88,6 @@ export function App() {
   const [showAllModels, setShowAllModels] = useState(false);
   const [activePage, setActivePage] = useState<ActivePage>('chat');
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
-  const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAuthVerifying, setIsAuthVerifying] = useState(true);
   const [hasSeenAuthLanding, setHasSeenAuthLanding] = useState(() =>
@@ -853,26 +849,6 @@ export function App() {
                     <div className="response-actions" aria-label="Response actions">
                       <button type="button" title="Copy response" aria-label="Copy response" onClick={() => copyResponse(message.id, getCopyableAssistantContent(message.content, message.status))}>
                         {copiedMessageId === message.id ? <Check size={14} /> : <Copy size={14} />}
-                      </button>
-                      <button
-                        type="button"
-                        className={responseVotes[message.id] === 'up' ? 'is-selected' : undefined}
-                        title="Good response"
-                        aria-label="Good response"
-                        aria-pressed={responseVotes[message.id] === 'up'}
-                        onClick={() => setResponseVotes(votes => ({ ...votes, [message.id]: 'up' }))}
-                      >
-                        <ThumbsUp size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className={responseVotes[message.id] === 'down' ? 'is-selected' : undefined}
-                        title="Bad response"
-                        aria-label="Bad response"
-                        aria-pressed={responseVotes[message.id] === 'down'}
-                        onClick={() => setResponseVotes(votes => ({ ...votes, [message.id]: 'down' }))}
-                      >
-                        <ThumbsDown size={14} />
                       </button>
                       <time className="response-time" dateTime={new Date(responseCompletedAt).toISOString()}>
                         {formatClockTime(responseCompletedAt)}
