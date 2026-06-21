@@ -67,6 +67,9 @@ export function App() {
   const [responseVotes, setResponseVotes] = useState<Record<string, ResponseVote>>({});
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAuthVerifying, setIsAuthVerifying] = useState(true);
+  const [hasSeenAuthLanding, setHasSeenAuthLanding] = useState(() =>
+    window.localStorage.getItem('nap.authLandingSeen') === 'true'
+  );
   const [draggedQueuedPromptId, setDraggedQueuedPromptId] = useState<string>();
   const [elapsedNow, setElapsedNow] = useState(() => Date.now());
   const timelineRef = useRef<HTMLDivElement>(null);
@@ -90,9 +93,17 @@ export function App() {
       if (event.data?.type === 'showChat') {
         setActivePage('chat');
       }
-      if (event.data?.type === 'sessionState' || event.data?.type === 'authStateChanged') {
+      if (event.data?.type === 'sessionState') {
         setIsInitialLoading(false);
-        setIsAuthVerifying(false);
+        setIsAuthVerifying(event.data.state?.auth?.status === 'unknown');
+      }
+      if (event.data?.type === 'authStateChanged') {
+        setIsInitialLoading(false);
+        setIsAuthVerifying(event.data.auth?.status === 'unknown');
+        if (event.data.auth?.status === 'authenticated') {
+          window.localStorage.setItem('nap.authLandingSeen', 'true');
+          setHasSeenAuthLanding(true);
+        }
       }
       if (event.data?.type === 'error') {
         setIsInitialLoading(false);
@@ -596,6 +607,8 @@ export function App() {
   }, [draggedQueuedPromptId, post]);
 
   const startAuthLogin = useCallback(() => {
+    window.localStorage.setItem('nap.authLandingSeen', 'true');
+    setHasSeenAuthLanding(true);
     setIsAuthVerifying(true);
     post({ type: 'authLogin' });
   }, [post]);
@@ -606,11 +619,17 @@ export function App() {
 
   const showLoadingOverlay = isInitialLoading || isAuthVerifying;
   const loadingLabel = isInitialLoading ? 'Loading Nap' : 'Verifying auth';
-  const showAuthLanding = activePage === 'chat' && !isAuthenticated;
+  const showAuthLanding = activePage === 'chat'
+    && !showLoadingOverlay
+    && state.auth.status === 'signedOut'
+    && !hasSeenAuthLanding;
+  const showAuthLoading = activePage === 'chat'
+    && !showAuthLanding
+    && !isAuthenticated;
 
   return (
     <div className="nap-shell">
-      {showLoadingOverlay ? (
+      {showLoadingOverlay || showAuthLoading ? (
         <div className="loading-overlay" role="status" aria-live="polite" aria-label={loadingLabel}>
           <div className="loading-spinner" aria-hidden="true" />
           <span>{loadingLabel}</span>
