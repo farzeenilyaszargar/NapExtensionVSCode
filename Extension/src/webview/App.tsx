@@ -11,7 +11,6 @@ import {
   Lock,
   Plus,
   ChevronRight,
-  Puzzle,
   Settings,
   Shield,
   SquareTerminal,
@@ -24,7 +23,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { NapActivityItem, NapModelOption, NapPluginSummary, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
+import { NapActivityItem, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
 import { renderMarkdown } from './markdown';
@@ -346,12 +345,6 @@ export function App() {
   }, [openMenu]);
 
   useEffect(() => {
-    if (openMenu === 'add' || openMenu === 'slash') {
-      post({ type: 'refreshPlugins' });
-    }
-  }, [openMenu, post]);
-
-  useEffect(() => {
     const latestStreamingAssistant = [...state.messages].reverse().find(message =>
       message.role === 'assistant' && message.status === 'streaming'
     );
@@ -503,12 +496,7 @@ export function App() {
     setOpenMenu(undefined);
   }, [post, seedComposerText]);
 
-  const choosePlugin = useCallback((pluginName: string) => {
-    seedComposerText(`@${pluginName} `);
-    setOpenMenu(undefined);
-  }, [seedComposerText]);
-
-  const chooseSlashAction = useCallback((action: 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'plugin' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search') => {
+  const chooseSlashAction = useCallback((action: 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search') => {
     if (action === 'review') {
       post({ type: 'reviewChanges' });
     } else if (action === 'plan') {
@@ -517,8 +505,6 @@ export function App() {
       seedComposerText('Goal: ');
     } else if (action === 'mcp') {
       seedComposerText('MCP: ');
-    } else if (action === 'plugin') {
-      seedComposerText('Plugin: ');
     } else if (action === 'doctor') {
       seedComposerText('Run doctor and diagnose this workspace.');
     } else if (action === 'apply') {
@@ -572,9 +558,7 @@ export function App() {
 
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && draft.trim().length === 0) {
-      event.preventDefault();
-      setOpenMenu(openMenu === 'slash' ? undefined : 'slash');
-      return;
+      setOpenMenu('slash');
     }
 
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -908,22 +892,12 @@ export function App() {
           ) : null}
           {openMenu === 'add' ? (
             <ComposerAddPanel
-              plugins={state.plugins}
               onChooseAdd={chooseAddAction}
-              onChoosePlugin={choosePlugin}
             />
           ) : null}
           {openMenu === 'slash' ? (
             <ComposerSlashPanel
-              models={modelOptions}
-              selectedModelId={state.modelId}
-              plugins={state.plugins}
               onChooseAction={chooseSlashAction}
-              onChooseModel={modelId => {
-                post({ type: 'setModel', modelId });
-                setOpenMenu(undefined);
-              }}
-              onChoosePlugin={choosePlugin}
             />
           ) : null}
         <form className="composer" onSubmit={onSubmit}>
@@ -1143,13 +1117,9 @@ function ChangeSummaryBar({ summary, onReview }: { summary: NapWorkspaceChangeSu
 }
 
 function ComposerAddPanel({
-  plugins,
-  onChooseAdd,
-  onChoosePlugin
+  onChooseAdd
 }: {
-  plugins: NapPluginSummary[];
   onChooseAdd(action: 'files' | 'plan' | 'goal' | 'image'): void;
-  onChoosePlugin(pluginName: string): void;
 }) {
   return (
     <section className="composer-panel-menu add-panel" aria-label="Add context" data-menu="add">
@@ -1172,45 +1142,15 @@ function ComposerAddPanel({
           <span>Add Image</span>
         </button>
       </div>
-      <div className="composer-panel-section composer-panel-section--plugins" role="group" aria-label="Plugins">
-        <div className="composer-panel-heading">Plugins</div>
-        {plugins.length > 0 ? plugins.slice(0, 8).map(plugin => (
-          <button
-            key={plugin.id}
-            type="button"
-            className="composer-panel-item plugin-menu-item"
-            disabled={!plugin.enabled}
-            title={plugin.description ?? plugin.label}
-            onClick={() => onChoosePlugin(plugin.name)}
-          >
-            <Puzzle size={14} aria-hidden="true" />
-            <span>{plugin.label}</span>
-            {plugin.installed ? <Check size={12} aria-hidden="true" /> : null}
-          </button>
-        )) : (
-          <div className="composer-panel-empty">No plugins found</div>
-        )}
-      </div>
     </section>
   );
 }
 
 function ComposerSlashPanel({
-  models,
-  selectedModelId,
-  plugins,
-  onChooseAction,
-  onChooseModel,
-  onChoosePlugin
+  onChooseAction
 }: {
-  models: NapModelOption[];
-  selectedModelId: string;
-  plugins: NapPluginSummary[];
-  onChooseAction(action: 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'plugin' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search'): void;
-  onChooseModel(modelId: string): void;
-  onChoosePlugin(pluginName: string): void;
+  onChooseAction(action: 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search'): void;
 }) {
-  const visibleModels = models.slice(0, 4);
   return (
     <section className="composer-panel-menu slash-panel" aria-label="Nap slash commands" data-menu="slash">
       <div className="composer-panel-section" role="group" aria-label="Commands">
@@ -1255,41 +1195,6 @@ function ComposerSlashPanel({
           <Sparkles size={14} aria-hidden="true" />
           <span>Web Search</span>
         </button>
-      </div>
-      <div className="composer-panel-section" role="group" aria-label="Model">
-        <div className="composer-panel-heading">Model</div>
-        {visibleModels.map(model => (
-          <button
-            key={model.id}
-            type="button"
-            className="composer-panel-item"
-            aria-checked={selectedModelId === model.id}
-            onClick={() => onChooseModel(model.id)}
-          >
-            <Brain size={14} aria-hidden="true" />
-            <span>{model.label}</span>
-            {selectedModelId === model.id ? <Check size={12} aria-hidden="true" /> : null}
-          </button>
-        ))}
-      </div>
-      <div className="composer-panel-section composer-panel-section--plugins" role="group" aria-label="Plugins">
-        <div className="composer-panel-heading">Plugins</div>
-        {plugins.length > 0 ? plugins.slice(0, 4).map(plugin => (
-          <button
-            key={plugin.id}
-            type="button"
-            className="composer-panel-item plugin-menu-item"
-            disabled={!plugin.enabled}
-            title={plugin.description ?? plugin.label}
-            onClick={() => onChoosePlugin(plugin.name)}
-          >
-            <Puzzle size={14} aria-hidden="true" />
-            <span>{plugin.label}</span>
-            {plugin.installed ? <Check size={12} aria-hidden="true" /> : null}
-          </button>
-        )) : (
-          <div className="composer-panel-empty">No plugins found</div>
-        )}
       </div>
     </section>
   );

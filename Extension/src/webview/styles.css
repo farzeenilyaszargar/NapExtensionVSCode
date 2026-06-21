@@ -1294,7 +1294,7 @@ textarea::-webkit-scrollbar,
 
 .composer-panel-menu {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   width: 100%;
   max-height: min(42vh, 360px);
@@ -1312,18 +1312,10 @@ textarea::-webkit-scrollbar,
   animation: floating-menu-in 150ms ease-out;
 }
 
-.slash-panel {
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
-}
-
 .composer-panel-section {
   display: grid;
   align-content: start;
   gap: 4px;
-  min-width: 0;
-}
-
-.composer-panel-section--plugins {
   min-width: 0;
 }
 
@@ -1402,13 +1394,6 @@ textarea::-webkit-scrollbar,
 
 .composer-panel-menu + .composer {
   margin-top: 0;
-}
-
-@media (max-width: 340px) {
-  .composer-panel-menu,
-  .slash-panel {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .prompt-queue-item {
