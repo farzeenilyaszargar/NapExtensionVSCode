@@ -421,7 +421,7 @@ export function App() {
     ? [...state.messages.slice(0, latestStreamingAssistantIndex)].reverse().find(message => message.role === 'user')?.id
     : undefined;
   const activeTurnElapsedLabel = latestStreamingAssistant
-    ? `Working for ${formatElapsedTime(elapsedNow - latestStreamingAssistant.createdAt)}`
+    ? `Waiting for ${formatElapsedTime(elapsedNow - latestStreamingAssistant.createdAt)}`
     : undefined;
   const isStreaming = state.status === 'streaming';
   const modelOptions = (state.models.length > 0
