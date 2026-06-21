@@ -31,6 +31,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private workspaceChangeTimer: NodeJS.Timeout | undefined;
   private workspaceWatchers: vscode.Disposable[] = [];
   private conversationChangeBaseline: GitChangeSnapshot | undefined;
+  private workspaceChangeGeneration = 0;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -787,13 +788,18 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     if (this.workspaceChangeTimer) {
       clearTimeout(this.workspaceChangeTimer);
     }
+    const generation = this.workspaceChangeGeneration;
     this.workspaceChangeTimer = setTimeout(() => {
       this.workspaceChangeTimer = undefined;
-      void this.refreshWorkspaceChanges();
+      void this.refreshWorkspaceChanges(generation);
     }, 250);
   }
 
-  private async refreshWorkspaceChanges(): Promise<void> {
+  private async refreshWorkspaceChanges(generation = this.workspaceChangeGeneration): Promise<void> {
+    if (generation !== this.workspaceChangeGeneration) {
+      return;
+    }
+
     if (this.state.messages.length === 0) {
       await this.resetConversationChangeBaseline();
       return;
@@ -802,8 +808,15 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     if (!this.conversationChangeBaseline) {
       this.conversationChangeBaseline = await getGitChangeSnapshot();
     }
+    if (generation !== this.workspaceChangeGeneration) {
+      return;
+    }
 
     const current = await getGitChangeSnapshot();
+    if (generation !== this.workspaceChangeGeneration) {
+      return;
+    }
+
     const workspaceChanges = summarizeConversationChanges(this.conversationChangeBaseline, current);
     this.state = {
       ...this.state,
@@ -813,7 +826,17 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async resetConversationChangeBaseline(): Promise<void> {
-    this.conversationChangeBaseline = await getGitChangeSnapshot();
+    this.workspaceChangeGeneration += 1;
+    if (this.workspaceChangeTimer) {
+      clearTimeout(this.workspaceChangeTimer);
+      this.workspaceChangeTimer = undefined;
+    }
+    const generation = this.workspaceChangeGeneration;
+    const baseline = await getGitChangeSnapshot();
+    if (generation !== this.workspaceChangeGeneration) {
+      return;
+    }
+    this.conversationChangeBaseline = baseline;
     this.state = {
       ...this.state,
       workspaceChanges: emptyWorkspaceChangeSummary()
