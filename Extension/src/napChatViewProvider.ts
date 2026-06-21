@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execFile } from 'node:child_process';
 import * as vscode from 'vscode';
 import { getNapConfiguration } from './configuration';
 import { NapSettingsPanel } from './napSettingsPanel';
@@ -15,6 +16,7 @@ import {
   NapQueuedPrompt,
   NapSessionRecord,
   NapSessionState,
+  NapWorkspaceChangeSummary,
   WebviewToExtensionMessage
 } from './shared/protocol';
 
@@ -26,6 +28,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private state: NapSessionState;
   private isDrainingQueue = false;
   private loginPromise: Promise<void> | undefined;
+  private workspaceChangeTimer: NodeJS.Timeout | undefined;
+  private workspaceWatchers: vscode.Disposable[] = [];
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -46,6 +50,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       ]
     };
     webviewView.webview.html = this.getHtml(webviewView.webview);
+    this.ensureWorkspaceChangeWatchers();
+    void this.refreshWorkspaceChanges();
 
     webviewView.webview.onDidReceiveMessage(async (message: unknown) => {
       if (!isWebviewToExtensionMessage(message)) {
@@ -139,6 +145,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         this.publishState();
         await this.refreshEnvironment();
         await this.refreshSessions();
+        await this.refreshWorkspaceChanges();
         await this.openMostRecentSessionIfEmpty();
         this.publishState();
         return;
@@ -183,6 +190,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'refreshPlugins':
         await this.refreshEnvironment();
+        await this.refreshWorkspaceChanges();
         this.publishState();
         return;
       case 'openExternal':
@@ -385,6 +393,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       }
       cancellation.dispose();
       await this.refreshSessions();
+      await this.refreshWorkspaceChanges();
       this.publishState();
       if (!options.skipQueueDrain) {
         await this.drainQueuedPrompts();
@@ -667,6 +676,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         servers: []
       },
       plugins: previousState?.plugins ?? [],
+      workspaceChanges: previousState?.workspaceChanges ?? {
+        filesChanged: 0,
+        additions: 0,
+        deletions: 0
+      },
       config
     };
   }
@@ -685,7 +699,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       messages: session.messages,
       queuedPrompts: [],
       logs: [],
-      plugins: this.state.plugins
+      plugins: this.state.plugins,
+      workspaceChanges: this.state.workspaceChanges
     };
   }
 
@@ -718,6 +733,48 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
   private publishState(): void {
     this.post({ type: 'sessionState', state: this.state });
+  }
+
+  private ensureWorkspaceChangeWatchers(): void {
+    this.workspaceWatchers.forEach(disposable => disposable.dispose());
+    this.workspaceWatchers = [];
+
+    if (!vscode.workspace.workspaceFolders?.length) {
+      return;
+    }
+
+    const watcher = vscode.workspace.createFileSystemWatcher('**/*');
+    const schedule = () => this.scheduleWorkspaceChangeRefresh();
+    this.workspaceWatchers.push(
+      watcher,
+      watcher.onDidCreate(schedule),
+      watcher.onDidChange(schedule),
+      watcher.onDidDelete(schedule),
+      vscode.workspace.onDidSaveTextDocument(schedule),
+      vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        this.ensureWorkspaceChangeWatchers();
+        this.scheduleWorkspaceChangeRefresh();
+      })
+    );
+  }
+
+  private scheduleWorkspaceChangeRefresh(): void {
+    if (this.workspaceChangeTimer) {
+      clearTimeout(this.workspaceChangeTimer);
+    }
+    this.workspaceChangeTimer = setTimeout(() => {
+      this.workspaceChangeTimer = undefined;
+      void this.refreshWorkspaceChanges();
+    }, 250);
+  }
+
+  private async refreshWorkspaceChanges(): Promise<void> {
+    const workspaceChanges = await getWorkspaceChangeSummary();
+    this.state = {
+      ...this.state,
+      workspaceChanges
+    };
+    this.post({ type: 'workspaceChangesChanged', workspaceChanges });
   }
 
   private resolveRefreshedAuth(authResult: PromiseSettledResult<NapAuthState>): NapAuthState {
@@ -982,6 +1039,76 @@ function createInlineActivityMarkdown(activity: Partial<NapActivityItem> & { ite
     deletions: activity.deletions
   }), 'utf8').toString('base64');
   return `\n\n:::nap-activity ${encoded}\n:::\n\n`;
+}
+
+async function getWorkspaceChangeSummary(): Promise<NapWorkspaceChangeSummary> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    return emptyWorkspaceChangeSummary();
+  }
+
+  try {
+    await runGit(workspaceRoot, ['rev-parse', '--is-inside-work-tree']);
+    const [numstat, untracked] = await Promise.all([
+      runGit(workspaceRoot, ['diff', '--numstat', 'HEAD', '--']),
+      runGit(workspaceRoot, ['ls-files', '--others', '--exclude-standard'])
+    ]);
+
+    let filesChanged = 0;
+    let additions = 0;
+    let deletions = 0;
+
+    for (const line of numstat.split(/\r?\n/)) {
+      if (!line.trim()) {
+        continue;
+      }
+      const [added, deleted] = line.split(/\s+/, 3);
+      filesChanged += 1;
+      additions += parseGitNumstatValue(added);
+      deletions += parseGitNumstatValue(deleted);
+    }
+
+    const untrackedFiles = untracked
+      .split(/\r?\n/)
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    return {
+      filesChanged: filesChanged + untrackedFiles.length,
+      additions,
+      deletions
+    };
+  } catch {
+    return emptyWorkspaceChangeSummary();
+  }
+}
+
+function parseGitNumstatValue(value: string | undefined): number {
+  if (!value || value === '-') {
+    return 0;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function emptyWorkspaceChangeSummary(): NapWorkspaceChangeSummary {
+  return {
+    filesChanged: 0,
+    additions: 0,
+    deletions: 0
+  };
+}
+
+function runGit(cwd: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile('git', ['-C', cwd, ...args], { cwd, maxBuffer: 4 * 1024 * 1024 }, (error, stdout) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve(stdout);
+    });
+  });
 }
 
 function splitLongToken(token: string): string[] {

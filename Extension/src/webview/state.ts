@@ -31,6 +31,11 @@ export const initialViewState: NapViewState = {
     servers: []
   },
   plugins: [],
+  workspaceChanges: {
+    filesChanged: 0,
+    additions: 0,
+    deletions: 0
+  },
   config: {
     cliPath: 'nap',
     accentColor: NAP_DEFAULT_ACCENT,
@@ -130,6 +135,11 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
       return {
         ...state,
         plugins: message.plugins
+      };
+    case 'workspaceChangesChanged':
+      return {
+        ...state,
+        workspaceChanges: message.workspaceChanges
       };
   }
 }

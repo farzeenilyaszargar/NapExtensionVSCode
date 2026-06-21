@@ -121,7 +121,14 @@ export interface NapSessionState {
   auth: NapAuthState;
   mcp: NapMcpState;
   plugins: NapPluginSummary[];
+  workspaceChanges: NapWorkspaceChangeSummary;
   config: NapConfigurationSnapshot;
+}
+
+export interface NapWorkspaceChangeSummary {
+  filesChanged: number;
+  additions: number;
+  deletions: number;
 }
 
 export interface NapActivityItem {
@@ -191,7 +198,8 @@ export type ExtensionToWebviewMessage =
   | { type: 'sessionsChanged'; sessions: NapSessionSummary[] }
   | { type: 'authStateChanged'; auth: NapAuthState }
   | { type: 'mcpStateChanged'; mcp: NapMcpState }
-  | { type: 'pluginsChanged'; plugins: NapPluginSummary[] };
+  | { type: 'pluginsChanged'; plugins: NapPluginSummary[] }
+  | { type: 'workspaceChangesChanged'; workspaceChanges: NapWorkspaceChangeSummary };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

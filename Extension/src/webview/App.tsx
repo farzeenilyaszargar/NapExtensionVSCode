@@ -24,7 +24,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { NapActivityItem, WebviewToExtensionMessage } from '../shared/protocol';
+import { NapActivityItem, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
 import { renderMarkdown } from './markdown';
@@ -437,9 +437,9 @@ export function App() {
   const waitingKind = state.activityKind ?? 'thinking';
   const activityItems = state.activityItems ?? [];
   const queuedPrompts = state.queuedPrompts ?? [];
+  const workspaceChanges = state.workspaceChanges ?? { filesChanged: 0, additions: 0, deletions: 0 };
   const hasDraft = draft.trim().length > 0;
   const latestAssistantMessageId = [...state.messages].reverse().find(message => message.role === 'assistant')?.id;
-  const editedActivityItems = getEditedActivityItems(activityItems);
 
   useEffect(() => {
     if (!latestStreamingAssistant) {
@@ -820,8 +820,8 @@ export function App() {
 
       {activePage === 'chat' && isAuthenticated ? (
         <footer className="composer-panel" ref={composerPanelRef}>
-          {editedActivityItems.length > 0 ? (
-            <ChangeSummaryBar items={editedActivityItems} />
+          {workspaceChanges.filesChanged > 0 ? (
+            <ChangeSummaryBar summary={workspaceChanges} />
           ) : null}
           {queuedPrompts.length > 0 ? (
             <section className="prompt-queue" aria-label="Queued prompts">
@@ -1107,17 +1107,15 @@ function ActivityStats({ item }: { item: NapActivityItem }) {
   );
 }
 
-function ChangeSummaryBar({ items }: { items: NapActivityItem[] }) {
-  const additions = items.reduce((sum, item) => sum + (item.additions ?? 0), 0);
-  const deletions = items.reduce((sum, item) => sum + (item.deletions ?? 0), 0);
+function ChangeSummaryBar({ summary }: { summary: NapWorkspaceChangeSummary }) {
   return (
     <section className="change-summary-bar" aria-label="Changed files summary">
       <span className="change-summary-files">
-        {items.length} {items.length === 1 ? 'file' : 'files'} changed
+        {summary.filesChanged} {summary.filesChanged === 1 ? 'file' : 'files'} changed
       </span>
-      <span className="change-summary-stats" aria-label={`${additions} additions and ${deletions} deletions`}>
-        <span className="change-summary-add">+{additions}</span>
-        <span className="change-summary-del">-{deletions}</span>
+      <span className="change-summary-stats" aria-label={`${summary.additions} additions and ${summary.deletions} deletions`}>
+        <span className="change-summary-add">+{summary.additions}</span>
+        <span className="change-summary-del">-{summary.deletions}</span>
       </span>
     </section>
   );
@@ -1136,18 +1134,6 @@ function ActivityLine({ kind, text }: { kind: string; text: string }) {
       </span>
     </span>
   );
-}
-
-function getEditedActivityItems(items: NapActivityItem[]): NapActivityItem[] {
-  const byFile = new Map<string, NapActivityItem>();
-  for (const item of items) {
-    if (item.verb !== 'edit') {
-      continue;
-    }
-    const key = item.filePath ?? item.title ?? item.id;
-    byFile.set(key, item);
-  }
-  return [...byFile.values()];
 }
 
 function parseAssistantContentSegments(content: string, compactFinal = false): AssistantContentSegment[] {
