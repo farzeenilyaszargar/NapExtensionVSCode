@@ -21,7 +21,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { ChangeEvent, DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, SyntheticEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { NapActivityItem, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
+import { NapActivityItem, NapMode, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
 import { renderMarkdown } from './markdown';
@@ -32,6 +32,7 @@ type OpenMenu = 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
 type SlashAction = 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search';
+type SlashMatch = { query: string; start: number; end: number };
 
 const slashCommands: Array<{ action: SlashAction; label: string; keywords: string[] }> = [
   { action: 'review', label: 'Review', keywords: ['review', 'changes', 'diff'] },
@@ -60,7 +61,7 @@ const LIVE_SCROLL_BOTTOM_PADDING = 18;
 const SCROLL_ANIMATION_MIN_MS = 70;
 const SCROLL_ANIMATION_MAX_MS = 150;
 
-function getActiveSlashQuery(value: string, caretIndex: number) {
+function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | undefined {
   const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
   const nextSpace = value.slice(caretIndex).search(/\s/);
   const tokenEnd = nextSpace === -1 ? value.length : caretIndex + nextSpace;
@@ -69,7 +70,11 @@ function getActiveSlashQuery(value: string, caretIndex: number) {
     return undefined;
   }
 
-  return token.slice(1, Math.max(1, caretIndex - tokenStart)).toLowerCase();
+  return {
+    query: token.slice(1, Math.max(1, caretIndex - tokenStart)).toLowerCase(),
+    start: tokenStart,
+    end: tokenEnd
+  };
 }
 
 declare global {
@@ -85,6 +90,7 @@ export function App() {
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
   const [slashQuery, setSlashQuery] = useState('');
+  const [slashMatch, setSlashMatch] = useState<SlashMatch>();
   const [showAllModels, setShowAllModels] = useState(false);
   const [activePage, setActivePage] = useState<ActivePage>('chat');
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
@@ -471,6 +477,11 @@ export function App() {
     post({ type: 'stopGeneration' });
   }, [isStreaming, post]);
 
+  const clearActiveMode = useCallback(() => {
+    post({ type: 'setMode', mode: 'chat' });
+    setOpenMenu(undefined);
+  }, [post]);
+
   useEffect(() => {
     if (!latestStreamingAssistant) {
       return;
@@ -528,18 +539,42 @@ export function App() {
   }, [post, seedComposerText]);
 
   const syncSlashMenu = useCallback((value: string, caretIndex: number | null) => {
-    const query = caretIndex === null ? undefined : getActiveSlashQuery(value, caretIndex);
-    if (query === undefined) {
+    const match = caretIndex === null ? undefined : getActiveSlashMatch(value, caretIndex);
+    if (!match) {
       setSlashQuery('');
+      setSlashMatch(undefined);
       setOpenMenu(current => current === 'slash' ? undefined : current);
       return;
     }
 
-    setSlashQuery(query);
+    setSlashQuery(match.query);
+    setSlashMatch(match);
     setOpenMenu('slash');
   }, []);
 
+  const removeActiveSlashCommand = useCallback(() => {
+    setDraft(current => {
+      if (!slashMatch) {
+        return current;
+      }
+
+      const next = `${current.slice(0, slashMatch.start)}${current.slice(slashMatch.end)}`;
+      requestAnimationFrame(() => {
+        const textarea = textareaRef.current;
+        if (!textarea) {
+          return;
+        }
+        textarea.focus();
+        textarea.setSelectionRange(slashMatch.start, slashMatch.start);
+      });
+      return next;
+    });
+    setSlashQuery('');
+    setSlashMatch(undefined);
+  }, [slashMatch]);
+
   const chooseSlashAction = useCallback((action: SlashAction) => {
+    removeActiveSlashCommand();
     if (action === 'review') {
       post({ type: 'reviewChanges' });
     } else if (action === 'plan') {
@@ -562,7 +597,7 @@ export function App() {
       seedComposerText('Use web search: ');
     }
     setOpenMenu(undefined);
-  }, [post, seedComposerText]);
+  }, [post, removeActiveSlashCommand, seedComposerText]);
 
   useEffect(() => {
     const focusComposerOnTyping = (event: globalThis.KeyboardEvent) => {
@@ -1041,6 +1076,17 @@ export function App() {
                   </div>
                 ) : null}
               </div>
+              {state.mode !== 'chat' ? (
+                <button
+                  type="button"
+                  className={`active-mode-button active-mode-button--${state.mode}`}
+                  title={`${modeLabel(state.mode)} active. Click to turn off.`}
+                  aria-label={`${modeLabel(state.mode)} active. Turn off mode.`}
+                  onClick={clearActiveMode}
+                >
+                  <ModeIcon mode={state.mode} />
+                </button>
+              ) : null}
             </div>
           </div>
         </form>
@@ -1267,6 +1313,34 @@ function SlashCommandIcon({ action }: { action: SlashAction }) {
   }
 
   return <Sparkles size={14} aria-hidden="true" />;
+}
+
+function modeLabel(mode: NapMode) {
+  if (mode === 'plan') {
+    return 'Plan Mode';
+  }
+  if (mode === 'debug') {
+    return 'Debug Mode';
+  }
+  if (mode === 'security') {
+    return 'Security Mode';
+  }
+
+  return 'Chat Mode';
+}
+
+function ModeIcon({ mode }: { mode: NapMode }) {
+  if (mode === 'plan') {
+    return <List size={13} aria-hidden="true" />;
+  }
+  if (mode === 'debug') {
+    return <Brain size={13} aria-hidden="true" />;
+  }
+  if (mode === 'security') {
+    return <Shield size={13} aria-hidden="true" />;
+  }
+
+  return <Sparkles size={13} aria-hidden="true" />;
 }
 
 function ActivityLine({ kind, text }: { kind: string; text: string }) {

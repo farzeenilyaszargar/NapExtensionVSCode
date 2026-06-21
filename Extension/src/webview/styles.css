@@ -1685,6 +1685,41 @@ textarea:disabled {
   background: rgba(145, 68, 0, 0.32);
 }
 
+.active-mode-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #303030;
+  border-radius: 999px;
+  color: #d0d0d0;
+  background: rgba(36, 36, 36, 0.88);
+  cursor: pointer;
+}
+
+.active-mode-button:hover {
+  color: #f2f2f2;
+  background: rgba(48, 48, 48, 0.94);
+}
+
+.active-mode-button:focus-visible {
+  outline: 1px solid #555;
+  outline-offset: 1px;
+}
+
+.active-mode-button--plan {
+  color: #8fb8ff;
+  background: rgba(42, 73, 128, 0.28);
+  border-color: rgba(92, 126, 190, 0.36);
+}
+
+.active-mode-button--plan:hover {
+  color: #c6dbff;
+  background: rgba(52, 88, 150, 0.36);
+}
+
 .permissions-menu {
   width: 166px;
   max-width: calc(100vw - 8px);
