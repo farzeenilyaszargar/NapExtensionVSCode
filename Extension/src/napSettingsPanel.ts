@@ -99,7 +99,7 @@ export class NapSettingsPanel {
       --nap-card-strong: color-mix(in srgb, var(--vscode-sideBar-background, #181818) 90%, #101010);
       --nap-row: color-mix(in srgb, var(--vscode-list-hoverBackground, #2a2a2a) 32%, transparent);
       --nap-accent: var(--vscode-button-background, #6f6f6f);
-      --settings-nav-width: 210px;
+      --settings-nav-width: 168px;
     }
     * { box-sizing: border-box; }
     html {
