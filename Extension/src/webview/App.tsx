@@ -495,8 +495,10 @@ export function App() {
   const expandModelMenu = useCallback(() => {
     const menu = document.querySelector<HTMLElement>('.floating-menu[data-menu="model"]');
     if (menu) {
+      const rect = menu.getBoundingClientRect();
       menu.classList.add('model-menu--expanding');
-      menu.style.height = `${menu.getBoundingClientRect().height}px`;
+      menu.style.width = `${rect.width}px`;
+      menu.style.height = `${rect.height}px`;
     }
 
     setShowAllModels(true);

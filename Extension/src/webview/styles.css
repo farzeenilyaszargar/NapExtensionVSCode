@@ -1884,6 +1884,7 @@ textarea:disabled {
 }
 
 .model-menu {
+  width: min(188px, calc(100vw - 8px));
   min-width: 150px;
   max-width: calc(100% - 8px);
   max-height: min(150px, calc(100vh - 80px));
