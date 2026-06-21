@@ -22,7 +22,7 @@ import {
   TriangleAlert,
   Trash2
 } from 'lucide-react';
-import { DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, SyntheticEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { NapActivityItem, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
@@ -34,6 +34,20 @@ type OpenMenu = 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ResponseVote = 'up' | 'down';
 type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
+type SlashAction = 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search';
+
+const slashCommands: Array<{ action: SlashAction; label: string; keywords: string[] }> = [
+  { action: 'review', label: 'Review', keywords: ['review', 'changes', 'diff'] },
+  { action: 'goal', label: 'Goals', keywords: ['goal', 'goals', 'set goal'] },
+  { action: 'mcp', label: 'MCP', keywords: ['mcp', 'server', 'connector'] },
+  { action: 'plan', label: 'Plan Mode', keywords: ['plan', 'planning', 'mode'] },
+  { action: 'doctor', label: 'Doctor', keywords: ['doctor', 'diagnose', 'debug'] },
+  { action: 'apply', label: 'Apply', keywords: ['apply', 'patch', 'diff'] },
+  { action: 'resume', label: 'Resume', keywords: ['resume', 'continue', 'session'] },
+  { action: 'fork', label: 'Fork', keywords: ['fork', 'branch', 'copy'] },
+  { action: 'cloud', label: 'Cloud', keywords: ['cloud', 'tasks', 'remote'] },
+  { action: 'search', label: 'Web Search', keywords: ['search', 'web', 'browse'] }
+];
 
 const approvalLabels: Record<ApprovalMode, string> = {
   default: 'Default Permissions',
@@ -49,6 +63,18 @@ const LIVE_SCROLL_BOTTOM_PADDING = 18;
 const SCROLL_ANIMATION_MIN_MS = 70;
 const SCROLL_ANIMATION_MAX_MS = 150;
 
+function getActiveSlashQuery(value: string, caretIndex: number) {
+  const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
+  const nextSpace = value.slice(caretIndex).search(/\s/);
+  const tokenEnd = nextSpace === -1 ? value.length : caretIndex + nextSpace;
+  const token = value.slice(tokenStart, tokenEnd);
+  if (!token.startsWith('/') || token.includes('/', 1) || caretIndex < tokenStart + 1) {
+    return undefined;
+  }
+
+  return token.slice(1, Math.max(1, caretIndex - tokenStart)).toLowerCase();
+}
+
 declare global {
   interface Window {
     __NAP_LOGO_URI__?: string;
@@ -61,6 +87,7 @@ export function App() {
   const [draft, setDraft] = useState('');
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
+  const [slashQuery, setSlashQuery] = useState('');
   const [showAllModels, setShowAllModels] = useState(false);
   const [activePage, setActivePage] = useState<ActivePage>('chat');
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
@@ -496,7 +523,19 @@ export function App() {
     setOpenMenu(undefined);
   }, [post, seedComposerText]);
 
-  const chooseSlashAction = useCallback((action: 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search') => {
+  const syncSlashMenu = useCallback((value: string, caretIndex: number | null) => {
+    const query = caretIndex === null ? undefined : getActiveSlashQuery(value, caretIndex);
+    if (query === undefined) {
+      setSlashQuery('');
+      setOpenMenu(current => current === 'slash' ? undefined : current);
+      return;
+    }
+
+    setSlashQuery(query);
+    setOpenMenu('slash');
+  }, []);
+
+  const chooseSlashAction = useCallback((action: SlashAction) => {
     if (action === 'review') {
       post({ type: 'reviewChanges' });
     } else if (action === 'plan') {
@@ -554,13 +593,21 @@ export function App() {
     }
     post({ type: 'sendPrompt', prompt });
     setDraft('');
+    setOpenMenu(undefined);
+  };
+
+  const onComposerChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
+    const value = event.target.value;
+    setDraft(value);
+    syncSlashMenu(value, event.target.selectionStart);
+  };
+
+  const onComposerSelectionChange = (event: SyntheticEvent<HTMLTextAreaElement>) => {
+    const target = event.currentTarget;
+    syncSlashMenu(target.value, target.selectionStart);
   };
 
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key === '/' && !event.metaKey && !event.ctrlKey && !event.altKey && draft.trim().length === 0) {
-      setOpenMenu('slash');
-    }
-
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       event.currentTarget.form?.requestSubmit();
@@ -890,22 +937,30 @@ export function App() {
               ))}
             </section>
           ) : null}
-          {openMenu === 'add' ? (
-            <ComposerAddPanel
-              onChooseAdd={chooseAddAction}
-            />
-          ) : null}
-          {openMenu === 'slash' ? (
-            <ComposerSlashPanel
-              onChooseAction={chooseSlashAction}
-            />
+          {openMenu === 'add' || openMenu === 'slash' ? (
+            <div className="composer-overlay" aria-live="polite">
+              {openMenu === 'add' ? (
+                <ComposerAddPanel
+                  onChooseAdd={chooseAddAction}
+                />
+              ) : null}
+              {openMenu === 'slash' ? (
+                <ComposerSlashPanel
+                  query={slashQuery}
+                  onChooseAction={chooseSlashAction}
+                />
+              ) : null}
+            </div>
           ) : null}
         <form className="composer" onSubmit={onSubmit}>
           <div className="composer-input">
             <textarea
               ref={textareaRef}
               value={draft}
-              onChange={event => setDraft(event.target.value)}
+              onChange={onComposerChange}
+              onSelect={onComposerSelectionChange}
+              onClick={onComposerSelectionChange}
+              onKeyUp={onComposerSelectionChange}
               onKeyDown={onComposerKeyDown}
               placeholder="Describe what you want to build"
               rows={2}
@@ -1147,57 +1202,67 @@ function ComposerAddPanel({
 }
 
 function ComposerSlashPanel({
+  query,
   onChooseAction
 }: {
-  onChooseAction(action: 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search'): void;
+  query: string;
+  onChooseAction(action: SlashAction): void;
 }) {
+  const visibleCommands = slashCommands.filter(command => {
+    if (!query) {
+      return true;
+    }
+
+    const normalizedLabel = command.label.toLowerCase().replace(/\s+/g, '');
+    return normalizedLabel.includes(query)
+      || command.action.includes(query)
+      || command.keywords.some(keyword => keyword.replace(/\s+/g, '').includes(query));
+  });
+
   return (
     <section className="composer-panel-menu slash-panel" aria-label="Nap slash commands" data-menu="slash">
       <div className="composer-panel-section" role="group" aria-label="Commands">
         <div className="composer-panel-heading">Commands</div>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('review')}>
-          <FileText size={14} aria-hidden="true" />
-          <span>Review</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('goal')}>
-          <Target size={14} aria-hidden="true" />
-          <span>Goals</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('mcp')}>
-          <SquareTerminal size={14} aria-hidden="true" />
-          <span>MCP</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('plan')}>
-          <List size={14} aria-hidden="true" />
-          <span>Plan Mode</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('doctor')}>
-          <Brain size={14} aria-hidden="true" />
-          <span>Doctor</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('apply')}>
-          <Copy size={14} aria-hidden="true" />
-          <span>Apply</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('resume')}>
-          <Sparkles size={14} aria-hidden="true" />
-          <span>Resume</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('fork')}>
-          <Settings size={14} aria-hidden="true" />
-          <span>Fork</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('cloud')}>
-          <Lock size={14} aria-hidden="true" />
-          <span>Cloud</span>
-        </button>
-        <button type="button" className="composer-panel-item" onClick={() => onChooseAction('search')}>
-          <Sparkles size={14} aria-hidden="true" />
-          <span>Web Search</span>
-        </button>
+        {visibleCommands.length > 0 ? visibleCommands.map(command => (
+          <button key={command.action} type="button" className="composer-panel-item" onClick={() => onChooseAction(command.action)}>
+            <SlashCommandIcon action={command.action} />
+            <span>{command.label}</span>
+          </button>
+        )) : (
+          <div className="composer-panel-empty">No matching commands</div>
+        )}
       </div>
     </section>
   );
+}
+
+function SlashCommandIcon({ action }: { action: SlashAction }) {
+  if (action === 'review') {
+    return <FileText size={14} aria-hidden="true" />;
+  }
+  if (action === 'goal') {
+    return <Target size={14} aria-hidden="true" />;
+  }
+  if (action === 'mcp') {
+    return <SquareTerminal size={14} aria-hidden="true" />;
+  }
+  if (action === 'plan') {
+    return <List size={14} aria-hidden="true" />;
+  }
+  if (action === 'doctor') {
+    return <Brain size={14} aria-hidden="true" />;
+  }
+  if (action === 'apply') {
+    return <Copy size={14} aria-hidden="true" />;
+  }
+  if (action === 'fork') {
+    return <Settings size={14} aria-hidden="true" />;
+  }
+  if (action === 'cloud') {
+    return <Lock size={14} aria-hidden="true" />;
+  }
+
+  return <Sparkles size={14} aria-hidden="true" />;
 }
 
 function ActivityLine({ kind, text }: { kind: string; text: string }) {
