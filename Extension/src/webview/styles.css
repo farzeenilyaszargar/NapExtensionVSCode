@@ -1787,6 +1787,8 @@ textarea::-webkit-scrollbar,
 }
 
 .composer-input textarea {
+  -webkit-appearance: none;
+  appearance: none;
   height: 92px;
   min-height: 92px;
   max-height: 220px;
@@ -1796,20 +1798,25 @@ textarea::-webkit-scrollbar,
   border-radius: 18px;
   line-height: 1.35;
   overflow-y: hidden;
-  background: rgba(26, 26, 26, 0.9);
+  background-color: #1a1a1a !important;
+  background-image: none !important;
+  background-clip: padding-box;
   -webkit-backdrop-filter: blur(18px) saturate(1.12);
   backdrop-filter: blur(18px) saturate(1.12);
   box-shadow: none;
+  opacity: 0.9;
 }
 
 .composer-input textarea:hover {
   border-color: #2a2a2a;
-  background: rgba(26, 26, 26, 0.9);
+  background-color: #1a1a1a !important;
+  background-image: none !important;
 }
 
 .composer-input textarea:focus {
   border-color: #2a2a2a;
-  background: rgba(26, 26, 26, 0.9);
+  background-color: #1a1a1a !important;
+  background-image: none !important;
   box-shadow: none;
 }
 
