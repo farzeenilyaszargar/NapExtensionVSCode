@@ -688,7 +688,7 @@ textarea::-webkit-scrollbar,
   display: grid;
   width: 100%;
   max-width: 100%;
-  padding: 19px 0;
+  padding: 5px 0;
 }
 
 .message--user .message-body {
@@ -696,12 +696,12 @@ textarea::-webkit-scrollbar,
 }
 
 .message--user {
-  padding-bottom: 4px;
+  padding-bottom: 2px;
 }
 
 .message--assistant {
-  padding-top: 4px;
-  padding-bottom: 24px;
+  padding-top: 2px;
+  padding-bottom: 8px;
 }
 
 .message--assistant .message-body {
@@ -729,67 +729,6 @@ textarea::-webkit-scrollbar,
   padding-left: 0;
   padding-right: 0;
   font-size: 13.5px;
-}
-
-.turn-divider {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: center;
-  gap: 0;
-  width: 100%;
-  margin: 22px 0 8px;
-  color: #6f6f6f;
-  font-size: 10.5px;
-  line-height: 1;
-  letter-spacing: 0;
-}
-
-.turn-divider--active {
-  grid-template-columns: minmax(18px, 1fr) auto minmax(18px, 1fr);
-  gap: 10px;
-  color: #8a8a8a;
-}
-
-.turn-divider::before,
-.turn-divider::after {
-  content: "";
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(74, 74, 74, 0.36) 24%,
-    rgba(74, 74, 74, 0.36) 76%,
-    transparent 100%
-  );
-}
-
-.turn-divider::before {
-  background: rgba(74, 74, 74, 0.36);
-}
-
-.turn-divider::after {
-  display: none;
-  background: linear-gradient(90deg, rgba(74, 74, 74, 0.36) 0%, transparent 100%);
-}
-
-.turn-divider--active::before {
-  background: linear-gradient(90deg, transparent 0%, rgba(74, 74, 74, 0.36) 100%);
-}
-
-.turn-divider--active::after {
-  display: block;
-}
-
-.turn-divider span {
-  display: none;
-  min-width: 0;
-  padding: 0 2px;
-  color: inherit;
-  white-space: nowrap;
-}
-
-.turn-divider--active span {
-  display: inline;
 }
 
 .markdown-body {

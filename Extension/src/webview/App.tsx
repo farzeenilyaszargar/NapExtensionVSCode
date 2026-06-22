@@ -469,15 +469,6 @@ export function App() {
   const latestStreamingAssistant = useMemo(() => [...state.messages].reverse().find(message =>
     message.role === 'assistant' && message.status === 'streaming'
   ), [state.messages]);
-  const latestStreamingAssistantIndex = latestStreamingAssistant
-    ? state.messages.findIndex(message => message.id === latestStreamingAssistant.id)
-    : -1;
-  const activeTurnUserMessageId = latestStreamingAssistantIndex > -1
-    ? [...state.messages.slice(0, latestStreamingAssistantIndex)].reverse().find(message => message.role === 'user')?.id
-    : undefined;
-  const activeTurnElapsedLabel = latestStreamingAssistant
-    ? `Waiting for ${formatElapsedTime(elapsedNow - latestStreamingAssistant.createdAt)}`
-    : undefined;
   const isStreaming = state.status === 'streaming';
   const modelOptions = (state.models.length > 0
     ? state.models
@@ -932,19 +923,10 @@ export function App() {
             ) : null}
             <p>Start a Nap Chat below</p>
           </div>
-        ) : state.messages.map((message, index) => {
-          const followingAssistant = message.role === 'user'
-            ? state.messages.slice(index + 1).find(item => item.role === 'assistant')
-            : undefined;
-          const completedTurnLabel = followingAssistant?.status !== 'streaming' && followingAssistant?.completedAt
-            ? `Worked for ${formatWorkedSeconds(followingAssistant.completedAt - followingAssistant.createdAt)}`
-            : undefined;
-          const turnDividerLabel = message.id === activeTurnUserMessageId ? activeTurnElapsedLabel : completedTurnLabel;
-          const showTurnDivider = message.role === 'user' && (index > 0 || Boolean(turnDividerLabel));
+        ) : state.messages.map(message => {
           const responseCompletedAt = message.completedAt ?? message.createdAt;
           return (
             <Fragment key={message.id}>
-              {showTurnDivider ? <TurnDivider label={turnDividerLabel} /> : null}
               <article className={`message message--${message.role}`} data-message-id={message.id}>
                 <div className="message-body">
                   {message.role === 'assistant' ? (
@@ -1149,14 +1131,6 @@ export function App() {
         </form>
         </footer>
       ) : null}
-    </div>
-  );
-}
-
-function TurnDivider({ label }: { label?: string }) {
-  return (
-    <div className={`turn-divider${label ? ' turn-divider--active' : ''}`} aria-label={label ?? 'Conversation divider'}>
-      {label ? <span>{label}</span> : <span aria-hidden="true" />}
     </div>
   );
 }
@@ -1723,11 +1697,6 @@ function formatElapsedTime(milliseconds: number): string {
     return `${seconds}s`;
   }
   return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
-}
-
-function formatWorkedSeconds(milliseconds: number): string {
-  const seconds = Math.max(1, Math.round(milliseconds / 1000));
-  return `${seconds} ${seconds === 1 ? 'Second' : 'Seconds'}`;
 }
 
 function formatClockTime(timestamp: number): string {
