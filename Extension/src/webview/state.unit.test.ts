@@ -114,6 +114,37 @@ describe('Nap webview state reducer', () => {
     expect(nextState.sessions).toBe(sessions);
   });
 
+  it('attaches workspace change summaries to assistant messages', () => {
+    const state = {
+      ...initialViewState,
+      messages: [
+        {
+          id: 'assistant-1',
+          role: 'assistant' as const,
+          content: 'Updated the files.',
+          status: 'complete' as const,
+          createdAt: 1
+        }
+      ]
+    };
+
+    const workspaceChanges = {
+      filesChanged: 1,
+      additions: 4,
+      deletions: 1,
+      files: [{ filePath: 'src/app.ts', additions: 4, deletions: 1, status: 'tracked' as const }]
+    };
+
+    const nextState = applyExtensionMessage(state, {
+      type: 'workspaceChangesChanged',
+      messageId: 'assistant-1',
+      workspaceChanges
+    });
+
+    expect(nextState.workspaceChanges).toBe(workspaceChanges);
+    expect(nextState.messages[0].workspaceChanges).toBe(workspaceChanges);
+  });
+
   it('keeps recent log events bounded', () => {
     const state = {
       ...initialViewState,

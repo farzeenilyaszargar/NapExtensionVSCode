@@ -789,9 +789,27 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       : emptyWorkspaceChangeSummary();
     this.state = {
       ...this.state,
-      workspaceChanges
+      workspaceChanges,
+      messages: messageId
+        ? this.state.messages.map(message => message.id === messageId
+          ? {
+              ...message,
+              workspaceChanges,
+              workspaceDiff: this.conversationTurnDiff
+            }
+          : message)
+        : this.state.messages
     };
     this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
+  }
+
+  private rebuildConversationTurnDiffs(messages: NapMessage[]): void {
+    this.conversationTurnDiffsByMessageId.clear();
+    for (const message of messages) {
+      if (message.role === 'assistant' && message.workspaceDiff?.trim()) {
+        this.conversationTurnDiffsByMessageId.set(message.id, message.workspaceDiff);
+      }
+    }
   }
 
   private createInitialState(): NapSessionState {
@@ -825,6 +843,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private toSessionState(session: NapSessionRecord): NapSessionState {
+    this.rebuildConversationTurnDiffs(session.messages);
     return {
       ...this.state,
       sessionId: session.id,

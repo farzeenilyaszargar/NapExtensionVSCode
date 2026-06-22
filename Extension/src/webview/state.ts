@@ -139,7 +139,12 @@ export function applyExtensionMessage(state: NapViewState, message: ExtensionToW
     case 'workspaceChangesChanged':
       return {
         ...state,
-        workspaceChanges: message.workspaceChanges
+        workspaceChanges: message.workspaceChanges,
+        messages: message.messageId
+          ? state.messages.map(item => item.id === message.messageId
+            ? { ...item, workspaceChanges: message.workspaceChanges }
+            : item)
+          : state.messages
       };
   }
 }

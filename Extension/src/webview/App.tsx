@@ -917,6 +917,7 @@ export function App() {
             ) : null}
           </div>
         ) : state.messages.map((message, index) => {
+          const messageReviewSummary = message.workspaceChanges ?? reviewSummariesByMessageId[message.id];
           const responseCompletedAt = message.completedAt ?? message.createdAt;
           const pairedAssistant = message.role === 'user'
             ? state.messages.slice(index + 1).find(item => item.role === 'assistant')
@@ -955,9 +956,9 @@ export function App() {
                     </div>
                   </div>
                 ) : null}
-                {message.role === 'assistant' && reviewSummariesByMessageId[message.id]?.filesChanged > 0 ? (
+                {message.role === 'assistant' && messageReviewSummary?.filesChanged > 0 ? (
                   <ChangeSummaryBar
-                    summary={reviewSummariesByMessageId[message.id]}
+                    summary={messageReviewSummary}
                     onReview={() => post({ type: 'reviewChanges', messageId: message.id })}
                     onReviewFile={filePath => post({ type: 'reviewFileChanges', filePath, messageId: message.id })}
                   />

@@ -26,6 +26,8 @@ export interface NapMessage {
   createdAt: number;
   completedAt?: number;
   status: NapMessageStatus;
+  workspaceChanges?: NapWorkspaceChangeSummary;
+  workspaceDiff?: string;
 }
 
 export interface NapLogEvent {
