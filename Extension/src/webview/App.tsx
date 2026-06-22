@@ -57,9 +57,8 @@ const approvalLabels: Record<ApprovalMode, string> = {
 const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
 const COMPOSER_SINGLE_LINE_GROW_THRESHOLD = 20;
-const SCROLL_LOCK_THRESHOLD = 2;
+const SCROLL_LOCK_THRESHOLD = 28;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
-const LIVE_SCROLL_BOTTOM_PADDING = 18;
 
 function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | undefined {
   const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
@@ -176,17 +175,9 @@ export function App() {
     element.scrollHeight - element.scrollTop - element.clientHeight
   , []);
 
-  const distanceFromLiveBottom = useCallback((element: HTMLElement) => {
-    const contentEnd = timelineContentEndRef.current;
-    if (!contentEnd) {
-      return distanceFromBottom(element);
-    }
-    return contentEnd.offsetTop - element.scrollTop - element.clientHeight + LIVE_SCROLL_BOTTOM_PADDING;
-  }, [distanceFromBottom]);
-
   const isAtBottom = useCallback((element: HTMLElement) =>
-    distanceFromLiveBottom(element) <= SCROLL_LOCK_THRESHOLD
-  , [distanceFromLiveBottom]);
+    distanceFromBottom(element) <= SCROLL_LOCK_THRESHOLD
+  , [distanceFromBottom]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const timeline = timelineRef.current;
@@ -205,10 +196,7 @@ export function App() {
         return 0;
       }
 
-      const contentEnd = timelineContentEndRef.current;
-      const targetTop = contentEnd
-        ? contentEnd.offsetTop - currentTimeline.clientHeight + LIVE_SCROLL_BOTTOM_PADDING
-        : currentTimeline.scrollHeight;
+      const targetTop = currentTimeline.scrollHeight - currentTimeline.clientHeight;
       return Math.max(0, targetTop);
     };
 
@@ -243,9 +231,13 @@ export function App() {
       return;
     }
 
+    const wasPinned = isScrollPinnedRef.current;
     isScrollPinnedRef.current = atBottom;
     userScrollIntentRef.current = !atBottom;
-  }, [isAtBottom]);
+    if (!wasPinned && atBottom) {
+      scrollToBottom('smooth');
+    }
+  }, [isAtBottom, scrollToBottom]);
 
   const onTimelineWheel = useCallback((event: WheelEvent<HTMLElement>) => {
     markUserScrollIntent();
@@ -254,12 +246,17 @@ export function App() {
       return;
     }
 
-    isScrollPinnedRef.current = isAtBottom(event.currentTarget);
+    window.requestAnimationFrame(() => {
+      isScrollPinnedRef.current = isAtBottom(event.currentTarget);
+      userScrollIntentRef.current = !isScrollPinnedRef.current;
+    });
   }, [isAtBottom, markUserScrollIntent]);
 
   const onTimelinePointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
     markUserScrollIntent();
-    isScrollPinnedRef.current = isAtBottom(event.currentTarget);
+    if (!isAtBottom(event.currentTarget)) {
+      isScrollPinnedRef.current = false;
+    }
   }, [isAtBottom, markUserScrollIntent]);
 
   const onTimelineKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
@@ -270,7 +267,17 @@ export function App() {
     markUserScrollIntent();
     if (event.key !== 'End') {
       isScrollPinnedRef.current = false;
+      return;
     }
+
+    window.requestAnimationFrame(() => {
+      const timeline = timelineRef.current;
+      if (!timeline) {
+        return;
+      }
+      isScrollPinnedRef.current = isAtBottom(timeline);
+      userScrollIntentRef.current = !isScrollPinnedRef.current;
+    });
   }, [markUserScrollIntent]);
 
   useEffect(() => {
@@ -387,7 +394,7 @@ export function App() {
       }
 
       if (isScrollPinnedRef.current) {
-        scrollToBottom('smooth');
+        scrollToBottom('auto');
       }
     });
   }, [scrollToBottom, state.activityKind, state.activityText, state.messages, state.status]);
@@ -412,7 +419,7 @@ export function App() {
       }
 
       if (isScrollPinnedRef.current) {
-        scrollToBottom('smooth');
+        scrollToBottom('auto');
       }
     });
 
