@@ -32,7 +32,7 @@ const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
 type OpenMenu = 'account' | 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ActivePage = 'chat' | 'sessions';
-type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings';
+type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings' | 'settingsCat';
 type SlashAction = 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search';
 type SlashMatch = { query: string; start: number; end: number };
 
@@ -1166,17 +1166,6 @@ function LocalIcon({ name, className }: { name: LocalIconName; className?: strin
   if (!uri) {
     return null;
   }
-  if (name === 'settings') {
-    return (
-      <img
-        className={`local-icon local-icon--image local-icon--${name}${className ? ` ${className}` : ''}`}
-        src={uri}
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-      />
-    );
-  }
   return (
     <span
       className={`local-icon local-icon--${name}${className ? ` ${className}` : ''}`}
@@ -1352,11 +1341,7 @@ function HeaderSettingsDropdown({
             <span>{email}</span>
           </div>
           <button type="button" className="account-menu-item" role="menuitem" onClick={onOpenSettings}>
-            {window.__NAP_LOGO_URI__ ? (
-              <img className="account-menu-logo" src={window.__NAP_LOGO_URI__} alt="" aria-hidden="true" />
-            ) : (
-              <Settings size={13} aria-hidden="true" />
-            )}
+            <LocalIcon name="settingsCat" />
             <span>Nap Settings</span>
           </button>
           <button type="button" className="account-menu-item account-menu-item--logout" role="menuitem" onClick={onLogout}>

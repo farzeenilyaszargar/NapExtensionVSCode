@@ -26,7 +26,7 @@ export class NapSettingsPanel {
   static open(extensionUri: vscode.Uri): void {
     if (this.panel) {
       this.panel.reveal(vscode.ViewColumn.Active);
-      this.panel.webview.html = this.getHtml(this.panel.webview);
+      this.panel.webview.html = this.getHtml(this.panel.webview, extensionUri);
       return;
     }
 
@@ -41,16 +41,17 @@ export class NapSettingsPanel {
       }
     );
     this.panel = panel;
-    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'logo.svg');
-    panel.webview.html = this.getHtml(panel.webview);
+    panel.iconPath = vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'settings-cat.svg');
+    panel.webview.html = this.getHtml(panel.webview, extensionUri);
     panel.onDidDispose(() => {
       this.panel = undefined;
     });
   }
 
-  private static getHtml(webview: vscode.Webview): string {
+  private static getHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
     const config = getNapConfiguration();
     const account = readLocalAccountInfo();
+    const settingsCatUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, 'resources', 'icons', 'settings-cat.svg')).toString();
     const configRows: SettingsRow[] = [
       { key: 'nap.cliPath', value: config.cliPath },
       { key: 'nap.defaultModel', value: config.defaultModel },
@@ -84,7 +85,7 @@ export class NapSettingsPanel {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nap Settings</title>
   <style>
@@ -185,6 +186,21 @@ export class NapSettingsPanel {
       font-size: 25px;
       font-weight: 600;
       letter-spacing: 0;
+    }
+    .hero-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--nap-fg);
+    }
+    .settings-cat-mark {
+      width: 28px;
+      height: 28px;
+      flex: 0 0 auto;
+      color: currentColor;
+      background: currentColor;
+      -webkit-mask: url("${settingsCatUri}") center / contain no-repeat;
+      mask: url("${settingsCatUri}") center / contain no-repeat;
     }
     .subtle {
       margin: 7px 0 0;
@@ -357,7 +373,10 @@ export class NapSettingsPanel {
     <div class="content">
       <header class="hero">
         <div>
-          <h1>Nap Settings</h1>
+          <div class="hero-title">
+            <span class="settings-cat-mark" aria-hidden="true"></span>
+            <h1>Nap Settings</h1>
+          </div>
           <p class="subtle">Account, configuration, usage, and runtime state for the Nap VS Code extension.</p>
         </div>
         <div class="status-pill"><span class="status-dot"></span>${escapeHtml(account.status)}</div>
