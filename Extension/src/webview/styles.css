@@ -1375,7 +1375,7 @@ textarea::-webkit-scrollbar,
 
 .change-summary-bar {
   display: grid;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
   width: min(100%, 520px);
   margin: 10px 0 0;
@@ -1507,10 +1507,33 @@ textarea::-webkit-scrollbar,
   outline-offset: 1px;
 }
 
+.change-summary-file-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition:
+    grid-template-rows 210ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 160ms ease,
+    transform 210ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin-top 210ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  margin-top: 0;
+}
+
+.change-summary-bar.is-expanded .change-summary-file-reveal {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transform: translateY(0);
+  margin-top: 6px;
+}
+
 .change-summary-file-list {
   display: grid;
   gap: 2px;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 0 0 1px 30px;
 }
 
@@ -1560,6 +1583,12 @@ textarea::-webkit-scrollbar,
 
 .change-summary-bar + .prompt-queue {
   border-radius: 12px 12px 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .change-summary-file-reveal {
+    transition: none;
+  }
 }
 
 .composer-panel-menu {

@@ -1281,10 +1281,10 @@ function ChangeSummaryBar({
           </button>
         </div>
       </div>
-      {expanded && files.length > 0 ? (
+      <div className="change-summary-file-reveal" aria-hidden={!expanded}>
         <div className="change-summary-file-list" aria-label="Changed files">
           {files.map(file => (
-            <button key={file.filePath} type="button" className="change-summary-file" onClick={() => onReviewFile(file.filePath)}>
+            <button key={file.filePath} type="button" className="change-summary-file" tabIndex={expanded ? 0 : -1} onClick={() => onReviewFile(file.filePath)}>
               <FileText size={12} aria-hidden="true" />
               <span>{file.filePath}</span>
               <span className="change-summary-file-stats">
@@ -1294,7 +1294,7 @@ function ChangeSummaryBar({
             </button>
           ))}
         </div>
-      ) : null}
+      </div>
     </section>
   );
 }
