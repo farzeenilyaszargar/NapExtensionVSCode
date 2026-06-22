@@ -59,6 +59,7 @@ const COMPOSER_MAX_HEIGHT = 220;
 const COMPOSER_SINGLE_LINE_GROW_THRESHOLD = 20;
 const SCROLL_LOCK_THRESHOLD = 28;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
+const SMOOTH_SCROLL_DURATION_MS = 180;
 
 function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | undefined {
   const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
@@ -171,6 +172,13 @@ export function App() {
     userScrollIntentRef.current = false;
   }, []);
 
+  const cancelScrollAnimation = useCallback(() => {
+    if (scrollFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = undefined;
+    }
+  }, []);
+
   const distanceFromBottom = useCallback((element: HTMLElement) =>
     element.scrollHeight - element.scrollTop - element.clientHeight
   , []);
@@ -185,10 +193,7 @@ export function App() {
       return;
     }
 
-    markProgrammaticScroll(behavior === 'smooth' ? 760 : PROGRAMMATIC_SCROLL_GRACE_MS);
-    if (scrollFrameRef.current !== undefined) {
-      window.cancelAnimationFrame(scrollFrameRef.current);
-    }
+    cancelScrollAnimation();
 
     const getTargetTop = () => {
       const currentTimeline = timelineRef.current;
@@ -200,22 +205,50 @@ export function App() {
       return Math.max(0, targetTop);
     };
 
-    scrollFrameRef.current = window.requestAnimationFrame(() => {
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const startTop = timeline.scrollTop;
+    const targetTop = getTargetTop();
+    const distance = targetTop - startTop;
+    const shouldAnimate = behavior === 'smooth' && !prefersReducedMotion && Math.abs(distance) > 4;
+
+    if (!shouldAnimate) {
+      markProgrammaticScroll(PROGRAMMATIC_SCROLL_GRACE_MS);
+      scrollFrameRef.current = window.requestAnimationFrame(() => {
+        const currentTimeline = timelineRef.current;
+        if (!currentTimeline) {
+          scrollFrameRef.current = undefined;
+          return;
+        }
+
+        currentTimeline.scrollTop = getTargetTop();
+        scrollFrameRef.current = undefined;
+      });
+      return;
+    }
+
+    markProgrammaticScroll(SMOOTH_SCROLL_DURATION_MS + PROGRAMMATIC_SCROLL_GRACE_MS);
+    const startedAt = performance.now();
+    const step = (now: number) => {
       const currentTimeline = timelineRef.current;
-      if (!currentTimeline) {
+      if (!currentTimeline || !isScrollPinnedRef.current) {
         scrollFrameRef.current = undefined;
         return;
       }
 
-      const targetTop = getTargetTop();
-      if (behavior === 'smooth' && Math.abs(currentTimeline.scrollTop - targetTop) > 4) {
-        currentTimeline.scrollTo({ top: targetTop, behavior: 'smooth' });
-      } else {
-        currentTimeline.scrollTop = targetTop;
+      const progress = Math.min(1, (now - startedAt) / SMOOTH_SCROLL_DURATION_MS);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      currentTimeline.scrollTop = startTop + distance * eased;
+
+      if (progress < 1) {
+        scrollFrameRef.current = window.requestAnimationFrame(step);
+        return;
       }
+
+      currentTimeline.scrollTop = getTargetTop();
       scrollFrameRef.current = undefined;
-    });
-  }, [markProgrammaticScroll]);
+    };
+    scrollFrameRef.current = window.requestAnimationFrame(step);
+  }, [cancelScrollAnimation, markProgrammaticScroll]);
 
   const markUserScrollIntent = useCallback(() => {
     userScrollIntentRef.current = true;
@@ -242,6 +275,7 @@ export function App() {
   const onTimelineWheel = useCallback((event: WheelEvent<HTMLElement>) => {
     markUserScrollIntent();
     if (event.deltaY < 0) {
+      cancelScrollAnimation();
       isScrollPinnedRef.current = false;
       return;
     }
@@ -254,10 +288,11 @@ export function App() {
 
   const onTimelinePointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
     markUserScrollIntent();
+    cancelScrollAnimation();
     if (!isAtBottom(event.currentTarget)) {
       isScrollPinnedRef.current = false;
     }
-  }, [isAtBottom, markUserScrollIntent]);
+  }, [cancelScrollAnimation, isAtBottom, markUserScrollIntent]);
 
   const onTimelineKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
     if (!['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar'].includes(event.key)) {
@@ -266,6 +301,7 @@ export function App() {
 
     markUserScrollIntent();
     if (event.key !== 'End') {
+      cancelScrollAnimation();
       isScrollPinnedRef.current = false;
       return;
     }
@@ -278,7 +314,7 @@ export function App() {
       isScrollPinnedRef.current = isAtBottom(timeline);
       userScrollIntentRef.current = !isScrollPinnedRef.current;
     });
-  }, [markUserScrollIntent]);
+  }, [cancelScrollAnimation, isAtBottom, markUserScrollIntent]);
 
   useEffect(() => {
     if (state.sessionId === 'pending' || state.sessionId === lastOpenedSessionId.current) {
