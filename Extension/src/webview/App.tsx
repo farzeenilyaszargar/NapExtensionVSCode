@@ -57,7 +57,6 @@ const approvalLabels: Record<ApprovalMode, string> = {
 const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
 const COMPOSER_SINGLE_LINE_GROW_THRESHOLD = 20;
-const SCROLL_BOTTOM_THRESHOLD = 80;
 const SCROLL_LOCK_THRESHOLD = 2;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const LIVE_SCROLL_BOTTOM_PADDING = 18;
@@ -168,8 +167,8 @@ export function App() {
     };
   }, [post]);
 
-  const markProgrammaticScroll = useCallback(() => {
-    ignoreScrollUntilRef.current = Date.now() + PROGRAMMATIC_SCROLL_GRACE_MS;
+  const markProgrammaticScroll = useCallback((duration = PROGRAMMATIC_SCROLL_GRACE_MS) => {
+    ignoreScrollUntilRef.current = Date.now() + duration;
     userScrollIntentRef.current = false;
   }, []);
 
@@ -185,10 +184,6 @@ export function App() {
     return contentEnd.offsetTop - element.scrollTop - element.clientHeight + LIVE_SCROLL_BOTTOM_PADDING;
   }, [distanceFromBottom]);
 
-  const isNearBottom = useCallback((element: HTMLElement) =>
-    distanceFromLiveBottom(element) <= SCROLL_BOTTOM_THRESHOLD
-  , [distanceFromLiveBottom]);
-
   const isAtBottom = useCallback((element: HTMLElement) =>
     distanceFromLiveBottom(element) <= SCROLL_LOCK_THRESHOLD
   , [distanceFromLiveBottom]);
@@ -199,7 +194,7 @@ export function App() {
       return;
     }
 
-    markProgrammaticScroll();
+    markProgrammaticScroll(behavior === 'smooth' ? 760 : PROGRAMMATIC_SCROLL_GRACE_MS);
     if (scrollFrameRef.current !== undefined) {
       window.cancelAnimationFrame(scrollFrameRef.current);
     }
@@ -224,7 +219,12 @@ export function App() {
         return;
       }
 
-      currentTimeline.scrollTop = getTargetTop();
+      const targetTop = getTargetTop();
+      if (behavior === 'smooth' && Math.abs(currentTimeline.scrollTop - targetTop) > 4) {
+        currentTimeline.scrollTo({ top: targetTop, behavior: 'smooth' });
+      } else {
+        currentTimeline.scrollTop = targetTop;
+      }
       scrollFrameRef.current = undefined;
     });
   }, [markProgrammaticScroll]);
@@ -237,33 +237,29 @@ export function App() {
     const timeline = event.currentTarget;
     const atBottom = isAtBottom(timeline);
     if (Date.now() <= ignoreScrollUntilRef.current) {
-      isScrollPinnedRef.current = atBottom || isScrollPinnedRef.current;
+      if (atBottom) {
+        isScrollPinnedRef.current = true;
+      }
       return;
     }
 
-    if (atBottom) {
-      isScrollPinnedRef.current = true;
-      userScrollIntentRef.current = false;
-      return;
-    }
-
-    if (userScrollIntentRef.current && Date.now() > ignoreScrollUntilRef.current) {
-      isScrollPinnedRef.current = false;
-    }
+    isScrollPinnedRef.current = atBottom;
+    userScrollIntentRef.current = !atBottom;
   }, [isAtBottom]);
 
   const onTimelineWheel = useCallback((event: WheelEvent<HTMLElement>) => {
     markUserScrollIntent();
-    if (event.deltaY < 0 || !isAtBottom(event.currentTarget)) {
+    if (event.deltaY < 0) {
       isScrollPinnedRef.current = false;
+      return;
     }
+
+    isScrollPinnedRef.current = isAtBottom(event.currentTarget);
   }, [isAtBottom, markUserScrollIntent]);
 
   const onTimelinePointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
     markUserScrollIntent();
-    if (!isAtBottom(event.currentTarget)) {
-      isScrollPinnedRef.current = false;
-    }
+    isScrollPinnedRef.current = isAtBottom(event.currentTarget);
   }, [isAtBottom, markUserScrollIntent]);
 
   const onTimelineKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
@@ -390,12 +386,11 @@ export function App() {
         return;
       }
 
-      if (isScrollPinnedRef.current || (!userScrollIntentRef.current && isNearBottom(timeline))) {
-        isScrollPinnedRef.current = true;
+      if (isScrollPinnedRef.current) {
         scrollToBottom('smooth');
       }
     });
-  }, [isNearBottom, scrollToBottom, state.activityKind, state.activityText, state.messages, state.status]);
+  }, [scrollToBottom, state.activityKind, state.activityText, state.messages, state.status]);
 
   useLayoutEffect(() => {
     const panel = composerPanelRef.current;
@@ -416,15 +411,14 @@ export function App() {
         return;
       }
 
-      if (isScrollPinnedRef.current || (!userScrollIntentRef.current && isNearBottom(timeline))) {
-        isScrollPinnedRef.current = true;
+      if (isScrollPinnedRef.current) {
         scrollToBottom('smooth');
       }
     });
 
     observer.observe(panel);
     return () => observer.disconnect();
-  }, [isNearBottom, scrollToBottom]);
+  }, [scrollToBottom]);
 
   const resizeComposer = useCallback(() => {
     const textarea = textareaRef.current;
