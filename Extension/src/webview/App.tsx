@@ -1245,7 +1245,7 @@ function ChangeSummaryBar({
   onReviewFile(filePath: string): void;
 }) {
   const files = summary.files ?? [];
-  const [expanded, setExpanded] = useState(files.length > 1);
+  const [expanded, setExpanded] = useState(false);
   const canExpand = files.length > 0;
   const singleFileName = files.length === 1 ? fileName(files[0].filePath) : undefined;
   const title = singleFileName ? `Edited ${singleFileName}` : `Edited ${summary.filesChanged} ${summary.filesChanged === 1 ? 'File' : 'Files'}`;
