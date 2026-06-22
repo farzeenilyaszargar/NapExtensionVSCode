@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { NapCliProviderAdapter, buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAppServerTurnDiff, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
+import { NapCliProviderAdapter, buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAppServerThreadTitle, parseAppServerTurnDiff, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
 
 describe('Nap CLI auth parsing', () => {
   it('treats profile JSON as authenticated even without a status field', () => {
@@ -252,6 +252,21 @@ describe('Nap app-server stream parsing', () => {
     expect(parseAppServerTurnDiff({
       method: 'item/agentMessage/delta',
       params: { delta: 'hello' }
+    })).toBeUndefined();
+  });
+
+  it('extracts app-server thread titles when available', () => {
+    expect(parseAppServerThreadTitle({
+      method: 'thread/title/updated',
+      params: {
+        threadId: 'thread-1',
+        title: 'Fix Session Naming System'
+      }
+    })).toBe('Fix Session Naming System');
+
+    expect(parseAppServerThreadTitle({
+      method: 'item/started',
+      params: { title: 'Not a thread title' }
     })).toBeUndefined();
   });
 

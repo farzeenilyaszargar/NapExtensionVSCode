@@ -40,6 +40,7 @@ import {
   NapMode,
   NapSecurityMode
 } from '../../shared/protocol';
+import { generateSessionTitleFromPrompt } from '../../shared/sessionTitle';
 
 interface ActiveJob {
   job: NapJobRecord;
@@ -282,7 +283,7 @@ export class NapDaemon {
     const updatedSession: NapSessionRecord = {
       ...session,
       title: session.messages.length === 0 || session.title === 'New Chat'
-        ? titleFromPrompt(params.prompt)
+        ? generateSessionTitleFromPrompt(params.prompt)
         : session.title,
       mode: params.mode,
       modelId: normalizeModelId(params.modelId),
@@ -359,6 +360,17 @@ export class NapDaemon {
         },
         onTurnDiff: diff => {
           this.broadcast('session.diff.updated', this.diffEvent(session, job.id, diff));
+        },
+        onTitle: title => {
+          const current = this.storage.getSession(session.id);
+          if (!current || !title.trim()) {
+            return;
+          }
+          this.storage.upsertSession({
+            ...current,
+            title: title.trim(),
+            updatedAt: Date.now()
+          });
         },
         onLog: message => this.log('info', message, params.workspaceRoot, session.id, job.id)
       }, abort.signal);
@@ -642,34 +654,8 @@ function requireParam(params: unknown, key: string): string {
   return value;
 }
 
-function titleFromPrompt(prompt: string): string {
-  const cleaned = prompt
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/[`*_#[\](){}<>]/g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/^(please\s+)?(can you|could you|would you|i want you to|i need you to|help me(?:\s+to)?)\s+/i, '')
-    .trim();
-  if (!cleaned) {
-    return 'New Chat';
-  }
-  const sentence = cleaned.split(/[.!?\n]/)[0]?.trim() || cleaned;
-  const words = sentence.match(/[A-Za-z0-9@._/+:-]+/g) ?? sentence.split(/\s+/);
-  const title = words.slice(0, 8).map((word, index) => titleCaseWord(word, index)).join(' ') || sentence;
-  return title.length > 48 ? `${title.slice(0, 45).trimEnd()}...` : title;
-}
-
 function normalizeModelId(modelId: string | undefined): string {
   return !modelId || modelId === 'auto' ? 'gpt-5.4-mini' : modelId;
-}
-
-function titleCaseWord(word: string, index = 0): string {
-  if (/^[A-Z0-9_.+:/-]{2,}$/.test(word) || /[./:@]/.test(word)) {
-    return word;
-  }
-  if (index > 0 && /^(a|an|the|to|for|with|and|or|of|in|on|as)$/i.test(word)) {
-    return word.toLowerCase();
-  }
-  return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
 }
 
 export async function startNapDaemon(): Promise<NapDaemon> {

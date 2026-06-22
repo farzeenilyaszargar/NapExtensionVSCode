@@ -33,6 +33,7 @@ export interface ProviderPromptStream {
   onActivity(activity: ProviderActivity | undefined): void;
   onTurnDiff?(diff: string): void;
   onThread?(threadId: string): void;
+  onTitle?(title: string): void;
   onLog(message: string): void;
 }
 
@@ -218,6 +219,10 @@ export class NapCliProviderAdapter implements ProviderAdapter {
         const turnDiff = parseAppServerTurnDiff(notification);
         if (turnDiff) {
           stream.onTurnDiff?.(turnDiff);
+        }
+        const title = parseAppServerThreadTitle(notification);
+        if (title) {
+          stream.onTitle?.(title);
         }
 
         if (notification.method === 'turn/completed') {
@@ -576,6 +581,24 @@ export function parseAppServerTurnDiff(notification: NapAppServerNotification): 
   const params = readObject(notification.params);
   const diff = readString(params?.diff);
   return diff && diff.trim() ? diff : undefined;
+}
+
+export function parseAppServerThreadTitle(notification: NapAppServerNotification): string | undefined {
+  const method = notification.method.toLowerCase();
+  if (!method.includes('thread') || !/(title|rename|metadata|updated)/.test(method)) {
+    return undefined;
+  }
+
+  const params = readObject(notification.params);
+  const thread = readObject(params?.thread);
+  const title = readString(params?.title)
+    ?? readString(params?.name)
+    ?? readString(params?.summary)
+    ?? readString(thread?.title)
+    ?? readString(thread?.name)
+    ?? readString(thread?.summary);
+
+  return title ? title.split(/\s+/).slice(0, 5).join(' ') : undefined;
 }
 
 export function parseAppServerActivityEvent(notification: NapAppServerNotification): ProviderActivity | undefined {

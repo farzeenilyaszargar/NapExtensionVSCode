@@ -20,6 +20,7 @@ import {
   NapWorkspaceChangeSummary,
   WebviewToExtensionMessage
 } from './shared/protocol';
+import { generateSessionTitleFromPrompt } from './shared/sessionTitle';
 
 export class NapChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'nap.chatView';
@@ -404,7 +405,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const userMessage = this.createMessage('user', prompt, 'complete');
     const assistantMessage = this.createMessage('assistant', '', 'streaming');
     const nextTitle = this.state.messages.length === 0 || this.state.title === 'New Chat'
-      ? titleFromPrompt(prompt)
+      ? generateSessionTitleFromPrompt(prompt)
       : this.state.title;
     this.state = {
       ...this.state,
@@ -787,6 +788,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const workspaceChanges = this.conversationTurnDiff
       ? summarizeUnifiedDiff(this.conversationTurnDiff)
       : emptyWorkspaceChangeSummary();
+    this.attachWorkspaceChangesToMessage(workspaceChanges, messageId, this.conversationTurnDiff);
+    this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
+  }
+
+  private attachWorkspaceChangesToMessage(workspaceChanges: NapWorkspaceChangeSummary, messageId?: string, workspaceDiff?: string): void {
     this.state = {
       ...this.state,
       workspaceChanges,
@@ -795,12 +801,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
           ? {
               ...message,
               workspaceChanges,
-              workspaceDiff: this.conversationTurnDiff
+              workspaceDiff: workspaceDiff ?? message.workspaceDiff
             }
           : message)
         : this.state.messages
     };
-    this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
   }
 
   private rebuildConversationTurnDiffs(messages: NapMessage[]): void {
@@ -810,6 +815,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         this.conversationTurnDiffsByMessageId.set(message.id, message.workspaceDiff);
       }
     }
+  }
+
+  private latestAssistantMessageId(): string | undefined {
+    return [...this.state.messages].reverse().find(message => message.role === 'assistant')?.id;
   }
 
   private createInitialState(): NapSessionState {
@@ -868,7 +877,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     return {
       id: this.state.sessionId,
       appThreadId: this.state.appThreadId,
-      title: this.state.title || truncateText(firstUserMessage, 42) || 'New Chat',
+      title: this.state.title || generateSessionTitleFromPrompt(firstUserMessage) || 'New Chat',
       mode: this.state.mode,
       modelId: this.state.modelId,
       debugMode: this.state.debugMode,
@@ -939,11 +948,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
     if (this.conversationTurnDiff?.trim()) {
       const workspaceChanges = summarizeUnifiedDiff(this.conversationTurnDiff);
-      this.state = {
-        ...this.state,
-        workspaceChanges
-      };
-      this.post({ type: 'workspaceChangesChanged', workspaceChanges });
+      const messageId = this.latestAssistantMessageId();
+      this.attachWorkspaceChangesToMessage(workspaceChanges, messageId, this.conversationTurnDiff);
+      this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
+      this.cliService.saveSession(this.toCurrentSessionRecord());
       return;
     }
 
@@ -960,11 +968,12 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     const workspaceChanges = summarizeConversationChanges(this.conversationChangeBaseline, current);
-    this.state = {
-      ...this.state,
-      workspaceChanges
-    };
-    this.post({ type: 'workspaceChangesChanged', workspaceChanges });
+    const messageId = workspaceChanges.filesChanged > 0 ? this.latestAssistantMessageId() : undefined;
+    this.attachWorkspaceChangesToMessage(workspaceChanges, messageId);
+    this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
+    if (messageId) {
+      this.cliService.saveSession(this.toCurrentSessionRecord());
+    }
   }
 
   private async resetConversationChangeBaseline(): Promise<void> {
@@ -1084,32 +1093,6 @@ function parseFileReference(rawFilePath: string): { filePath: string; line?: num
     filePath,
     line: Number.isFinite(line) ? line : undefined
   };
-}
-
-function titleFromPrompt(prompt: string): string {
-  const cleaned = prompt
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/[`*_#[\](){}<>]/g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/^(please\s+)?(can you|could you|would you|i want you to|i need you to|help me(?:\s+to)?)\s+/i, '')
-    .trim();
-  if (!cleaned) {
-    return 'New Chat';
-  }
-  const sentence = cleaned.split(/[.!?\n]/)[0]?.trim() || cleaned;
-  const words = sentence.match(/[A-Za-z0-9@._/+:-]+/g) ?? sentence.split(/\s+/);
-  const title = words.slice(0, 8).map((word, index) => titleCaseWord(word, index)).join(' ') || sentence;
-  return truncateText(title, 48);
-}
-
-function titleCaseWord(word: string, index = 0): string {
-  if (/^[A-Z0-9_.+:/-]{2,}$/.test(word) || /[./:@]/.test(word)) {
-    return word;
-  }
-  if (index > 0 && /^(a|an|the|to|for|with|and|or|of|in|on|as)$/i.test(word)) {
-    return word.toLowerCase();
-  }
-  return `${word.charAt(0).toUpperCase()}${word.slice(1).toLowerCase()}`;
 }
 
 class SmoothDeltaStreamer {
