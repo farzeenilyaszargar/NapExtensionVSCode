@@ -1784,24 +1784,6 @@ textarea::-webkit-scrollbar,
   background: transparent;
   border: 0;
   box-shadow: none;
-  isolation: isolate;
-}
-
-.composer-input::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  border-radius: inherit;
-  background: rgba(26, 26, 26, 0.9);
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  backdrop-filter: blur(18px) saturate(1.12);
-  pointer-events: none;
-}
-
-.composer-input > * {
-  position: relative;
-  z-index: 1;
 }
 
 .composer-input textarea {
@@ -1814,18 +1796,20 @@ textarea::-webkit-scrollbar,
   border-radius: 18px;
   line-height: 1.35;
   overflow-y: hidden;
-  background: transparent;
+  background: rgba(26, 26, 26, 0.9);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+  backdrop-filter: blur(18px) saturate(1.12);
   box-shadow: none;
 }
 
 .composer-input textarea:hover {
   border-color: #2a2a2a;
-  background: transparent;
+  background: rgba(26, 26, 26, 0.9);
 }
 
 .composer-input textarea:focus {
   border-color: #2a2a2a;
-  background: transparent;
+  background: rgba(26, 26, 26, 0.9);
   box-shadow: none;
 }
 
