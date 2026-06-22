@@ -1779,11 +1779,13 @@ textarea::-webkit-scrollbar,
 .composer-input {
   position: relative;
   min-width: 0;
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
+  border-radius: 18px;
+  background: rgba(26, 26, 26, 0.9);
+  -webkit-backdrop-filter: blur(18px) saturate(1.12);
+  backdrop-filter: blur(18px) saturate(1.12);
   border: 0;
   box-shadow: none;
+  opacity: 0.9;
 }
 
 .composer-input textarea {
@@ -1796,21 +1798,18 @@ textarea::-webkit-scrollbar,
   border-radius: 18px;
   line-height: 1.35;
   overflow-y: hidden;
-  background: rgba(26, 26, 26, 0.9);
+  background: transparent;
   box-shadow: none;
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  backdrop-filter: blur(18px) saturate(1.12);
-  opacity: 0.9;
 }
 
 .composer-input textarea:hover {
   border-color: #2a2a2a;
-  background: rgba(26, 26, 26, 0.9);
+  background: transparent;
 }
 
 .composer-input textarea:focus {
   border-color: #2a2a2a;
-  background: rgba(26, 26, 26, 0.9);
+  background: transparent;
   box-shadow: none;
 }
 
