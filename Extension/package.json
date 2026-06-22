@@ -1,8 +1,8 @@
 {
   "name": "nap",
-  "displayName": "Nap Chat For VS Code",
+  "displayName": "Nap",
   "description": "An AI coding agent chat experience for VS Code with a polished Nap sidebar interface.",
-  "version": "1.7.7",
+  "version": "1.7.8",
   "publisher": "NapCode",
   "icon": "icon.png",
   "license": "MIT",
@@ -79,7 +79,7 @@
       "activitybar": [
         {
           "id": "nap",
-          "title": "Nap Chat",
+          "title": "Nap",
           "icon": "resources/logo.svg"
         }
       ]
@@ -89,7 +89,7 @@
         {
           "id": "nap.chatView",
           "type": "webview",
-          "name": "Nap Chat",
+          "name": "Nap",
           "icon": "resources/logo.svg"
         }
       ]

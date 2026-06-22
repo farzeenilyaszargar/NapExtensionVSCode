@@ -33,6 +33,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private workspaceWatchers: vscode.Disposable[] = [];
   private conversationChangeBaseline: GitChangeSnapshot | undefined;
   private conversationTurnDiff: string | undefined;
+  private conversationTurnDiffsByMessageId = new Map<string, string>();
   private workspaceChangeGeneration = 0;
 
   constructor(
@@ -176,6 +177,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       case 'sendPrompt':
         await this.sendPrompt(message.prompt);
         return;
+      case 'newSessionWithPrompt':
+        await this.newSession();
+        await this.sendPrompt(message.prompt);
+        return;
       case 'deleteQueuedPrompt':
         this.deleteQueuedPrompt(message.promptId);
         return;
@@ -210,10 +215,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         await this.openFileReference(message.filePath);
         return;
       case 'reviewChanges':
-        await this.reviewConversationChanges();
+        await this.reviewConversationChanges(message.messageId);
         return;
       case 'reviewFileChanges':
-        await this.reviewConversationFile(message.filePath);
+        await this.reviewConversationFile(message.filePath, message.messageId);
         return;
       case 'setMode':
         this.setMode(message.mode);
@@ -249,13 +254,19 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     await this.runPrompt(prompt);
   }
 
-  private async reviewConversationChanges(): Promise<void> {
+  private async reviewConversationChanges(messageId?: string): Promise<void> {
+    const messageDiff = messageId ? this.conversationTurnDiffsByMessageId.get(messageId) : undefined;
+    if (messageDiff?.trim()) {
+      await openUnifiedDiffReview(messageDiff, this.state.sessionId, 'Nap Diff');
+      return;
+    }
+
     if (this.state.workspaceChanges.filesChanged <= 0) {
       return;
     }
 
     if (this.conversationTurnDiff?.trim()) {
-      await openUnifiedDiffReview(this.conversationTurnDiff, this.state.sessionId, 'Suggested Edits');
+      await openUnifiedDiffReview(this.conversationTurnDiff, this.state.sessionId, 'Nap Diff');
       return;
     }
 
@@ -273,16 +284,25 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     await openChangedFilesReview(changedFiles);
   }
 
-  private async reviewConversationFile(filePath: string): Promise<void> {
+  private async reviewConversationFile(filePath: string, messageId?: string): Promise<void> {
     const normalizedPath = filePath.trim();
     if (!normalizedPath) {
       return;
     }
 
+    const messageDiff = messageId ? this.conversationTurnDiffsByMessageId.get(messageId) : undefined;
+    if (messageDiff?.trim()) {
+      const entry = extractUnifiedDiffFileEntries(messageDiff).find(item => item.filePath === normalizedPath);
+      if (entry?.diff.trim()) {
+        await openUnifiedDiffReview(entry.diff, this.state.sessionId, `Nap Diff - ${normalizedPath}`);
+        return;
+      }
+    }
+
     if (this.conversationTurnDiff?.trim()) {
       const entry = extractUnifiedDiffFileEntries(this.conversationTurnDiff).find(item => item.filePath === normalizedPath);
       if (entry?.diff.trim()) {
-        await openUnifiedDiffReview(entry.diff, this.state.sessionId, `Suggested Edits - ${normalizedPath}`);
+        await openUnifiedDiffReview(entry.diff, this.state.sessionId, `Nap Diff - ${normalizedPath}`);
         return;
       }
     }
@@ -390,6 +410,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       ...this.state,
       title: nextTitle,
       status: 'streaming',
+      activityText: 'Thinking',
+      activityKind: 'thinking',
       messages: [
         ...this.state.messages,
         userMessage,
@@ -397,6 +419,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       ]
     };
     this.publishState();
+    this.post({ type: 'activityTextChanged', text: 'Thinking', kind: 'thinking' });
 
     await this.refreshEnvironment();
     if (this.state.auth.status !== 'authenticated') {
@@ -445,7 +468,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
             });
           },
           onTurnDiff: event => {
-            this.updateConversationTurnDiff(event.diff);
+            this.updateConversationTurnDiff(event.diff, assistantMessage.id);
           },
           onLog: event => {
             this.appendLog(event);
@@ -751,9 +774,16 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     this.post({ type: 'error', message });
   }
 
-  private updateConversationTurnDiff(diff: string): void {
+  private updateConversationTurnDiff(diff: string, messageId?: string): void {
     const trimmed = diff.trim();
     this.conversationTurnDiff = trimmed ? `${trimmed}\n` : undefined;
+    if (messageId) {
+      if (this.conversationTurnDiff) {
+        this.conversationTurnDiffsByMessageId.set(messageId, this.conversationTurnDiff);
+      } else {
+        this.conversationTurnDiffsByMessageId.delete(messageId);
+      }
+    }
     const workspaceChanges = this.conversationTurnDiff
       ? summarizeUnifiedDiff(this.conversationTurnDiff)
       : emptyWorkspaceChangeSummary();
@@ -761,7 +791,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       ...this.state,
       workspaceChanges
     };
-    this.post({ type: 'workspaceChangesChanged', workspaceChanges });
+    this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
   }
 
   private createInitialState(): NapSessionState {
@@ -931,6 +961,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
     this.conversationChangeBaseline = baseline;
     this.conversationTurnDiff = undefined;
+    this.conversationTurnDiffsByMessageId.clear();
     this.state = {
       ...this.state,
       workspaceChanges: emptyWorkspaceChangeSummary()
@@ -977,8 +1008,12 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     const iconUris = {
       archive: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'archive.svg')).toString(),
       arrowUp: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'arrow-up.svg')).toString(),
+      copy: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'copy.svg')).toString(),
+      defaultPermissions: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'default-permissions.svg')).toString(),
+      diff: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'diff.svg')).toString(),
       drag: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'drag.svg')).toString(),
       edit: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'edit.svg')).toString(),
+      fullPermissions: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'full-permissions.svg')).toString(),
       new: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'new.svg')).toString(),
       settings: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'settings.svg')).toString(),
       settingsCat: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'settings-cat.svg')).toString()
@@ -1330,7 +1365,7 @@ function renderSuggestedEditsHtml(diff: string, title: string, sessionId: string
   const entries = extractUnifiedDiffFileEntries(diff);
   const files = entries.length > 0
     ? entries
-    : [{ filePath: 'Suggested Edits', additions: 0, deletions: 0, diff }];
+    : [{ filePath: 'Nap Diff', additions: 0, deletions: 0, diff }];
   const totalAdditions = files.reduce((total, file) => total + file.additions, 0);
   const totalDeletions = files.reduce((total, file) => total + file.deletions, 0);
 

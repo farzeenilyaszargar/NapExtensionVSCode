@@ -178,6 +178,7 @@ export type NapActivityKind =
 export type WebviewToExtensionMessage =
   | { type: 'ready' }
   | { type: 'sendPrompt'; prompt: string }
+  | { type: 'newSessionWithPrompt'; prompt: string }
   | { type: 'deleteQueuedPrompt'; promptId: string }
   | { type: 'reorderQueuedPrompt'; promptId: string; targetPromptId: string }
   | { type: 'stopGeneration' }
@@ -189,8 +190,8 @@ export type WebviewToExtensionMessage =
   | { type: 'openSession'; sessionId: string }
   | { type: 'deleteSession'; sessionId: string }
   | { type: 'openFile'; filePath: string }
-  | { type: 'reviewChanges' }
-  | { type: 'reviewFileChanges'; filePath: string }
+  | { type: 'reviewChanges'; messageId?: string }
+  | { type: 'reviewFileChanges'; filePath: string; messageId?: string }
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
   | { type: 'refreshPlugins' }
@@ -210,7 +211,7 @@ export type ExtensionToWebviewMessage =
   | { type: 'authStateChanged'; auth: NapAuthState }
   | { type: 'mcpStateChanged'; mcp: NapMcpState }
   | { type: 'pluginsChanged'; plugins: NapPluginSummary[] }
-  | { type: 'workspaceChangesChanged'; workspaceChanges: NapWorkspaceChangeSummary };
+  | { type: 'workspaceChangesChanged'; workspaceChanges: NapWorkspaceChangeSummary; messageId?: string };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -236,12 +237,15 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
     case 'openSettings':
     case 'refreshPlugins':
     case 'reviewChanges':
-      return true;
+      return value.messageId === undefined || typeof value.messageId === 'string';
     case 'reviewFileChanges':
-      return typeof value.filePath === 'string' && value.filePath.trim().length > 0;
+      return typeof value.filePath === 'string'
+        && value.filePath.trim().length > 0
+        && (value.messageId === undefined || typeof value.messageId === 'string');
     case 'openExternal':
       return typeof value.url === 'string' && /^https:\/\/(?:www\.)?nap-code\.com(?:\/|$)/.test(value.url);
     case 'sendPrompt':
+    case 'newSessionWithPrompt':
       return typeof value.prompt === 'string';
     case 'deleteQueuedPrompt':
       return typeof value.promptId === 'string' && value.promptId.length > 0;

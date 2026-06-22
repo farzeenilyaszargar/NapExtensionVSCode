@@ -4,7 +4,6 @@ import {
   Check,
   ChevronDown,
   CircleUserRound,
-  Copy,
   FileText,
   FolderOpen,
   Image,
@@ -32,9 +31,10 @@ const approvalModes = ['default', 'bypass'] as const;
 type ApprovalMode = typeof approvalModes[number];
 type OpenMenu = 'account' | 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ActivePage = 'chat' | 'sessions';
-type LocalIconName = 'archive' | 'arrowUp' | 'drag' | 'edit' | 'new' | 'settings' | 'settingsCat';
+type LocalIconName = 'archive' | 'arrowUp' | 'copy' | 'defaultPermissions' | 'diff' | 'drag' | 'edit' | 'fullPermissions' | 'new' | 'settings' | 'settingsCat';
 type SlashAction = 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search';
 type SlashMatch = { query: string; start: number; end: number };
+type ReviewSummaryByMessageId = Record<string, NapWorkspaceChangeSummary>;
 
 const slashCommands: Array<{ action: SlashAction; label: string; keywords: string[] }> = [
   { action: 'review', label: 'Review', keywords: ['review', 'changes', 'diff'] },
@@ -61,8 +61,6 @@ const SCROLL_BOTTOM_THRESHOLD = 80;
 const SCROLL_LOCK_THRESHOLD = 2;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const LIVE_SCROLL_BOTTOM_PADDING = 18;
-const SCROLL_ANIMATION_MIN_MS = 70;
-const SCROLL_ANIMATION_MAX_MS = 150;
 
 function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | undefined {
   const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
@@ -104,17 +102,18 @@ export function App() {
   );
   const [draggedQueuedPromptId, setDraggedQueuedPromptId] = useState<string>();
   const [elapsedNow, setElapsedNow] = useState(() => Date.now());
+  const [reviewSummariesByMessageId, setReviewSummariesByMessageId] = useState<ReviewSummaryByMessageId>({});
   const timelineRef = useRef<HTMLDivElement>(null);
   const timelineContentEndRef = useRef<HTMLDivElement>(null);
   const composerPanelRef = useRef<HTMLElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastAnchoredUserMessageId = useRef<string>();
   const lastOpenedSessionId = useRef<string>();
+  const reviewSummarySessionId = useRef<string>();
   const isScrollPinnedRef = useRef(true);
   const userScrollIntentRef = useRef(false);
   const ignoreScrollUntilRef = useRef(0);
   const scrollFrameRef = useRef<number>();
-  const scrollAnimationFrameRef = useRef<number>();
   const vscode = useMemo(() => getVsCodeApi(), []);
 
   const post = useCallback((message: WebviewToExtensionMessage) => {
@@ -129,6 +128,11 @@ export function App() {
       if (event.data?.type === 'sessionState') {
         setIsInitialLoading(false);
         setIsAuthVerifying(event.data.state?.auth?.status === 'unknown');
+        const sessionId = event.data.state?.sessionId;
+        if (sessionId && sessionId !== reviewSummarySessionId.current) {
+          reviewSummarySessionId.current = sessionId;
+          setReviewSummariesByMessageId({});
+        }
       }
       if (event.data?.type === 'authStateChanged') {
         setIsInitialLoading(false);
@@ -142,6 +146,16 @@ export function App() {
         setIsInitialLoading(false);
         setIsAuthVerifying(false);
       }
+      if (event.data?.type === 'workspaceChangesChanged') {
+        const messageId = event.data.messageId;
+        const workspaceChanges = event.data.workspaceChanges;
+        if (workspaceChanges?.filesChanged > 0 && typeof messageId === 'string' && messageId) {
+          setReviewSummariesByMessageId(previous => ({
+            ...previous,
+            [messageId]: cloneWorkspaceChangeSummary(workspaceChanges)
+          }));
+        }
+      }
       dispatch({ type: 'extensionMessage', message: event.data });
     };
     window.addEventListener('message', listener);
@@ -150,9 +164,6 @@ export function App() {
       window.removeEventListener('message', listener);
       if (scrollFrameRef.current !== undefined) {
         window.cancelAnimationFrame(scrollFrameRef.current);
-      }
-      if (scrollAnimationFrameRef.current !== undefined) {
-        window.cancelAnimationFrame(scrollAnimationFrameRef.current);
       }
     };
   }, [post]);
@@ -192,10 +203,6 @@ export function App() {
     if (scrollFrameRef.current !== undefined) {
       window.cancelAnimationFrame(scrollFrameRef.current);
     }
-    if (scrollAnimationFrameRef.current !== undefined) {
-      window.cancelAnimationFrame(scrollAnimationFrameRef.current);
-      scrollAnimationFrameRef.current = undefined;
-    }
 
     const getTargetTop = () => {
       const currentTimeline = timelineRef.current;
@@ -210,30 +217,6 @@ export function App() {
       return Math.max(0, targetTop);
     };
 
-    const getScrollAnimationDuration = (distance: number) =>
-      Math.min(SCROLL_ANIMATION_MAX_MS, Math.max(SCROLL_ANIMATION_MIN_MS, distance * 0.28));
-
-    const animateScroll = (fromTop: number, startedAt: number, duration: number) => {
-      const currentTimeline = timelineRef.current;
-      if (!currentTimeline) {
-        scrollAnimationFrameRef.current = undefined;
-        return;
-      }
-
-      const targetTop = getTargetTop();
-      const elapsed = Math.min(1, (performance.now() - startedAt) / duration);
-      const eased = 1 - Math.pow(1 - elapsed, 4);
-      currentTimeline.scrollTop = fromTop + (targetTop - fromTop) * eased;
-
-      if (elapsed < 1 && Math.abs(currentTimeline.scrollTop - targetTop) > 0.5) {
-        scrollAnimationFrameRef.current = window.requestAnimationFrame(() => animateScroll(fromTop, startedAt, duration));
-        return;
-      }
-
-      currentTimeline.scrollTop = targetTop;
-      scrollAnimationFrameRef.current = undefined;
-    };
-
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       const currentTimeline = timelineRef.current;
       if (!currentTimeline) {
@@ -241,13 +224,7 @@ export function App() {
         return;
       }
 
-      if (behavior === 'smooth') {
-        const fromTop = currentTimeline.scrollTop;
-        const duration = getScrollAnimationDuration(Math.abs(getTargetTop() - fromTop));
-        animateScroll(fromTop, performance.now(), duration);
-      } else {
-        currentTimeline.scrollTop = getTargetTop();
-      }
+      currentTimeline.scrollTop = getTargetTop();
       scrollFrameRef.current = undefined;
     });
   }, [markProgrammaticScroll]);
@@ -378,6 +355,10 @@ export function App() {
       menu.style.maxWidth = `${availableWidth}px`;
       menu.style.maxHeight = `${Math.max(96, availableAbove)}px`;
 
+      if (openMenu === 'model') {
+        return;
+      }
+
       const rect = menu.getBoundingClientRect();
       if (rect.right > shellRect.right - shellInset) {
         menu.classList.add('floating-menu--align-end');
@@ -479,13 +460,12 @@ export function App() {
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
-  const waitingText = state.activityText;
+  const waitingText = state.activityText ?? (isStreaming && !latestStreamingAssistant?.content ? 'Thinking' : undefined);
   const waitingKind = state.activityKind ?? 'thinking';
   const activityItems = state.activityItems ?? [];
   const queuedPrompts = state.queuedPrompts ?? [];
-  const workspaceChanges = state.workspaceChanges ?? { filesChanged: 0, additions: 0, deletions: 0 };
   const hasDraft = draft.trim().length > 0;
-  const latestAssistantMessageId = [...state.messages].reverse().find(message => message.role === 'assistant')?.id;
+  const showComposer = isAuthenticated && (activePage === 'chat' || activePage === 'sessions');
 
   const stopGeneration = useCallback(() => {
     if (!isStreaming) {
@@ -664,7 +644,12 @@ export function App() {
     if (!prompt) {
       return;
     }
-    post({ type: 'sendPrompt', prompt });
+    if (activePage === 'sessions') {
+      setActivePage('chat');
+      post({ type: 'newSessionWithPrompt', prompt });
+    } else {
+      post({ type: 'sendPrompt', prompt });
+    }
     setDraft('');
     setOpenMenu(undefined);
   };
@@ -788,7 +773,12 @@ export function App() {
         <main className="auth-landing" aria-label="Nap sign in">
           <section className="auth-landing-content">
             {window.__NAP_LOGO_URI__ ? (
-              <img className="auth-landing-logo" src={window.__NAP_LOGO_URI__} alt="Nap" />
+              <span
+                className="auth-landing-logo"
+                role="img"
+                aria-label="Nap"
+                style={{ WebkitMaskImage: `url("${window.__NAP_LOGO_URI__}")`, maskImage: `url("${window.__NAP_LOGO_URI__}")` }}
+              />
             ) : null}
             <div className="auth-landing-copy">
               <h1>Nap in your environment</h1>
@@ -809,6 +799,13 @@ export function App() {
       ) : null}
       {activePage === 'sessions' ? (
         <section className="sessions-page" aria-label="Nap sessions">
+          {window.__NAP_LOGO_URI__ ? (
+            <span
+              className="sessions-page-logo"
+              aria-hidden="true"
+              style={{ WebkitMaskImage: `url("${window.__NAP_LOGO_URI__}")`, maskImage: `url("${window.__NAP_LOGO_URI__}")` }}
+            />
+          ) : null}
           <header className="app-page-header app-page-header--sessions">
             <span>Sessions</span>
             <div className="header-actions" aria-label="Nap session actions">
@@ -837,9 +834,7 @@ export function App() {
           </header>
           <div className="sessions-list">
             {sessions.length === 0 ? (
-              <div className="sessions-empty">
-                <span>No daemon sessions yet</span>
-              </div>
+              <div className="sessions-empty" aria-hidden="true" />
             ) : sessions.map(session => (
               <div key={session.id} className="session-item">
                 <button
@@ -919,14 +914,28 @@ export function App() {
         {state.messages.length === 0 ? (
           <div className="empty-state">
             {window.__NAP_LOGO_URI__ ? (
-              <img className="empty-state-logo" src={window.__NAP_LOGO_URI__} alt="Nap" />
+              <span
+                className="empty-state-logo"
+                role="img"
+                aria-label="Nap"
+                style={{ WebkitMaskImage: `url("${window.__NAP_LOGO_URI__}")`, maskImage: `url("${window.__NAP_LOGO_URI__}")` }}
+              />
             ) : null}
-            <p>Start a Nap Chat below</p>
           </div>
-        ) : state.messages.map(message => {
+        ) : state.messages.map((message, index) => {
           const responseCompletedAt = message.completedAt ?? message.createdAt;
+          const pairedAssistant = message.role === 'user'
+            ? state.messages.slice(index + 1).find(item => item.role === 'assistant')
+            : undefined;
+          const turnTiming = pairedAssistant?.status === 'streaming'
+            ? `Working for ${formatElapsedTime(elapsedNow - pairedAssistant.createdAt)}`
+            : pairedAssistant?.completedAt
+              ? `Worked for ${formatElapsedTime(pairedAssistant.completedAt - pairedAssistant.createdAt)}`
+              : undefined;
+          const showTurnDivider = message.role === 'user' && (index > 0 || !!turnTiming);
           return (
             <Fragment key={message.id}>
+              {showTurnDivider ? <TurnDivider label={turnTiming} /> : null}
               <article className={`message message--${message.role}`} data-message-id={message.id}>
                 <div className="message-body">
                   {message.role === 'assistant' ? (
@@ -936,23 +945,28 @@ export function App() {
                       ) : null}
                       {message.status === 'streaming' && waitingText ? (
                         <ActivityLine kind={waitingKind} text={waitingText} />
-                      ) : !message.content ? (
-                        <div className="markdown-body" dangerouslySetInnerHTML={{ __html: renderMarkdown('...') }} />
                       ) : null}
                     </>
-                  ) : message.content || '...'}
+                  ) : message.content}
                 </div>
                 {message.role === 'assistant' && message.content && message.status !== 'streaming' ? (
                   <div className="response-meta">
                     <div className="response-actions" aria-label="Response actions">
                       <button type="button" title="Copy response" aria-label="Copy response" onClick={() => copyResponse(message.id, getCopyableAssistantContent(message.content, message.status))}>
-                        {copiedMessageId === message.id ? <Check size={14} /> : <Copy size={14} />}
+                        {copiedMessageId === message.id ? <Check size={14} /> : <LocalIcon name="copy" />}
                       </button>
                       <time className="response-time" dateTime={new Date(responseCompletedAt).toISOString()}>
                         {formatClockTime(responseCompletedAt)}
                       </time>
                     </div>
                   </div>
+                ) : null}
+                {message.role === 'assistant' && reviewSummariesByMessageId[message.id]?.filesChanged > 0 ? (
+                  <ChangeSummaryBar
+                    summary={reviewSummariesByMessageId[message.id]}
+                    onReview={() => post({ type: 'reviewChanges', messageId: message.id })}
+                    onReviewFile={filePath => post({ type: 'reviewFileChanges', filePath, messageId: message.id })}
+                  />
                 ) : null}
               </article>
             </Fragment>
@@ -962,15 +976,8 @@ export function App() {
         </main>
       ) : null}
 
-      {activePage === 'chat' && isAuthenticated ? (
+      {showComposer ? (
         <footer className="composer-panel" ref={composerPanelRef}>
-          {workspaceChanges.filesChanged > 0 ? (
-            <ChangeSummaryBar
-              summary={workspaceChanges}
-              onReview={() => post({ type: 'reviewChanges' })}
-              onReviewFile={filePath => post({ type: 'reviewFileChanges', filePath })}
-            />
-          ) : null}
           {queuedPrompts.length > 0 ? (
             <section className="prompt-queue" aria-label="Queued prompts">
               {queuedPrompts.map(item => (
@@ -1049,7 +1056,7 @@ export function App() {
               <div className="floating-dropdown model-dropdown">
                 <button type="button" className="floating-select model-select" aria-label="Model" aria-expanded={openMenu === 'model'} onClick={() => setOpenMenu(openMenu === 'model' ? undefined : 'model')}>
                   <span>{selectedModel?.label ?? state.modelId}</span>
-                  <ChevronDown className="model-chevron" size={11} strokeWidth={1.7} aria-hidden="true" />
+                  <ChevronDown className="model-chevron" size={13} strokeWidth={1.7} aria-hidden="true" />
                 </button>
                 {openMenu === 'model' ? (
                   <div className={`floating-menu model-menu${showAllModels ? ' model-menu--expanded' : ''}`} role="menu" data-menu="model">
@@ -1096,18 +1103,18 @@ export function App() {
             </div>
             <div className="composer-left-actions">
               <button className="composer-plus-button" type="button" title="Add context" aria-label="Add context" aria-expanded={openMenu === 'add'} onClick={() => setOpenMenu(openMenu === 'add' ? undefined : 'add')}>
-                <Plus size={16} strokeWidth={1.9} />
+                <Plus size={18} strokeWidth={1.9} />
               </button>
               <div className="floating-dropdown permissions-dropdown">
                 <button type="button" className={`floating-select permissions-select permissions-select--${approvalMode}`} aria-label="Permissions" aria-expanded={openMenu === 'approval'} onClick={() => setOpenMenu(openMenu === 'approval' ? undefined : 'approval')}>
-                  {approvalMode === 'bypass' ? <TriangleAlert size={14} /> : <Shield size={14} />}
-                  <ChevronDown className="model-chevron" size={11} strokeWidth={1.7} aria-hidden="true" />
+                  <LocalIcon name={approvalMode === 'bypass' ? 'fullPermissions' : 'defaultPermissions'} />
+                  <ChevronDown className="model-chevron" size={13} strokeWidth={1.7} aria-hidden="true" />
                 </button>
                 {openMenu === 'approval' ? (
                   <div className="floating-menu permissions-menu" role="menu" data-menu="approval">
                     {approvalModes.map(mode => (
                       <button key={mode} type="button" className={`floating-menu-item permissions-menu-item permissions-menu-item--${mode}`} role="menuitemradio" aria-label={approvalLabels[mode]} title={approvalLabels[mode]} aria-checked={approvalMode === mode} onClick={() => { setApprovalMode(mode); setOpenMenu(undefined); }}>
-                        {mode === 'bypass' ? <TriangleAlert size={13} /> : <Shield size={13} />}
+                        <LocalIcon name={mode === 'bypass' ? 'fullPermissions' : 'defaultPermissions'} />
                         <span>{approvalLabels[mode]}</span>
                         {approvalMode === mode ? <Check size={12} /> : null}
                       </button>
@@ -1242,26 +1249,29 @@ function ChangeSummaryBar({
   onReview(): void;
   onReviewFile(filePath: string): void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const files = summary.files ?? [];
+  const [expanded, setExpanded] = useState(files.length > 1);
   const canExpand = files.length > 0;
+  const singleFileName = files.length === 1 ? fileName(files[0].filePath) : undefined;
+  const title = singleFileName ? `Edited ${singleFileName}` : `Edited ${summary.filesChanged} ${summary.filesChanged === 1 ? 'File' : 'Files'}`;
   return (
     <section className={`change-summary-bar${expanded ? ' is-expanded' : ''}`} aria-label="Changed files summary">
       <div className="change-summary-main">
+        <span className="change-summary-icon">
+          <LocalIcon name="diff" />
+        </span>
         <button
           type="button"
-          className="change-summary-expand"
+          className="change-summary-title"
           aria-label={expanded ? 'Hide changed files' : 'Show changed files'}
           aria-expanded={expanded}
           disabled={!canExpand}
           onClick={() => setExpanded(current => !current)}
         >
-          <ChevronRight size={13} aria-hidden="true" />
+          {canExpand ? <ChevronRight size={13} aria-hidden="true" /> : null}
+          <span>{title}</span>
         </button>
-        <span className="change-summary-files">
-          {summary.filesChanged} {summary.filesChanged === 1 ? 'file' : 'files'} changed
-        </span>
-        <span className="change-summary-actions">
+        <div className="change-summary-actions">
           <span className="change-summary-stats" aria-label={`${summary.additions} additions and ${summary.deletions} deletions`}>
             <span className="change-summary-add">+{summary.additions}</span>
             <span className="change-summary-del">-{summary.deletions}</span>
@@ -1269,7 +1279,7 @@ function ChangeSummaryBar({
           <button type="button" className="change-summary-review" onClick={onReview}>
             Review
           </button>
-        </span>
+        </div>
       </div>
       {expanded && files.length > 0 ? (
         <div className="change-summary-file-list" aria-label="Changed files">
@@ -1410,7 +1420,7 @@ function SlashCommandIcon({ action }: { action: SlashAction }) {
     return <Brain size={14} aria-hidden="true" />;
   }
   if (action === 'apply') {
-    return <Copy size={14} aria-hidden="true" />;
+    return <LocalIcon name="copy" />;
   }
   if (action === 'fork') {
     return <Settings size={14} aria-hidden="true" />;
@@ -1448,6 +1458,14 @@ function ModeIcon({ mode }: { mode: NapMode }) {
   }
 
   return <Sparkles size={13} aria-hidden="true" />;
+}
+
+function TurnDivider({ label }: { label?: string }) {
+  return (
+    <div className={`turn-divider${label ? ' turn-divider--active' : ''}`} aria-label={label ?? 'Conversation divider'}>
+      {label ? <span>{label}</span> : <span aria-hidden="true" />}
+    </div>
+  );
 }
 
 function ActivityLine({ kind, text }: { kind: string; text: string }) {
@@ -1566,6 +1584,13 @@ function decodeInlineActivity(encoded: string): NapActivityItem | undefined {
 
 function fileName(filePath: string): string {
   return filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
+}
+
+function cloneWorkspaceChangeSummary(summary: NapWorkspaceChangeSummary): NapWorkspaceChangeSummary {
+  return {
+    ...summary,
+    files: summary.files?.map(file => ({ ...file }))
+  };
 }
 
 function isEditableTarget(target: EventTarget | null): boolean {
