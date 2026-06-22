@@ -1,8 +1,8 @@
 {
   "name": "nap",
-  "displayName": "Nap",
-  "description": "An AI coding agent chat experience for VS Code with a polished Nap sidebar interface.",
-  "version": "1.7.17",
+  "displayName": "Nap For VS Code",
+  "description": "An AI coding agent for VS Code with Nap chat, streaming responses, session history, review controls, and CLI-powered local workflows.",
+  "version": "1.7.18",
   "publisher": "NapCode",
   "icon": "icon.png",
   "license": "MIT",
