@@ -1268,7 +1268,7 @@ function ChangeSummaryBar({
           disabled={!canExpand}
           onClick={() => setExpanded(current => !current)}
         >
-          {canExpand ? <ChevronRight size={13} aria-hidden="true" /> : null}
+          {canExpand ? <ChevronRight size={12.5} aria-hidden="true" /> : null}
           <span>{title}</span>
         </button>
         <div className="change-summary-actions">
