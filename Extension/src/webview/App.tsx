@@ -1166,6 +1166,17 @@ function LocalIcon({ name, className }: { name: LocalIconName; className?: strin
   if (!uri) {
     return null;
   }
+  if (name === 'settings') {
+    return (
+      <img
+        className={`local-icon local-icon--image local-icon--${name}${className ? ` ${className}` : ''}`}
+        src={uri}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+      />
+    );
+  }
   return (
     <span
       className={`local-icon local-icon--${name}${className ? ` ${className}` : ''}`}

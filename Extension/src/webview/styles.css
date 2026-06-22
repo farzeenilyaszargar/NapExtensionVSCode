@@ -241,6 +241,10 @@ button {
   height: 15px;
   object-fit: contain;
   border-radius: 4px;
+  background: transparent;
+  opacity: 1;
+  filter: none;
+  mix-blend-mode: normal;
 }
 
 .account-menu-item--logout {
@@ -271,6 +275,14 @@ button {
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
+}
+
+.local-icon--image {
+  background: transparent;
+  object-fit: contain;
+  -webkit-mask-image: none;
+  mask-image: none;
+  opacity: 1;
 }
 
 .local-icon--archive {
@@ -527,7 +539,9 @@ textarea::-webkit-scrollbar,
   display: block;
   width: min(120px, 42%);
   height: auto;
-  opacity: 0.3;
+  opacity: 1;
+  filter: none;
+  mix-blend-mode: normal;
 }
 
 .auth-landing {
@@ -553,7 +567,9 @@ textarea::-webkit-scrollbar,
   display: block;
   width: 42px;
   height: auto;
-  opacity: 0.82;
+  opacity: 1;
+  filter: none;
+  mix-blend-mode: normal;
 }
 
 .auth-landing-copy {
