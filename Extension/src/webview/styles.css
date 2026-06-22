@@ -1781,9 +1781,18 @@ textarea::-webkit-scrollbar,
   position: relative;
   min-width: 0;
   border-radius: 18px;
-  background: transparent;
-  border: 0;
+  border: 1px solid #2a2a2a;
+  background: rgba(26, 26, 26, 0.9);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  backdrop-filter: blur(22px) saturate(1.15);
   box-shadow: none;
+  overflow: hidden;
+}
+
+.composer-input:hover,
+.composer-input:focus-within {
+  border-color: #2a2a2a;
+  background: rgba(26, 26, 26, 0.9);
 }
 
 .composer-input textarea {
@@ -1794,28 +1803,25 @@ textarea::-webkit-scrollbar,
   max-height: 220px;
   resize: none;
   padding: 12px 13px 58px;
-  border: 1px solid #2a2a2a;
+  border: 0;
   border-radius: 18px;
   line-height: 1.35;
   overflow-y: hidden;
-  background-color: #1a1a1a !important;
+  background-color: transparent !important;
   background-image: none !important;
-  background-clip: padding-box;
-  -webkit-backdrop-filter: blur(18px) saturate(1.12);
-  backdrop-filter: blur(18px) saturate(1.12);
   box-shadow: none;
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .composer-input textarea:hover {
-  border-color: #2a2a2a;
-  background-color: #1a1a1a !important;
+  border-color: transparent;
+  background-color: transparent !important;
   background-image: none !important;
 }
 
 .composer-input textarea:focus {
-  border-color: #2a2a2a;
-  background-color: #1a1a1a !important;
+  border-color: transparent;
+  background-color: transparent !important;
   background-image: none !important;
   box-shadow: none;
 }
