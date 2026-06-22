@@ -1780,12 +1780,22 @@ textarea::-webkit-scrollbar,
   position: relative;
   min-width: 0;
   border-radius: 18px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  isolation: isolate;
+}
+
+.composer-input::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
   background: rgba(26, 26, 26, 0.9);
   -webkit-backdrop-filter: blur(18px) saturate(1.12);
   backdrop-filter: blur(18px) saturate(1.12);
-  border: 0;
-  box-shadow: none;
-  opacity: 0.9;
+  pointer-events: none;
 }
 
 .composer-input textarea {
