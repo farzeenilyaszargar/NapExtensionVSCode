@@ -11,6 +11,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     output,
     cliService,
+    NapChatViewProvider.registerSuggestedEditsSerializer(),
     vscode.window.registerWebviewViewProvider(NapChatViewProvider.viewType, provider, {
       webviewOptions: {
         retainContextWhenHidden: true

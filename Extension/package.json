@@ -2,7 +2,7 @@
   "name": "nap",
   "displayName": "Nap For VS Code",
   "description": "An AI coding agent for VS Code with Nap chat, streaming responses, session history, review controls, and CLI-powered local workflows.",
-  "version": "1.7.20",
+  "version": "1.7.21",
   "publisher": "NapCode",
   "icon": "icon.png",
   "license": "MIT",
@@ -35,7 +35,8 @@
     "onCommand:nap.newChat",
     "onCommand:nap.clearChat",
     "onCommand:nap.openAccounts",
-    "onCommand:nap.openSettings"
+    "onCommand:nap.openSettings",
+    "onWebviewPanel:napSuggestedEdits"
   ],
   "main": "./out/extension.js",
   "extensionKind": [

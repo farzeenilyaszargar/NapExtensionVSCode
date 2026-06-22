@@ -24,6 +24,22 @@ import { generateSessionTitleFromPrompt } from './shared/sessionTitle';
 
 export class NapChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'nap.chatView';
+  private static readonly suggestedEditsViewType = 'napSuggestedEdits';
+
+  static registerSuggestedEditsSerializer(): vscode.Disposable {
+    return vscode.window.registerWebviewPanelSerializer(NapChatViewProvider.suggestedEditsViewType, {
+      async deserializeWebviewPanel(panel, state: unknown) {
+        const reviewState = readSuggestedEditsState(state);
+        panel.webview.options = {
+          enableScripts: true
+        };
+        panel.title = reviewState?.title ?? 'Nap Diff';
+        panel.webview.html = reviewState
+          ? renderSuggestedEditsHtml(reviewState.diff, reviewState.title, reviewState.sessionId)
+          : renderSuggestedEditsHtml('', 'Nap Diff', 'restored');
+      }
+    });
+  }
 
   private view: vscode.WebviewView | undefined;
   private currentCancellation: vscode.CancellationTokenSource | undefined;
@@ -1262,6 +1278,12 @@ interface UnifiedDiffFileEntry {
   diff: string;
 }
 
+interface SuggestedEditsState {
+  diff: string;
+  title: string;
+  sessionId: string;
+}
+
 async function getGitChangeSnapshot(): Promise<GitChangeSnapshot> {
   const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   if (!workspaceRoot) {
@@ -1333,7 +1355,7 @@ async function openUnifiedDiffReview(diff: string, sessionId: string, title = 'S
     title,
     vscode.ViewColumn.Active,
     {
-      enableScripts: false,
+      enableScripts: true,
       retainContextWhenHidden: true
     }
   );
@@ -1370,6 +1392,8 @@ function renderSuggestedEditsHtml(diff: string, title: string, sessionId: string
     : [{ filePath: 'Nap Diff', additions: 0, deletions: 0, diff }];
   const totalAdditions = files.reduce((total, file) => total + file.additions, 0);
   const totalDeletions = files.reduce((total, file) => total + file.deletions, 0);
+  const nonce = createNonce();
+  const stateJson = JSON.stringify({ diff, title, sessionId }).replace(/</g, '\\u003c');
 
   return `<!doctype html>
 <html lang="en">
@@ -1493,6 +1517,10 @@ function renderSuggestedEditsHtml(diff: string, title: string, sessionId: string
     <div class="stats"><span class="add-stat">+${totalAdditions}</span><span class="del-stat">-${totalDeletions}</span></div>
   </header>
   ${files.map(renderDiffFileHtml).join('')}
+  <script nonce="${nonce}">
+    const vscode = acquireVsCodeApi();
+    vscode.setState(${stateJson});
+  </script>
 </body>
 </html>`;
 }
@@ -1518,6 +1546,17 @@ function renderDiffLineHtml(line: string): string {
           ? 'del'
           : 'context';
   return `<span class="line ${className}">${escapeHtml(line || ' ')}</span>`;
+}
+
+function readSuggestedEditsState(value: unknown): SuggestedEditsState | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+  const record = value as Record<string, unknown>;
+  const diff = typeof record.diff === 'string' ? record.diff : undefined;
+  const title = typeof record.title === 'string' && record.title.trim() ? record.title : undefined;
+  const sessionId = typeof record.sessionId === 'string' && record.sessionId.trim() ? record.sessionId : undefined;
+  return diff !== undefined && title && sessionId ? { diff, title, sessionId } : undefined;
 }
 
 async function openUntrackedFileReview(workspaceRoot: string, filePath: string): Promise<void> {
