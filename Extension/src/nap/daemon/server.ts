@@ -38,7 +38,8 @@ import {
   NapMcpState,
   NapMessage,
   NapMode,
-  NapSecurityMode
+  NapSecurityMode,
+  NapWorkspaceChangeSummary
 } from '../../shared/protocol';
 import { generateSessionTitleFromPrompt } from '../../shared/sessionTitle';
 
@@ -359,6 +360,7 @@ export class NapDaemon {
           this.broadcast('session.activity', this.activityEvent(session, job.id, activity));
         },
         onTurnDiff: diff => {
+          this.attachWorkspaceDiff(session.id, assistantMessageId, diff);
           this.broadcast('session.diff.updated', this.diffEvent(session, job.id, diff));
         },
         onTitle: title => {
@@ -472,6 +474,27 @@ export class NapDaemon {
     this.storage.upsertSession({
       ...session,
       messages: session.messages.map(message => message.id === messageId ? { ...message, status } : message),
+      updatedAt: Date.now()
+    });
+  }
+
+  private attachWorkspaceDiff(sessionId: string, messageId: string, diff: string): void {
+    const session = this.storage.getSession(sessionId);
+    if (!session) {
+      return;
+    }
+
+    const workspaceDiff = diff.trim() ? `${diff.trim()}\n` : undefined;
+    const workspaceChanges = workspaceDiff ? summarizeUnifiedDiff(workspaceDiff) : undefined;
+    this.storage.upsertSession({
+      ...session,
+      messages: session.messages.map(message => message.id === messageId
+        ? {
+            ...message,
+            workspaceChanges,
+            workspaceDiff
+          }
+        : message),
       updatedAt: Date.now()
     });
   }
@@ -611,15 +634,18 @@ export class NapDaemon {
   }
 }
 
-function summarizeUnifiedDiff(diff: string): { filesChanged: number; additions: number; deletions: number } {
-  const files = new Set<string>();
+function summarizeUnifiedDiff(diff: string): NapWorkspaceChangeSummary {
+  const files = new Map<string, { filePath: string; additions: number; deletions: number; status: 'tracked' }>();
+  let currentFile: { filePath: string; additions: number; deletions: number; status: 'tracked' } | undefined;
   let additions = 0;
   let deletions = 0;
 
   for (const line of diff.split(/\r?\n/)) {
     if (line.startsWith('diff --git ')) {
       const match = line.match(/^diff --git a\/(.+?) b\/(.+)$/);
-      files.add(match?.[2] ?? line.slice('diff --git '.length));
+      const filePath = match?.[2] ?? line.slice('diff --git '.length);
+      currentFile = { filePath, additions: 0, deletions: 0, status: 'tracked' };
+      files.set(filePath, currentFile);
       continue;
     }
     if (line.startsWith('+++ ') || line.startsWith('--- ')) {
@@ -627,15 +653,22 @@ function summarizeUnifiedDiff(diff: string): { filesChanged: number; additions: 
     }
     if (line.startsWith('+')) {
       additions += 1;
+      if (currentFile) {
+        currentFile.additions += 1;
+      }
     } else if (line.startsWith('-')) {
       deletions += 1;
+      if (currentFile) {
+        currentFile.deletions += 1;
+      }
     }
   }
 
   return {
     filesChanged: files.size,
     additions,
-    deletions
+    deletions,
+    files: [...files.values()].sort((left, right) => left.filePath.localeCompare(right.filePath))
   };
 }
 
