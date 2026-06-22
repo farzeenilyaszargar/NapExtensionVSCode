@@ -272,9 +272,15 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private async reviewConversationChanges(messageId?: string): Promise<void> {
-    const messageDiff = messageId ? this.conversationTurnDiffsByMessageId.get(messageId) : undefined;
+    const message = messageId ? this.state.messages.find(item => item.id === messageId) : undefined;
+    const messageDiff = messageId ? this.conversationTurnDiffsByMessageId.get(messageId) ?? message?.workspaceDiff : undefined;
     if (messageDiff?.trim()) {
       await openUnifiedDiffReview(messageDiff, this.state.sessionId, 'Nap Diff');
+      return;
+    }
+
+    if (message?.workspaceChanges?.filesChanged && message.workspaceChanges.filesChanged > 0) {
+      await openWorkspaceChangeSummaryReview(message.workspaceChanges);
       return;
     }
 
@@ -307,13 +313,25 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       return;
     }
 
-    const messageDiff = messageId ? this.conversationTurnDiffsByMessageId.get(messageId) : undefined;
+    const message = messageId ? this.state.messages.find(item => item.id === messageId) : undefined;
+    const messageDiff = messageId ? this.conversationTurnDiffsByMessageId.get(messageId) ?? message?.workspaceDiff : undefined;
     if (messageDiff?.trim()) {
       const entry = extractUnifiedDiffFileEntries(messageDiff).find(item => item.filePath === normalizedPath);
       if (entry?.diff.trim()) {
         await openUnifiedDiffReview(entry.diff, this.state.sessionId, `Nap Diff - ${normalizedPath}`);
         return;
       }
+    }
+
+    const savedFile = message?.workspaceChanges?.files?.find(file => file.filePath === normalizedPath);
+    if (savedFile) {
+      await openWorkspaceChangeSummaryReview({
+        filesChanged: 1,
+        additions: savedFile.additions,
+        deletions: savedFile.deletions,
+        files: [savedFile]
+      });
+      return;
     }
 
     if (this.conversationTurnDiff?.trim()) {
@@ -1347,6 +1365,32 @@ async function openChangedFilesReview(files: ConversationChangedFiles): Promise<
   for (const filePath of untracked) {
     await openUntrackedFileReview(workspaceRoot, filePath);
   }
+}
+
+async function openWorkspaceChangeSummaryReview(summary: NapWorkspaceChangeSummary): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  const files = summary.files ?? [];
+  if (!workspaceRoot || files.length === 0) {
+    return;
+  }
+
+  const tracked = files.filter(file => file.status !== 'untracked').map(file => file.filePath);
+  if (tracked.length > 0) {
+    try {
+      const diff = await runGit(workspaceRoot, ['diff', '--', ...tracked]);
+      if (diff.trim()) {
+        await openUnifiedDiffReview(diff, 'restored', 'Nap Diff');
+        return;
+      }
+    } catch {
+      // Fall back to VS Code's per-file diff views below.
+    }
+  }
+
+  await openChangedFilesReview({
+    tracked,
+    untracked: files.filter(file => file.status === 'untracked').map(file => file.filePath)
+  });
 }
 
 async function openUnifiedDiffReview(diff: string, sessionId: string, title = 'Suggested Edits'): Promise<void> {
