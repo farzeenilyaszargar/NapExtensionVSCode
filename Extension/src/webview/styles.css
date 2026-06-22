@@ -70,8 +70,8 @@ button {
 }
 
 .loading-spinner {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border: 2px solid rgba(130, 130, 130, 0.18);
   border-top-color: #b8b8b8;
   border-radius: 999px;
@@ -499,9 +499,9 @@ button {
 .send-button {
   display: inline-grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
@@ -1876,9 +1876,9 @@ textarea:disabled {
 .send-button {
   right: 8px;
   bottom: 8px;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
   border-radius: 999px;
   color: #1c1c1c;
   background: #ffffff;
@@ -1915,8 +1915,8 @@ textarea:disabled {
 }
 
 .send-button .send-icon {
-  width: 12px;
-  height: 12px;
+  width: 12.5px;
+  height: 12.5px;
   margin: auto;
 }
 

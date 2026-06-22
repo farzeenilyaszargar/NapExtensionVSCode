@@ -766,7 +766,7 @@ export function App() {
       {showLoadingOverlay || showAuthLoading ? (
         <div className="loading-overlay" role="status" aria-live="polite" aria-label={loadingLabel}>
           <div className="loading-spinner" aria-hidden="true" />
-          <span>{loadingLabel}</span>
+          {isInitialLoading ? <span>{loadingLabel}</span> : null}
         </div>
       ) : null}
       {showAuthLanding ? (
