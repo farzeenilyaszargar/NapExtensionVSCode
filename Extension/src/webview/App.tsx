@@ -1204,7 +1204,7 @@ function ActivityTrailItem({ item }: { item: NapActivityItem }) {
 
   return (
     <div className={`activity-trail-item activity-trail-item--${kind}`}>
-      <Icon size={13} aria-hidden="true" />
+      <Icon size={11} aria-hidden="true" />
       <span className="activity-text-stack">
         {parts.map((part, index) => (
           <span key={`${part}-${index}`}>{part}</span>

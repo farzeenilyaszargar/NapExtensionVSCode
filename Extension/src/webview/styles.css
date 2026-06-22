@@ -1222,7 +1222,9 @@ textarea::-webkit-scrollbar,
 
 .activity-line svg {
   flex: 0 0 auto;
-  color: #fff;
+  width: 11px;
+  height: 11px;
+  color: #8a8a8a;
   margin-top: 0;
   stroke-width: 1.8;
 }
@@ -1256,7 +1258,7 @@ textarea::-webkit-scrollbar,
 .activity-line--tool svg,
 .activity-line--command svg,
 .activity-line--file svg {
-  color: #fff;
+  color: #8a8a8a;
 }
 
 .activity-line--warning {
