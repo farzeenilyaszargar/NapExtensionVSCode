@@ -851,10 +851,6 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  private latestAssistantMessageId(): string | undefined {
-    return [...this.state.messages].reverse().find(message => message.role === 'assistant')?.id;
-  }
-
   private createInitialState(): NapSessionState {
     const config = getNapConfiguration();
     const previousState = this.state;
@@ -982,10 +978,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
     if (this.conversationTurnDiff?.trim()) {
       const workspaceChanges = summarizeUnifiedDiff(this.conversationTurnDiff);
-      const messageId = this.latestAssistantMessageId();
-      this.attachWorkspaceChangesToMessage(workspaceChanges, messageId, this.conversationTurnDiff);
-      this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
-      this.cliService.saveSession(this.toCurrentSessionRecord());
+      this.state = {
+        ...this.state,
+        workspaceChanges
+      };
+      this.post({ type: 'workspaceChangesChanged', workspaceChanges });
       return;
     }
 
@@ -1002,12 +999,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     }
 
     const workspaceChanges = summarizeConversationChanges(this.conversationChangeBaseline, current);
-    const messageId = workspaceChanges.filesChanged > 0 ? this.latestAssistantMessageId() : undefined;
-    this.attachWorkspaceChangesToMessage(workspaceChanges, messageId);
-    this.post({ type: 'workspaceChangesChanged', workspaceChanges, messageId });
-    if (messageId) {
-      this.cliService.saveSession(this.toCurrentSessionRecord());
-    }
+    this.state = {
+      ...this.state,
+      workspaceChanges
+    };
+    this.post({ type: 'workspaceChangesChanged', workspaceChanges });
   }
 
   private async resetConversationChangeBaseline(): Promise<void> {
