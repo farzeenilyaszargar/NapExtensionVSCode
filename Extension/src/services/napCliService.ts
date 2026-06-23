@@ -185,7 +185,15 @@ export class NapDaemonService implements INapCliService {
       cleanupDone = this.client.on<SessionMessageDoneEvent>('session.message.done', event => {
         if (event.sessionId === request.sessionId && (!jobId || event.jobId === jobId)) {
           doneStatus = event.status;
-          event.status === 'error' ? reject(new Error('napd chat job failed.')) : resolve();
+          if (event.status === 'error') {
+            void this.client.getJob(event.jobId).then(job => {
+              reject(new Error(job?.error || 'Nap chat job failed before returning a response.'));
+            }, () => {
+              reject(new Error('Nap chat job failed before returning a response.'));
+            });
+          } else {
+            resolve();
+          }
         }
       });
       cleanupClose = this.client.onClose(error => {

@@ -200,6 +200,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
     stream.onLog(`Starting Nap app-server turn in thread ${threadId}.`);
 
     let turnId: string | undefined;
+    let failureMessage: string | undefined;
     let cleanupCompleted: (() => void) | undefined;
     const activityBuffers = new Map<string, ProviderActivity>();
     const completed = new Promise<void>((resolve, reject) => {
@@ -225,11 +226,17 @@ export class NapCliProviderAdapter implements ProviderAdapter {
           stream.onTitle?.(title);
         }
 
+        const failure = parseAppServerFailure(notification);
+        if (failure) {
+          failureMessage = failure;
+          stream.onActivity({ text: failure, kind: 'error', verb: 'error' });
+        }
+
         if (notification.method === 'turn/completed') {
           stream.onActivity(undefined);
           cleanup();
           signal.removeEventListener('abort', abort);
-          resolve();
+          failureMessage ? reject(new Error(failureMessage)) : resolve();
         }
       });
       const abort = () => {
@@ -250,6 +257,10 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       stream.onThread?.(threadId);
       const turnResult = started.result;
       turnId = readTurnId(turnResult);
+      const startFailure = parseAppServerFailure({ method: 'turn/start', params: turnResult });
+      if (startFailure) {
+        throw new Error(startFailure);
+      }
       appendDaemonLog(`[provider] app-server turn started thread=${threadId} turn=${turnId ?? 'unknown'}`);
       await completed;
     } catch (error) {
@@ -599,6 +610,44 @@ export function parseAppServerThreadTitle(notification: NapAppServerNotification
     ?? readString(thread?.summary);
 
   return title ? title.split(/\s+/).slice(0, 5).join(' ') : undefined;
+}
+
+export function parseAppServerFailure(notification: NapAppServerNotification): string | undefined {
+  const method = notification.method.toLowerCase();
+  const params = readObject(notification.params);
+  const turn = readObject(params?.turn);
+  const item = readObject(params?.item);
+  const error = readObject(params?.error) ?? readObject(turn?.error) ?? readObject(item?.error);
+  const status = readString(params?.status)
+    ?? readString(params?.state)
+    ?? readString(turn?.status)
+    ?? readString(turn?.state)
+    ?? readString(item?.status)
+    ?? readString(item?.state);
+  const statusText = status?.toLowerCase();
+  const message = readString(error?.message)
+    ?? readString(error?.summary)
+    ?? readString(error?.detail)
+    ?? readString(params?.error)
+    ?? readString(params?.message)
+    ?? readString(params?.reason)
+    ?? readString(params?.detail)
+    ?? readString(turn?.error)
+    ?? readString(turn?.message)
+    ?? readString(turn?.reason)
+    ?? readString(item?.message)
+    ?? readString(item?.reason);
+
+  if (method === 'error' || method.endsWith('/error') || method.endsWith('/failed')) {
+    return formatFailureMessage(message, status);
+  }
+  if (statusText && /fail|error|cancelled|canceled|denied|quota|credit|limit|exhausted|insufficient/.test(statusText)) {
+    return formatFailureMessage(message, status);
+  }
+  if (message && /quota|credit|token|limit|insufficient|exhausted|billing|payment|unauthori[sz]ed|forbidden/i.test(message)) {
+    return formatFailureMessage(message, status);
+  }
+  return undefined;
 }
 
 export function parseAppServerActivityEvent(notification: NapAppServerNotification): ProviderActivity | undefined {
@@ -967,6 +1016,15 @@ function readActivityText(record: Record<string, unknown> | undefined): string |
     ?? readString(record?.title)
     ?? readString(record?.text)
     ?? readString(record?.content);
+}
+
+function formatFailureMessage(message: string | undefined, status: string | undefined): string {
+  const cleanMessage = message?.replace(/\s+/g, ' ').trim();
+  if (cleanMessage) {
+    return cleanMessage;
+  }
+  const cleanStatus = status?.replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  return cleanStatus ? `Nap stopped: ${cleanStatus}.` : 'Nap stopped before returning a response.';
 }
 
 function toolActivityText(item: Record<string, unknown> | undefined, fallback: string): string {

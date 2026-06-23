@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { NapCliProviderAdapter, buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAppServerThreadTitle, parseAppServerTurnDiff, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
+import { NapCliProviderAdapter, buildChatArgs, parseAppServerAccountAuthState, parseAppServerActivity, parseAppServerActivityEvent, parseAppServerDelta, parseAppServerFailure, parseAppServerThreadTitle, parseAppServerTurnDiff, parseAuthState, parseCliStreamLine, readPersistedAuthState } from './provider';
 
 describe('Nap CLI auth parsing', () => {
   it('treats profile JSON as authenticated even without a status field', () => {
@@ -268,6 +268,27 @@ describe('Nap app-server stream parsing', () => {
       method: 'item/started',
       params: { title: 'Not a thread title' }
     })).toBeUndefined();
+  });
+
+  it('extracts app-server failure reasons for inline errors', () => {
+    expect(parseAppServerFailure({
+      method: 'turn/completed',
+      params: {
+        status: 'failed',
+        error: {
+          message: 'You do not have enough credits to continue.'
+        }
+      }
+    })).toBe('You do not have enough credits to continue.');
+
+    expect(parseAppServerFailure({
+      method: 'turn/completed',
+      params: {
+        turn: {
+          status: 'failed'
+        }
+      }
+    })).toBe('Nap stopped: failed.');
   });
 
   it('maps status and progress notifications to activity text', () => {

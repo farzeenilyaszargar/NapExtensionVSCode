@@ -131,6 +131,10 @@ export class NapDaemonClient {
     return this.request('jobs.list', this.withEnvelope({}));
   }
 
+  async getJob(jobId: string): Promise<NapJobRecord | undefined> {
+    return this.request('jobs.get', this.withEnvelope({ jobId }));
+  }
+
   async cancelJob(jobId: string): Promise<{ ok: true }> {
     return this.request('jobs.cancel', this.withEnvelope({ jobId }));
   }

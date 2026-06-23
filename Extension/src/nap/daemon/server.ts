@@ -388,6 +388,13 @@ export class NapDaemon {
     } catch (error) {
       appendDaemonLog(`[job:${job.id}] provider stream failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`);
       const cancelled = abort.signal.aborted;
+      const failureText = cancelled
+        ? 'Task stopped.'
+        : formatInlineFailureMessage(error);
+      if (!this.getAssistantContent(session.id, assistantMessageId).trim()) {
+        this.appendAssistantDelta(session.id, assistantMessageId, failureText);
+        this.broadcast('session.message.delta', this.deltaEvent(session, assistantMessageId, job.id, failureText));
+      }
       this.finishAssistant(session.id, assistantMessageId, cancelled ? 'stopped' : 'error');
       job.status = cancelled ? 'cancelled' : 'error';
       job.error = cancelled ? undefined : error instanceof Error ? error.message : String(error);
@@ -464,6 +471,10 @@ export class NapDaemon {
       updatedAt: Date.now()
     };
     this.storage.upsertSession(updated);
+  }
+
+  private getAssistantContent(sessionId: string, messageId: string): string {
+    return this.storage.getSession(sessionId)?.messages.find(message => message.id === messageId)?.content ?? '';
   }
 
   private finishAssistant(sessionId: string, messageId: string, status: NapMessage['status']): void {
@@ -689,6 +700,21 @@ function requireParam(params: unknown, key: string): string {
 
 function normalizeModelId(modelId: string | undefined): string {
   return !modelId || modelId === 'auto' ? 'gpt-5.4-mini' : modelId;
+}
+
+function formatInlineFailureMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  const message = raw.replace(/\s+/g, ' ').trim();
+  if (!message) {
+    return 'Nap stopped before returning a response.';
+  }
+  if (/credit|quota|token|limit|billing|payment|insufficient|exhausted/i.test(message)) {
+    return message;
+  }
+  if (/closed|exited|terminated|econnreset|epipe/i.test(message)) {
+    return `Nap stopped before returning a response: ${message}`;
+  }
+  return message;
 }
 
 export async function startNapDaemon(): Promise<NapDaemon> {
