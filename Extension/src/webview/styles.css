@@ -1781,7 +1781,7 @@ textarea::-webkit-scrollbar,
   position: relative;
   min-width: 0;
   border-radius: 18px;
-  border: 1px solid #ff2d2d;
+  border: 1px solid #2a2a2a;
   background: transparent;
   box-shadow: none;
   overflow: visible;
@@ -1789,7 +1789,7 @@ textarea::-webkit-scrollbar,
 
 .composer-input:hover,
 .composer-input:focus-within {
-  border-color: #ff2d2d;
+  border-color: #2a2a2a;
 }
 
 .composer-input::before {
