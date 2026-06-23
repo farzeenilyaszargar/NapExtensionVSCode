@@ -1381,7 +1381,7 @@ textarea::-webkit-scrollbar,
   right: 0;
   bottom: 0;
   z-index: 21;
-  height: 40px;
+  height: 30px;
   background: var(--nap-surface);
   pointer-events: none;
 }
