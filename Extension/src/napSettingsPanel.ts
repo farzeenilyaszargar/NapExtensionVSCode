@@ -91,13 +91,13 @@ export class NapSettingsPanel {
   <style>
     :root {
       color-scheme: light dark;
-      --nap-bg: var(--vscode-editor-background);
-      --nap-page: color-mix(in srgb, var(--vscode-editor-background) 88%, #2a2a2a);
+      --nap-bg: var(--vscode-editor-background, #121212);
+      --nap-page: var(--nap-bg);
       --nap-fg: var(--vscode-editor-foreground);
       --nap-muted: var(--vscode-descriptionForeground);
       --nap-border: color-mix(in srgb, var(--vscode-panel-border, #3c3c3c) 62%, transparent);
-      --nap-card: color-mix(in srgb, var(--vscode-editorWidget-background, #1b1b1b) 88%, transparent);
-      --nap-card-strong: color-mix(in srgb, var(--vscode-sideBar-background, #181818) 90%, #101010);
+      --nap-card: color-mix(in srgb, var(--vscode-editorWidget-background, var(--nap-bg)) 88%, transparent);
+      --nap-card-strong: var(--vscode-sideBar-background, var(--nap-card));
       --nap-row: color-mix(in srgb, var(--vscode-list-hoverBackground, #2a2a2a) 32%, transparent);
       --nap-accent: var(--vscode-button-background, #6f6f6f);
       --settings-nav-width: 168px;
@@ -141,7 +141,7 @@ export class NapSettingsPanel {
       overflow-y: auto;
       overflow-x: hidden;
       border-right: 1px solid var(--nap-border);
-      background: color-mix(in srgb, var(--vscode-sideBar-background, #181818) 92%, #222222);
+      background: var(--vscode-sideBar-background, var(--nap-bg));
       box-shadow: none;
       scrollbar-width: none;
     }

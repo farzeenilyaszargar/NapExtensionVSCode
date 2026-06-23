@@ -4,6 +4,9 @@
   --nap-muted: var(--vscode-descriptionForeground);
   --nap-surface: var(--vscode-editor-background, #121212);
   --nap-surface-alt: var(--vscode-input-background, var(--vscode-editorWidget-background));
+  --nap-panel: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, var(--nap-surface)));
+  --nap-hover: var(--vscode-list-hoverBackground, color-mix(in srgb, var(--nap-surface) 88%, var(--vscode-foreground) 12%));
+  --nap-overlay: color-mix(in srgb, var(--nap-surface) 88%, transparent);
 }
 
 * {
@@ -48,7 +51,7 @@ button {
   height: 100%;
   min-width: 0;
   overflow: hidden;
-  background: transparent;
+  background: var(--nap-surface);
 }
 
 .loading-overlay {
@@ -60,7 +63,7 @@ button {
   align-content: center;
   gap: 10px;
   color: #9a9a9a;
-  background: rgba(20, 20, 20, 0.86);
+  background: var(--nap-overlay);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   animation: loading-overlay-in 180ms ease-out;
@@ -107,7 +110,7 @@ button {
   padding: 0;
   border-bottom: 0;
   color: #b8b8b8;
-  background: color-mix(in srgb, var(--nap-surface) 94%, #1c1c1c);
+  background: var(--nap-surface);
   overflow: visible;
 }
 
@@ -434,7 +437,7 @@ button {
 }
 
 .session-item:hover {
-  background: #282828;
+  background: var(--nap-hover);
 }
 
 .session-delete-button {
@@ -470,7 +473,7 @@ button {
 
 .session-delete-button:hover {
   color: var(--vscode-errorForeground, #f48771);
-  background: #262626;
+  background: var(--nap-hover);
 }
 
 .session-title,
@@ -684,7 +687,7 @@ textarea::-webkit-scrollbar,
 
 .auth-landing-button--secondary {
   color: var(--vscode-foreground);
-  background: #1b1b1b;
+  background: var(--nap-panel);
 }
 
 .auth-landing-button--primary:hover {
@@ -692,7 +695,7 @@ textarea::-webkit-scrollbar,
 }
 
 .auth-landing-button--secondary:hover {
-  background: #252525;
+  background: var(--nap-hover);
 }
 
 .auth-landing-button:focus-visible {
@@ -723,14 +726,14 @@ textarea::-webkit-scrollbar,
   border: 1px solid #2f2f2f;
   border-radius: 6px;
   color: var(--vscode-foreground);
-  background: #1c1c1c;
+  background: var(--nap-panel);
   cursor: pointer;
   font-size: 11px;
 }
 
 .auth-gate button:hover,
 .auth-inline-button:hover {
-  background: #262626;
+  background: var(--nap-hover);
 }
 
 .auth-gate button:focus-visible,
@@ -776,7 +779,7 @@ textarea::-webkit-scrollbar,
 
 .message--user .message-body {
   color: #d8dee9;
-  background: #1c1c1c;
+  background: var(--nap-panel);
   border: 0;
 }
 
@@ -1422,7 +1425,7 @@ textarea::-webkit-scrollbar,
   border: 1px solid #282828;
   border-radius: 12px;
   color: #9a9a9a;
-  background: rgba(20, 20, 20, 0.9);
+  background: color-mix(in srgb, var(--nap-panel) 90%, transparent);
   overflow: hidden;
   animation: prompt-queue-in 180ms ease-out;
 }
@@ -1643,7 +1646,7 @@ textarea::-webkit-scrollbar,
   border: 1px solid #2a2a2a;
   border-radius: 24px;
   color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
-  background: rgba(20, 20, 20, 0.94);
+  background: color-mix(in srgb, var(--vscode-dropdown-background, var(--nap-panel)) 94%, transparent);
   box-shadow: 0 10px 26px color-mix(in srgb, black 28%, transparent);
   -webkit-backdrop-filter: blur(18px) saturate(1.12);
   backdrop-filter: blur(18px) saturate(1.12);
@@ -1836,7 +1839,7 @@ textarea::-webkit-scrollbar,
   inset: 0;
   z-index: 0;
   border-radius: inherit;
-  background: rgba(26, 26, 26, 0.5);
+  background: color-mix(in srgb, var(--nap-panel) 50%, transparent);
   -webkit-backdrop-filter: blur(22px) saturate(1.15);
   backdrop-filter: blur(22px) saturate(1.15);
   pointer-events: none;
@@ -1919,13 +1922,13 @@ textarea:disabled {
   border: 0;
   border-radius: 999px;
   color: #8a8a8a;
-  background: rgba(24, 24, 24, 0.72);
+  background: color-mix(in srgb, var(--nap-panel) 72%, transparent);
   cursor: pointer;
 }
 
 .composer-plus-button:hover {
   color: var(--vscode-foreground);
-  background: rgba(38, 38, 38, 0.86);
+  background: var(--nap-hover);
 }
 
 .send-button,
@@ -2139,7 +2142,7 @@ textarea:disabled {
   padding: 0 6px;
   border: 0;
   border-radius: 999px;
-  background: rgba(24, 24, 24, 0.72);
+  background: color-mix(in srgb, var(--nap-panel) 72%, transparent);
   color: var(--vscode-foreground);
   cursor: pointer;
   font-size: 10.5px;
@@ -2148,7 +2151,7 @@ textarea:disabled {
 }
 
 .floating-select:hover {
-  background: rgba(38, 38, 38, 0.86);
+  background: var(--nap-hover);
 }
 
 .floating-select:focus-visible {
