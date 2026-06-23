@@ -1782,17 +1782,31 @@ textarea::-webkit-scrollbar,
   min-width: 0;
   border-radius: 18px;
   border: 1px solid #2a2a2a;
-  background: rgba(26, 26, 26, 0.5);
-  -webkit-backdrop-filter: blur(22px) saturate(1.15);
-  backdrop-filter: blur(22px) saturate(1.15);
+  background: transparent;
   box-shadow: none;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .composer-input:hover,
 .composer-input:focus-within {
   border-color: #2a2a2a;
+}
+
+.composer-input::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   background: rgba(26, 26, 26, 0.5);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  backdrop-filter: blur(22px) saturate(1.15);
+  pointer-events: none;
+}
+
+.composer-input > * {
+  position: relative;
+  z-index: 1;
 }
 
 .composer-input textarea {
