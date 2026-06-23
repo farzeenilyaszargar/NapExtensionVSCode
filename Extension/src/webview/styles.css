@@ -1364,7 +1364,7 @@ textarea::-webkit-scrollbar,
   right: 0;
   bottom: 0;
   z-index: 0;
-  height: var(--composer-bottom-padding);
+  height: calc(var(--composer-bottom-padding) + 20px);
   background: var(--nap-surface);
   pointer-events: none;
 }
