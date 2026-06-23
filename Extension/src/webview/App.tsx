@@ -60,6 +60,7 @@ const COMPOSER_SINGLE_LINE_GROW_THRESHOLD = 20;
 const SCROLL_LOCK_THRESHOLD = 28;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const SMOOTH_SCROLL_DURATION_MS = 180;
+const COMPOSER_TEXT_STOP_OFFSET = 20;
 
 function getComposerSafeArea(element: HTMLElement): number {
   const rawValue = window.getComputedStyle(element).getPropertyValue('--composer-safe-area');
@@ -453,7 +454,7 @@ export function App() {
 
     const syncComposerSafeArea = () => {
       const nextHeight = panel.getBoundingClientRect().height;
-      const safeArea = Math.max(1, Math.ceil(nextHeight));
+      const safeArea = Math.max(1, Math.ceil(nextHeight + COMPOSER_TEXT_STOP_OFFSET));
       timelineRef.current?.style.setProperty('--composer-safe-area', `${safeArea}px`);
       panel.closest<HTMLElement>('.nap-shell')?.style.setProperty('--composer-safe-area', `${safeArea}px`);
       return nextHeight;
@@ -466,7 +467,7 @@ export function App() {
 
     const observer = new ResizeObserver(entries => {
       const nextHeight = entries[0]?.contentRect.height ?? panel.getBoundingClientRect().height;
-      const safeArea = Math.max(1, Math.ceil(nextHeight));
+      const safeArea = Math.max(1, Math.ceil(nextHeight + COMPOSER_TEXT_STOP_OFFSET));
       timelineRef.current?.style.setProperty('--composer-safe-area', `${safeArea}px`);
       panel.closest<HTMLElement>('.nap-shell')?.style.setProperty('--composer-safe-area', `${safeArea}px`);
       if (Math.abs(nextHeight - previousHeight) < 0.5) {

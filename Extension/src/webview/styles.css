@@ -39,7 +39,7 @@ button {
 }
 
 .nap-shell {
-  --composer-safe-area: 128px;
+  --composer-safe-area: 148px;
   position: relative;
   display: flex;
   flex-direction: column;
