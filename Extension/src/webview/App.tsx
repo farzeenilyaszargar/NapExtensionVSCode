@@ -502,6 +502,7 @@ export function App() {
   const activityItems = state.activityItems ?? [];
   const queuedPrompts = state.queuedPrompts ?? [];
   const hasDraft = draft.trim().length > 0;
+  const showStopButton = isStreaming && !hasDraft;
   const showComposer = isAuthenticated && (activePage === 'chat' || activePage === 'sessions');
 
   const stopGeneration = useCallback(() => {
@@ -1129,7 +1130,7 @@ export function App() {
                   </div>
                 ) : null}
               </div>
-              {isStreaming ? (
+              {showStopButton ? (
                 <button className="send-button send-button--stop" type="button" title="Stop" aria-label="Stop" onClick={stopGeneration}>
                   <Square size={10} />
                 </button>
