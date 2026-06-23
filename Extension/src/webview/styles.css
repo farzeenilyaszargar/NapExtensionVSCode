@@ -1357,7 +1357,21 @@ textarea::-webkit-scrollbar,
   pointer-events: none;
 }
 
+.composer-panel::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 0;
+  height: var(--composer-bottom-padding);
+  background: var(--nap-surface);
+  pointer-events: none;
+}
+
 .composer-panel > * {
+  position: relative;
+  z-index: 1;
   pointer-events: auto;
 }
 
