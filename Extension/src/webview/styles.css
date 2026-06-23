@@ -2,13 +2,13 @@
   color-scheme: light dark;
   --nap-border: var(--vscode-panel-border, rgba(127, 127, 127, 0.28));
   --nap-muted: var(--vscode-descriptionForeground);
-  --nap-surface: #121212;
+  --nap-surface: var(--vscode-editor-background, #121212);
   --nap-surface-alt: var(--vscode-input-background, var(--vscode-editorWidget-background));
 }
 
 * {
   box-sizing: border-box;
-  border: 1px solid white;
+
 }
 
 html,
