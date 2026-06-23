@@ -1036,6 +1036,8 @@ export function App() {
         </main>
       ) : null}
 
+      {showComposer ? <div className="composer-bottom-fill" aria-hidden="true" /> : null}
+
       {showComposer ? (
         <footer className="composer-panel" ref={composerPanelRef}>
           {queuedPrompts.length > 0 ? (

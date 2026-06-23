@@ -1375,6 +1375,17 @@ textarea::-webkit-scrollbar,
   pointer-events: auto;
 }
 
+.composer-bottom-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+  height: 40px;
+  background: var(--nap-surface);
+  pointer-events: none;
+}
+
 .composer-overlay {
   position: absolute;
   left: 0;
