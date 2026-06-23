@@ -61,6 +61,12 @@ const SCROLL_LOCK_THRESHOLD = 28;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const SMOOTH_SCROLL_DURATION_MS = 180;
 
+function getComposerSafeArea(element: HTMLElement): number {
+  const rawValue = window.getComputedStyle(element).getPropertyValue('--composer-safe-area');
+  const parsedValue = Number.parseFloat(rawValue);
+  return Number.isFinite(parsedValue) ? parsedValue : 0;
+}
+
 function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | undefined {
   const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
   const nextSpace = value.slice(caretIndex).search(/\s/);
@@ -179,9 +185,14 @@ export function App() {
     }
   }, []);
 
+  const getTimelineTargetTop = useCallback((element: HTMLElement) => {
+    const composerSafeArea = getComposerSafeArea(element);
+    return Math.max(0, element.scrollHeight - element.clientHeight - composerSafeArea);
+  }, []);
+
   const distanceFromBottom = useCallback((element: HTMLElement) =>
-    element.scrollHeight - element.scrollTop - element.clientHeight
-  , []);
+    getTimelineTargetTop(element) - element.scrollTop
+  , [getTimelineTargetTop]);
 
   const isAtBottom = useCallback((element: HTMLElement) =>
     distanceFromBottom(element) <= SCROLL_LOCK_THRESHOLD
@@ -201,8 +212,7 @@ export function App() {
         return 0;
       }
 
-      const targetTop = currentTimeline.scrollHeight - currentTimeline.clientHeight;
-      return Math.max(0, targetTop);
+      return getTimelineTargetTop(currentTimeline);
     };
 
     const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -248,7 +258,7 @@ export function App() {
       scrollFrameRef.current = undefined;
     };
     scrollFrameRef.current = window.requestAnimationFrame(step);
-  }, [cancelScrollAnimation, markProgrammaticScroll]);
+  }, [cancelScrollAnimation, getTimelineTargetTop, markProgrammaticScroll]);
 
   const markUserScrollIntent = useCallback(() => {
     userScrollIntentRef.current = true;
@@ -443,7 +453,9 @@ export function App() {
 
     const syncComposerSafeArea = () => {
       const nextHeight = panel.getBoundingClientRect().height;
-      timelineRef.current?.style.setProperty('--composer-safe-area', `${Math.ceil(nextHeight)}px`);
+      const safeArea = Math.max(1, Math.ceil(nextHeight));
+      timelineRef.current?.style.setProperty('--composer-safe-area', `${safeArea}px`);
+      panel.closest<HTMLElement>('.nap-shell')?.style.setProperty('--composer-safe-area', `${safeArea}px`);
       return nextHeight;
     };
 
@@ -454,7 +466,9 @@ export function App() {
 
     const observer = new ResizeObserver(entries => {
       const nextHeight = entries[0]?.contentRect.height ?? panel.getBoundingClientRect().height;
-      timelineRef.current?.style.setProperty('--composer-safe-area', `${Math.ceil(nextHeight)}px`);
+      const safeArea = Math.max(1, Math.ceil(nextHeight));
+      timelineRef.current?.style.setProperty('--composer-safe-area', `${safeArea}px`);
+      panel.closest<HTMLElement>('.nap-shell')?.style.setProperty('--composer-safe-area', `${safeArea}px`);
       if (Math.abs(nextHeight - previousHeight) < 0.5) {
         return;
       }
