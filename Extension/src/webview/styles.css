@@ -4,7 +4,7 @@
   --nap-muted: var(--vscode-descriptionForeground);
   --nap-surface: #141414;
   --nap-surface-alt: var(--vscode-input-background, var(--vscode-editorWidget-background));
-  --nap-panel: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, var(--nap-surface)));
+  --nap-panel: var(--nap-surface);
   --nap-hover: var(--vscode-list-hoverBackground, color-mix(in srgb, var(--nap-surface) 88%, var(--vscode-foreground) 12%));
   --nap-overlay: color-mix(in srgb, var(--nap-surface) 88%, transparent);
 }
