@@ -8,6 +8,7 @@
 
 * {
   box-sizing: border-box;
+  border: 1px solid white;
 }
 
 html,
@@ -1339,7 +1340,7 @@ textarea::-webkit-scrollbar,
 }
 
 .composer-panel {
-  --composer-bottom-padding: 5px;
+  --composer-bottom-padding: 25px;
   --composer-chatbox-height: 92px;
   --composer-overlay-gap: 20px;
   position: absolute;
