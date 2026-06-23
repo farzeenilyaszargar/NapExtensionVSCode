@@ -91,7 +91,7 @@ export class NapSettingsPanel {
   <style>
     :root {
       color-scheme: light dark;
-      --nap-bg: var(--vscode-editor-background, #121212);
+      --nap-bg: #141414;
       --nap-page: var(--nap-bg);
       --nap-fg: var(--vscode-editor-foreground);
       --nap-muted: var(--vscode-descriptionForeground);
