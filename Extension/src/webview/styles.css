@@ -1339,7 +1339,7 @@ textarea::-webkit-scrollbar,
 }
 
 .composer-panel {
-  --composer-bottom-padding: 35px;
+  --composer-bottom-padding: 25px;
   --composer-chatbox-height: 92px;
   --composer-overlay-gap: 20px;
   position: absolute;
