@@ -437,23 +437,29 @@ export function App() {
 
   useLayoutEffect(() => {
     const panel = composerPanelRef.current;
-    if (!panel || typeof ResizeObserver === 'undefined') {
+    if (!panel) {
       return;
     }
 
-    let previousHeight = panel.getBoundingClientRect().height;
+    const syncComposerSafeArea = () => {
+      const nextHeight = panel.getBoundingClientRect().height;
+      timelineRef.current?.style.setProperty('--composer-safe-area', `${Math.ceil(nextHeight)}px`);
+      return nextHeight;
+    };
+
+    let previousHeight = syncComposerSafeArea();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
     const observer = new ResizeObserver(entries => {
       const nextHeight = entries[0]?.contentRect.height ?? panel.getBoundingClientRect().height;
+      timelineRef.current?.style.setProperty('--composer-safe-area', `${Math.ceil(nextHeight)}px`);
       if (Math.abs(nextHeight - previousHeight) < 0.5) {
         return;
       }
 
       previousHeight = nextHeight;
-      const timeline = timelineRef.current;
-      if (!timeline) {
-        return;
-      }
-
       if (isScrollPinnedRef.current) {
         scrollToBottom('auto');
       }
