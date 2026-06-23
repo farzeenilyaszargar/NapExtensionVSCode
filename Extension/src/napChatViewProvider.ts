@@ -1444,7 +1444,7 @@ function renderSuggestedEditsHtml(diff: string, title: string, sessionId: string
   <style>
     :root {
       color-scheme: dark;
-      --bg: var(--vscode-editor-background, #141414);
+      --bg: var(--vscode-editor-background, #121212);
       --fg: var(--vscode-editor-foreground, #d4d4d4);
       --muted: var(--vscode-descriptionForeground, #858585);
       --border: var(--vscode-panel-border, #2d2d2d);
