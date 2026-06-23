@@ -229,7 +229,6 @@ export class NapCliProviderAdapter implements ProviderAdapter {
         const failure = parseAppServerFailure(notification);
         if (failure) {
           failureMessage = failure;
-          stream.onActivity({ text: failure, kind: 'error', verb: 'error' });
         }
 
         if (notification.method === 'turn/completed') {
@@ -614,6 +613,9 @@ export function parseAppServerThreadTitle(notification: NapAppServerNotification
 
 export function parseAppServerFailure(notification: NapAppServerNotification): string | undefined {
   const method = notification.method.toLowerCase();
+  if (!isTurnFailureMethod(method)) {
+    return undefined;
+  }
   const params = readObject(notification.params);
   const turn = readObject(params?.turn);
   const item = readObject(params?.item);
@@ -638,9 +640,6 @@ export function parseAppServerFailure(notification: NapAppServerNotification): s
     ?? readString(item?.message)
     ?? readString(item?.reason);
 
-  if (method === 'error' || method.endsWith('/error') || method.endsWith('/failed')) {
-    return formatFailureMessage(message, status);
-  }
   if (statusText && /fail|error|cancelled|canceled|denied|quota|credit|limit|exhausted|insufficient/.test(statusText)) {
     return formatFailureMessage(message, status);
   }
@@ -648,6 +647,15 @@ export function parseAppServerFailure(notification: NapAppServerNotification): s
     return formatFailureMessage(message, status);
   }
   return undefined;
+}
+
+function isTurnFailureMethod(method: string): boolean {
+  return method === 'turn/start'
+    || method === 'turn/completed'
+    || method === 'turn/failed'
+    || method === 'turn/error'
+    || method === 'turn/cancelled'
+    || method === 'turn/canceled';
 }
 
 export function parseAppServerActivityEvent(notification: NapAppServerNotification): ProviderActivity | undefined {

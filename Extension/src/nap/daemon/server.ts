@@ -391,7 +391,7 @@ export class NapDaemon {
       const failureText = cancelled
         ? 'Task stopped.'
         : formatInlineFailureMessage(error);
-      if (!this.getAssistantContent(session.id, assistantMessageId).trim()) {
+      if (!hasNarrativeContent(this.getAssistantContent(session.id, assistantMessageId))) {
         this.appendAssistantDelta(session.id, assistantMessageId, failureText);
         this.broadcast('session.message.delta', this.deltaEvent(session, assistantMessageId, job.id, failureText));
       }
@@ -715,6 +715,11 @@ function formatInlineFailureMessage(error: unknown): string {
     return `Nap stopped before returning a response: ${message}`;
   }
   return message;
+}
+
+function hasNarrativeContent(content: string): boolean {
+  const withoutActivities = content.replace(/\n*:::nap-activity\s+[A-Za-z0-9+/=]+[\s\S]*?:::\n*/g, '').trim();
+  return withoutActivities.length > 0;
 }
 
 export async function startNapDaemon(): Promise<NapDaemon> {

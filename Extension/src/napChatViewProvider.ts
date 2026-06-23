@@ -1239,7 +1239,7 @@ function splitSmoothDelta(delta: string): string[] {
 }
 
 function isPersistentActivityKind(kind: string | undefined): boolean {
-  return kind === 'file' || kind === 'tool' || kind === 'command' || kind === 'warning' || kind === 'error';
+  return kind === 'file' || kind === 'tool' || kind === 'command';
 }
 
 function getInterruptedProcessText(content: string): string {

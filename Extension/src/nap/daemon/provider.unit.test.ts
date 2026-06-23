@@ -289,6 +289,13 @@ describe('Nap app-server stream parsing', () => {
         }
       }
     })).toBe('Nap stopped: failed.');
+
+    expect(parseAppServerFailure({
+      method: 'error',
+      params: {
+        message: 'Nap Apps authentication failed. Run `nap login` again, then `/mcp refresh`.'
+      }
+    })).toBeUndefined();
   });
 
   it('maps status and progress notifications to activity text', () => {
