@@ -83,8 +83,8 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       { id: 'gpt-5.4', label: 'GPT-5.4', supportsTools: true },
       DEFAULT_MODEL_OPTION,
       { id: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', supportsTools: true },
-      { id: 'claude-opus-4.8', label: 'Claude Opus 4.8', supportsTools: true },
-      { id: 'claude-sonnet-4.6', label: 'Claude Sonnet 4.6', supportsTools: true },
+      { id: 'claude-opus-4.8', label: 'Opus 4.8', supportsTools: true },
+      { id: 'claude-sonnet-4.6', label: 'Sonnet 4.6', supportsTools: true },
       { id: 'minimax-m3', label: 'MiniMax M3', supportsTools: true },
       { id: 'minimax-m2.7', label: 'MiniMax M2.7', supportsTools: true }
     ];
