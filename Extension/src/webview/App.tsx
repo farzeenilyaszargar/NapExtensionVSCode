@@ -22,12 +22,18 @@ import {
   Trash2
 } from 'lucide-react';
 import { ChangeEvent, DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, SyntheticEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { NapActivityItem, NapApprovalMode, NapAuthState, NapMode, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
+import { NapActivityItem, NapApprovalMode, NapAuthState, NapMode, NapReasoningEffort, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
 import { renderMarkdown } from './markdown';
 
 const approvalModes: NapApprovalMode[] = ['default', 'bypass'];
+const reasoningEfforts: Array<{ id: NapReasoningEffort; label: string }> = [
+  { id: 'low', label: 'Low' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'high', label: 'High' },
+  { id: 'xhigh', label: 'Extra High' }
+];
 type OpenMenu = 'account' | 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'copy' | 'defaultPermissions' | 'diff' | 'drag' | 'edit' | 'fullPermissions' | 'new' | 'settings' | 'settingsCat';
@@ -512,6 +518,8 @@ export function App() {
   const hasMoreModels = modelOptions.length > visibleModelOptions.length;
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
   const approvalMode = state.approvalMode ?? 'default';
+  const reasoningEffort = state.reasoningEffort ?? 'medium';
+  const showReasoningEffortOptions = /^gpt-/i.test(selectedModel?.id ?? state.modelId);
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
   const waitingText = state.activityText ?? (isStreaming && !latestStreamingAssistant?.content ? 'Thinking' : undefined);
@@ -1145,6 +1153,27 @@ export function App() {
                         <span>More</span>
                         <ChevronRight size={12} strokeWidth={1.8} aria-hidden="true" />
                       </button>
+                    ) : null}
+                    {showReasoningEffortOptions ? (
+                      <div className="model-reasoning-section" aria-label="Reasoning effort">
+                        <div className="model-menu-heading">Reasoning</div>
+                        {reasoningEfforts.map(option => (
+                          <button
+                            key={option.id}
+                            type="button"
+                            className="floating-menu-item model-reasoning-item"
+                            role="menuitemradio"
+                            aria-checked={reasoningEffort === option.id}
+                            onClick={() => {
+                              post({ type: 'setReasoningEffort', reasoningEffort: option.id });
+                              setOpenMenu(undefined);
+                            }}
+                          >
+                            <span>{option.label}</span>
+                            {reasoningEffort === option.id ? <Check size={12} /> : null}
+                          </button>
+                        ))}
+                      </div>
                     ) : null}
                   </div>
                 ) : null}

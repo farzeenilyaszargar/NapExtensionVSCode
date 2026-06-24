@@ -9,6 +9,9 @@ export type NapSecurityMode = typeof NAP_SECURITY_MODES[number];
 export const NAP_APPROVAL_MODES = ['default', 'bypass'] as const;
 export type NapApprovalMode = typeof NAP_APPROVAL_MODES[number];
 
+export const NAP_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh'] as const;
+export type NapReasoningEffort = typeof NAP_REASONING_EFFORTS[number];
+
 export type NapRunStatus = 'idle' | 'streaming' | 'stopped' | 'error';
 export type NapMessageRole = 'user' | 'assistant' | 'system';
 export type NapMessageStatus = 'complete' | 'streaming' | 'stopped' | 'error';
@@ -71,6 +74,7 @@ export interface NapSessionRecord {
   mode: NapMode;
   modelId: string;
   approvalMode?: NapApprovalMode;
+  reasoningEffort?: NapReasoningEffort;
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
@@ -115,6 +119,7 @@ export interface NapSessionState {
   mode: NapMode;
   modelId: string;
   approvalMode: NapApprovalMode;
+  reasoningEffort?: NapReasoningEffort;
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
@@ -202,6 +207,7 @@ export type WebviewToExtensionMessage =
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
   | { type: 'setApprovalMode'; approvalMode: NapApprovalMode }
+  | { type: 'setReasoningEffort'; reasoningEffort: NapReasoningEffort }
   | { type: 'refreshPlugins' }
   | { type: 'openExternal'; url: string }
   | { type: 'openSettings' };
@@ -231,6 +237,10 @@ function isNapMode(value: unknown): value is NapMode {
 
 function isNapApprovalMode(value: unknown): value is NapApprovalMode {
   return typeof value === 'string' && NAP_APPROVAL_MODES.includes(value as NapApprovalMode);
+}
+
+function isNapReasoningEffort(value: unknown): value is NapReasoningEffort {
+  return typeof value === 'string' && NAP_REASONING_EFFORTS.includes(value as NapReasoningEffort);
 }
 
 export function isWebviewToExtensionMessage(value: unknown): value is WebviewToExtensionMessage {
@@ -275,6 +285,8 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
       return typeof value.modelId === 'string' && value.modelId.length > 0;
     case 'setApprovalMode':
       return isNapApprovalMode(value.approvalMode);
+    case 'setReasoningEffort':
+      return isNapReasoningEffort(value.reasoningEffort);
     default:
       return false;
   }

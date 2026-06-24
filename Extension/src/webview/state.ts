@@ -13,6 +13,7 @@ export const initialViewState: NapViewState = {
   mode: 'chat',
   modelId: 'gpt-5.4-mini',
   approvalMode: 'default',
+  reasoningEffort: 'medium',
   debugMode: false,
   securityMode: 'standard',
   messages: [],

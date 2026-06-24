@@ -10,6 +10,7 @@ import {
   NapMode,
   NapModelOption,
   NapPluginSummary,
+  NapReasoningEffort,
   NapSecurityMode,
   NapSessionRecord,
   NapSessionSummary
@@ -30,6 +31,7 @@ export interface NapPromptRequest {
   mode: NapMode;
   modelId: string;
   approvalMode: NapApprovalMode;
+  reasoningEffort?: NapReasoningEffort;
   debugMode: boolean;
   securityMode: NapSecurityMode;
 }
@@ -162,6 +164,7 @@ export class NapDaemonService implements INapCliService {
       mode: request.mode,
       modelId: request.modelId,
       approvalMode: request.approvalMode,
+      reasoningEffort: request.reasoningEffort,
       debugMode: request.debugMode,
       securityMode: request.securityMode
     });
@@ -220,6 +223,7 @@ export class NapDaemonService implements INapCliService {
         mode: request.mode,
         modelId: request.modelId,
         approvalMode: request.approvalMode,
+        reasoningEffort: request.reasoningEffort,
         debugMode: request.debugMode,
         securityMode: request.securityMode
       });
@@ -275,6 +279,7 @@ function toSharedSessionRecord(session: DaemonSessionRecord): NapSessionRecord {
     mode: session.mode,
     modelId: session.modelId,
     approvalMode: session.approvalMode ?? 'default',
+    reasoningEffort: session.reasoningEffort ?? 'medium',
     debugMode: session.debugMode,
     securityMode: session.securityMode,
     messages: session.messages,

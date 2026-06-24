@@ -2245,7 +2245,7 @@ textarea:disabled {
   width: 188px;
   min-width: 150px;
   max-width: min(188px, calc(100vw - 30px));
-  max-height: min(150px, calc(100vh - 80px));
+  max-height: min(260px, calc(100vh - 80px));
   transform-origin: bottom right;
   transition: height 190ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -2311,6 +2311,27 @@ textarea:disabled {
 
 .model-menu .floating-menu-item svg {
   margin-left: auto;
+}
+
+.model-reasoning-section {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  margin-top: 3px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--nap-border) 64%, transparent);
+}
+
+.model-menu-heading {
+  padding: 0 10px 2px;
+  color: var(--nap-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.model-reasoning-item {
+  color: color-mix(in srgb, var(--vscode-foreground) 86%, var(--nap-muted));
 }
 
 .model-menu--expanded .floating-menu-item:nth-child(n + 5) {

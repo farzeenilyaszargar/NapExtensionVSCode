@@ -9,6 +9,7 @@ import {
   NapMode,
   NapModelOption,
   NapPluginSummary,
+  NapReasoningEffort,
   NapSecurityMode
 } from '../shared/protocol';
 
@@ -121,6 +122,7 @@ export interface NapSessionRecord {
   mode: NapMode;
   modelId: string;
   approvalMode?: NapApprovalMode;
+  reasoningEffort?: NapReasoningEffort;
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
@@ -150,6 +152,7 @@ export interface SessionCreateParams extends NapRpcEnvelope {
   mode?: NapMode;
   modelId?: string;
   approvalMode?: NapApprovalMode;
+  reasoningEffort?: NapReasoningEffort;
   debugMode?: boolean;
   securityMode?: NapSecurityMode;
 }
@@ -160,6 +163,7 @@ export interface SessionSendMessageParams extends NapRpcEnvelope {
   mode: NapMode;
   modelId: string;
   approvalMode?: NapApprovalMode;
+  reasoningEffort?: NapReasoningEffort;
   debugMode: boolean;
   securityMode: NapSecurityMode;
 }

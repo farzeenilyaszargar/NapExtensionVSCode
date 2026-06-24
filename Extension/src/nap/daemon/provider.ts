@@ -22,6 +22,7 @@ export interface ProviderPromptRequest {
   mode: NapMode;
   modelId: string;
   approvalMode?: 'default' | 'bypass';
+  reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh';
   debugMode: boolean;
   securityMode: NapSecurityMode;
   sessionId?: string;
@@ -359,6 +360,7 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       input: [{ type: 'text', text: buildTurnText(request), text_elements: [] }],
       cwd: request.workspaceRoot ?? process.cwd(),
       model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
+      reasoningEffort: request.reasoningEffort,
       approvalPolicy: toAppServerApprovalPolicy(request),
       sandbox: toAppServerSandbox(request)
     });
@@ -480,6 +482,7 @@ async function getInitializedThread(client: NapAppServerClient, request: Provide
   const result = await client.startThread({
     cwd: request.workspaceRoot ?? process.cwd(),
     model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
+    reasoningEffort: request.reasoningEffort,
     approvalPolicy: toAppServerApprovalPolicy(request),
     sandbox: toAppServerSandbox(request)
   });
@@ -495,6 +498,7 @@ async function resumeThread(client: NapAppServerClient, threadId: string, reques
     threadId,
     cwd: request.workspaceRoot ?? process.cwd(),
     model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
+    reasoningEffort: request.reasoningEffort,
     approvalPolicy: toAppServerApprovalPolicy(request),
     sandbox: toAppServerSandbox(request)
   });

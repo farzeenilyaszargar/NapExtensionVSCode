@@ -39,6 +39,7 @@ export type NapAppServerMessage =
 export interface StartThreadParams {
   cwd: string;
   model?: string;
+  reasoningEffort?: string;
   approvalPolicy?: string;
   sandbox?: string;
 }
@@ -52,6 +53,7 @@ export interface StartTurnParams {
   input: Array<{ type: 'text'; text: string; text_elements: [] }>;
   cwd?: string;
   model?: string;
+  reasoningEffort?: string;
   approvalPolicy?: string;
   sandbox?: string;
 }

@@ -11,6 +11,7 @@ import {
   isWebviewToExtensionMessage,
   NAP_APPROVAL_MODES,
   NAP_MODES,
+  NAP_REASONING_EFFORTS,
   NapActivityItem,
   NapApprovalMode,
   NapLogEvent,
@@ -18,6 +19,7 @@ import {
   NapAuthState,
   NapMode,
   NapQueuedPrompt,
+  NapReasoningEffort,
   NapSessionRecord,
   NapSessionState,
   NapWorkspaceChangeSummary,
@@ -29,6 +31,7 @@ interface NapUiPreferences {
   mode?: NapMode;
   modelId?: string;
   approvalMode?: NapApprovalMode;
+  reasoningEffort?: NapReasoningEffort;
 }
 
 export class NapChatViewProvider implements vscode.WebviewViewProvider {
@@ -258,6 +261,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         return;
       case 'setApprovalMode':
         await this.setApprovalMode(message.approvalMode);
+        return;
+      case 'setReasoningEffort':
+        await this.setReasoningEffort(message.reasoningEffort);
         return;
       case 'refreshPlugins':
         await this.refreshEnvironment();
@@ -497,6 +503,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
           mode: this.state.mode,
           modelId: this.state.modelId,
           approvalMode: this.state.approvalMode,
+          reasoningEffort: this.state.reasoningEffort,
           debugMode: this.state.debugMode,
           securityMode: this.state.securityMode
         },
@@ -808,6 +815,20 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     this.publishState();
   }
 
+  private async setReasoningEffort(reasoningEffort: NapReasoningEffort): Promise<void> {
+    this.preferences = {
+      ...this.preferences,
+      reasoningEffort
+    };
+    await this.writePreferences();
+    this.state = {
+      ...this.state,
+      reasoningEffort
+    };
+    this.log('info', `Reasoning set to ${reasoningEffort}.`);
+    this.publishState();
+  }
+
   private appendAssistantDelta(messageId: string, delta: string): void {
     this.state = {
       ...this.state,
@@ -908,6 +929,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       mode: this.preferences.mode ?? 'chat',
       modelId: this.preferences.modelId ?? config.defaultModel,
       approvalMode: this.preferences.approvalMode ?? 'default',
+      reasoningEffort: this.preferences.reasoningEffort ?? 'medium',
       debugMode: config.debugMode,
       securityMode: config.securityMode,
       messages: [],
@@ -934,7 +956,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     return {
       mode: isNapModePreference(value?.mode) ? value.mode : 'chat',
       modelId: typeof value?.modelId === 'string' && value.modelId.trim() ? value.modelId : undefined,
-      approvalMode: isNapApprovalPreference(value?.approvalMode) ? value.approvalMode : 'default'
+      approvalMode: isNapApprovalPreference(value?.approvalMode) ? value.approvalMode : 'default',
+      reasoningEffort: isNapReasoningPreference(value?.reasoningEffort) ? value.reasoningEffort : 'medium'
     };
   }
 
@@ -953,6 +976,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       mode: session.mode,
       modelId: session.modelId,
       approvalMode: session.approvalMode ?? this.preferences.approvalMode ?? 'default',
+      reasoningEffort: session.reasoningEffort ?? this.preferences.reasoningEffort ?? 'medium',
       debugMode: session.debugMode,
       securityMode: session.securityMode,
       messages: session.messages,
@@ -973,6 +997,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       mode: this.state.mode,
       modelId: this.state.modelId,
       approvalMode: this.state.approvalMode,
+      reasoningEffort: this.state.reasoningEffort,
       debugMode: this.state.debugMode,
       securityMode: this.state.securityMode,
       messages: this.state.messages,
@@ -1899,4 +1924,8 @@ function isNapModePreference(value: unknown): value is NapMode {
 
 function isNapApprovalPreference(value: unknown): value is NapApprovalMode {
   return typeof value === 'string' && NAP_APPROVAL_MODES.includes(value as NapApprovalMode);
+}
+
+function isNapReasoningPreference(value: unknown): value is NapReasoningEffort {
+  return typeof value === 'string' && NAP_REASONING_EFFORTS.includes(value as NapReasoningEffort);
 }
