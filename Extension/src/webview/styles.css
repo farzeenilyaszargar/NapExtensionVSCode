@@ -544,6 +544,7 @@ select {
   padding: 0 0 var(--composer-safe-area);
   background: var(--nap-surface);
   scroll-padding-bottom: var(--composer-safe-area);
+  overflow-anchor: none;
   will-change: scroll-position;
 }
 

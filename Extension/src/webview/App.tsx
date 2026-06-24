@@ -57,16 +57,10 @@ const approvalLabels: Record<ApprovalMode, string> = {
 const COMPOSER_MIN_HEIGHT = 92;
 const COMPOSER_MAX_HEIGHT = 220;
 const COMPOSER_SINGLE_LINE_GROW_THRESHOLD = 20;
-const SCROLL_LOCK_THRESHOLD = 28;
+const SCROLL_LOCK_THRESHOLD = 6;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const SMOOTH_SCROLL_DURATION_MS = 180;
 const COMPOSER_TEXT_STOP_OFFSET = 20;
-
-function getComposerSafeArea(element: HTMLElement): number {
-  const rawValue = window.getComputedStyle(element).getPropertyValue('--composer-safe-area');
-  const parsedValue = Number.parseFloat(rawValue);
-  return Number.isFinite(parsedValue) ? parsedValue : 0;
-}
 
 function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | undefined {
   const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
@@ -187,8 +181,7 @@ export function App() {
   }, []);
 
   const getTimelineTargetTop = useCallback((element: HTMLElement) => {
-    const composerSafeArea = getComposerSafeArea(element);
-    return Math.max(0, element.scrollHeight - element.clientHeight - composerSafeArea);
+    return Math.max(0, element.scrollHeight - element.clientHeight);
   }, []);
 
   const distanceFromBottom = useCallback((element: HTMLElement) =>
@@ -269,6 +262,10 @@ export function App() {
     const timeline = event.currentTarget;
     const atBottom = isAtBottom(timeline);
     if (Date.now() <= ignoreScrollUntilRef.current) {
+      if (!atBottom && userScrollIntentRef.current) {
+        cancelScrollAnimation();
+        isScrollPinnedRef.current = false;
+      }
       if (atBottom) {
         isScrollPinnedRef.current = true;
       }
@@ -281,7 +278,7 @@ export function App() {
     if (!wasPinned && atBottom) {
       scrollToBottom('smooth');
     }
-  }, [isAtBottom, scrollToBottom]);
+  }, [cancelScrollAnimation, isAtBottom, scrollToBottom]);
 
   const onTimelineWheel = useCallback((event: WheelEvent<HTMLElement>) => {
     markUserScrollIntent();
