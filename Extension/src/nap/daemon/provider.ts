@@ -21,6 +21,7 @@ export interface ProviderPromptRequest {
   prompt: string;
   mode: NapMode;
   modelId: string;
+  approvalMode?: 'default' | 'bypass';
   debugMode: boolean;
   securityMode: NapSecurityMode;
   sessionId?: string;
@@ -358,7 +359,8 @@ export class NapCliProviderAdapter implements ProviderAdapter {
       input: [{ type: 'text', text: buildTurnText(request), text_elements: [] }],
       cwd: request.workspaceRoot ?? process.cwd(),
       model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
-      approvalPolicy: 'on-request'
+      approvalPolicy: toAppServerApprovalPolicy(request),
+      sandbox: toAppServerSandbox(request)
     });
   }
 
@@ -478,8 +480,8 @@ async function getInitializedThread(client: NapAppServerClient, request: Provide
   const result = await client.startThread({
     cwd: request.workspaceRoot ?? process.cwd(),
     model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
-    approvalPolicy: 'on-request',
-    sandbox: request.securityMode === 'strict' ? 'read-only' : 'workspace-write'
+    approvalPolicy: toAppServerApprovalPolicy(request),
+    sandbox: toAppServerSandbox(request)
   });
   const threadId = readThreadId(result);
   if (!threadId) {
@@ -493,8 +495,8 @@ async function resumeThread(client: NapAppServerClient, threadId: string, reques
     threadId,
     cwd: request.workspaceRoot ?? process.cwd(),
     model: request.modelId === 'auto' ? AUTO_MODEL_ID : request.modelId,
-    approvalPolicy: 'on-request',
-    sandbox: request.securityMode === 'strict' ? 'read-only' : 'workspace-write'
+    approvalPolicy: toAppServerApprovalPolicy(request),
+    sandbox: toAppServerSandbox(request)
   });
   return readThreadId(result) ?? threadId;
 }
@@ -1074,12 +1076,22 @@ export function buildChatArgs(request: ProviderPromptRequest): string[] {
   if (modelId) {
     args.push('--model', modelId);
   }
-  if (request.securityMode === 'strict') {
-    args.push('--sandbox', 'read-only');
-  }
+  args.push('--approval-policy', toAppServerApprovalPolicy(request));
+  args.push('--sandbox', toAppServerSandbox(request));
   args.push('--skip-git-repo-check');
   args.push(buildExecPrompt(request));
   return args;
+}
+
+function toAppServerApprovalPolicy(request: Pick<ProviderPromptRequest, 'approvalMode'>): string {
+  return request.approvalMode === 'bypass' ? 'never' : 'on-request';
+}
+
+function toAppServerSandbox(request: Pick<ProviderPromptRequest, 'approvalMode' | 'securityMode'>): string {
+  if (request.approvalMode === 'bypass') {
+    return 'danger-full-access';
+  }
+  return request.securityMode === 'strict' ? 'read-only' : 'workspace-write';
 }
 
 function buildExecPrompt(request: ProviderPromptRequest): string {

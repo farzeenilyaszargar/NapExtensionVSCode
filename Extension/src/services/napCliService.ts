@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { getNapConfiguration } from '../configuration';
 import {
   NapActivityKind,
+  NapApprovalMode,
   NapAuthState,
   NapLogEvent,
   NapMcpState,
@@ -28,6 +29,7 @@ export interface NapPromptRequest {
   prompt: string;
   mode: NapMode;
   modelId: string;
+  approvalMode: NapApprovalMode;
   debugMode: boolean;
   securityMode: NapSecurityMode;
 }
@@ -45,6 +47,7 @@ export interface INapCliService extends vscode.Disposable {
   login(): Promise<NapAuthState>;
   logout(): Promise<NapAuthState>;
   getModels(defaultModelId: string): Promise<NapModelOption[]>;
+  setDefaultModel(modelId: string): Promise<void>;
   getAuthState(): Promise<NapAuthState>;
   getMcpState(): Promise<NapMcpState>;
   getPlugins(): Promise<NapPluginSummary[]>;
@@ -110,6 +113,10 @@ export class NapDaemonService implements INapCliService {
     return result.models;
   }
 
+  async setDefaultModel(modelId: string): Promise<void> {
+    await this.client.setDefaultModel(modelId);
+  }
+
   async getAuthState(): Promise<NapAuthState> {
     const auth = await this.client.authStatus();
     return this.rememberAuth(auth);
@@ -154,6 +161,7 @@ export class NapDaemonService implements INapCliService {
       sessionId: request.sessionId,
       mode: request.mode,
       modelId: request.modelId,
+      approvalMode: request.approvalMode,
       debugMode: request.debugMode,
       securityMode: request.securityMode
     });
@@ -211,6 +219,7 @@ export class NapDaemonService implements INapCliService {
         prompt: request.prompt,
         mode: request.mode,
         modelId: request.modelId,
+        approvalMode: request.approvalMode,
         debugMode: request.debugMode,
         securityMode: request.securityMode
       });
@@ -265,6 +274,7 @@ function toSharedSessionRecord(session: DaemonSessionRecord): NapSessionRecord {
     title,
     mode: session.mode,
     modelId: session.modelId,
+    approvalMode: session.approvalMode ?? 'default',
     debugMode: session.debugMode,
     securityMode: session.securityMode,
     messages: session.messages,

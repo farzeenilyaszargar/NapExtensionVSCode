@@ -6,7 +6,7 @@ import { NapDaemonService } from './services/napCliService';
 export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel('Nap');
   const cliService = new NapDaemonService(context.extensionUri, output);
-  const provider = new NapChatViewProvider(context.extensionUri, cliService, output);
+  const provider = new NapChatViewProvider(context.extensionUri, cliService, output, context.globalState);
 
   context.subscriptions.push(
     output,

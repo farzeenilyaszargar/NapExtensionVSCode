@@ -503,6 +503,17 @@ describe('Nap CLI command construction', () => {
       modelId: 'auto',
       debugMode: false,
       securityMode: 'strict'
-    })).toEqual(['exec', '--json', '--model', 'gpt-5.4-mini', '--sandbox', 'read-only', '--skip-git-repo-check', 'hello']);
+    })).toEqual(['exec', '--json', '--model', 'gpt-5.4-mini', '--approval-policy', 'on-request', '--sandbox', 'read-only', '--skip-git-repo-check', 'hello']);
+  });
+
+  it('maps full permissions to bypass approval and full access sandbox', () => {
+    expect(buildChatArgs({
+      prompt: 'hello',
+      mode: 'chat',
+      modelId: 'auto',
+      approvalMode: 'bypass',
+      debugMode: false,
+      securityMode: 'strict'
+    })).toEqual(['exec', '--json', '--model', 'gpt-5.4-mini', '--approval-policy', 'never', '--sandbox', 'danger-full-access', '--skip-git-repo-check', 'hello']);
   });
 });

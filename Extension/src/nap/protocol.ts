@@ -5,6 +5,7 @@ import {
   NapLogEvent,
   NapMcpState,
   NapMessage,
+  NapApprovalMode,
   NapMode,
   NapModelOption,
   NapPluginSummary,
@@ -119,6 +120,7 @@ export interface NapSessionRecord {
   title: string;
   mode: NapMode;
   modelId: string;
+  approvalMode?: NapApprovalMode;
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
@@ -147,6 +149,7 @@ export interface SessionCreateParams extends NapRpcEnvelope {
   sessionId?: string;
   mode?: NapMode;
   modelId?: string;
+  approvalMode?: NapApprovalMode;
   debugMode?: boolean;
   securityMode?: NapSecurityMode;
 }
@@ -156,6 +159,7 @@ export interface SessionSendMessageParams extends NapRpcEnvelope {
   prompt: string;
   mode: NapMode;
   modelId: string;
+  approvalMode?: NapApprovalMode;
   debugMode: boolean;
   securityMode: NapSecurityMode;
 }

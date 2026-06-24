@@ -53,6 +53,7 @@ export interface StartTurnParams {
   cwd?: string;
   model?: string;
   approvalPolicy?: string;
+  sandbox?: string;
 }
 
 export type LoginAccountParams =

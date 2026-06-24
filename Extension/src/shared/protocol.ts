@@ -6,6 +6,9 @@ export type NapMode = typeof NAP_MODES[number];
 export const NAP_SECURITY_MODES = ['standard', 'strict'] as const;
 export type NapSecurityMode = typeof NAP_SECURITY_MODES[number];
 
+export const NAP_APPROVAL_MODES = ['default', 'bypass'] as const;
+export type NapApprovalMode = typeof NAP_APPROVAL_MODES[number];
+
 export type NapRunStatus = 'idle' | 'streaming' | 'stopped' | 'error';
 export type NapMessageRole = 'user' | 'assistant' | 'system';
 export type NapMessageStatus = 'complete' | 'streaming' | 'stopped' | 'error';
@@ -67,6 +70,7 @@ export interface NapSessionRecord {
   title: string;
   mode: NapMode;
   modelId: string;
+  approvalMode?: NapApprovalMode;
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
@@ -110,6 +114,7 @@ export interface NapSessionState {
   status: NapRunStatus;
   mode: NapMode;
   modelId: string;
+  approvalMode: NapApprovalMode;
   debugMode: boolean;
   securityMode: NapSecurityMode;
   messages: NapMessage[];
@@ -196,6 +201,7 @@ export type WebviewToExtensionMessage =
   | { type: 'reviewFileChanges'; filePath: string; messageId?: string }
   | { type: 'setMode'; mode: NapMode }
   | { type: 'setModel'; modelId: string }
+  | { type: 'setApprovalMode'; approvalMode: NapApprovalMode }
   | { type: 'refreshPlugins' }
   | { type: 'openExternal'; url: string }
   | { type: 'openSettings' };
@@ -221,6 +227,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNapMode(value: unknown): value is NapMode {
   return typeof value === 'string' && NAP_MODES.includes(value as NapMode);
+}
+
+function isNapApprovalMode(value: unknown): value is NapApprovalMode {
+  return typeof value === 'string' && NAP_APPROVAL_MODES.includes(value as NapApprovalMode);
 }
 
 export function isWebviewToExtensionMessage(value: unknown): value is WebviewToExtensionMessage {
@@ -263,6 +273,8 @@ export function isWebviewToExtensionMessage(value: unknown): value is WebviewToE
       return isNapMode(value.mode);
     case 'setModel':
       return typeof value.modelId === 'string' && value.modelId.length > 0;
+    case 'setApprovalMode':
+      return isNapApprovalMode(value.approvalMode);
     default:
       return false;
   }

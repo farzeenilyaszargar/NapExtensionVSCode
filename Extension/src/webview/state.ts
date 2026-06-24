@@ -12,6 +12,7 @@ export const initialViewState: NapViewState = {
   status: 'idle',
   mode: 'chat',
   modelId: 'gpt-5.4-mini',
+  approvalMode: 'default',
   debugMode: false,
   securityMode: 'standard',
   messages: [],

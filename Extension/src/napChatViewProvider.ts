@@ -9,7 +9,10 @@ import { INapCliService } from './services/napCliService';
 import {
   ExtensionToWebviewMessage,
   isWebviewToExtensionMessage,
+  NAP_APPROVAL_MODES,
+  NAP_MODES,
   NapActivityItem,
+  NapApprovalMode,
   NapLogEvent,
   NapMessage,
   NapAuthState,
@@ -22,9 +25,16 @@ import {
 } from './shared/protocol';
 import { generateSessionTitleFromPrompt } from './shared/sessionTitle';
 
+interface NapUiPreferences {
+  mode?: NapMode;
+  modelId?: string;
+  approvalMode?: NapApprovalMode;
+}
+
 export class NapChatViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'nap.chatView';
   private static readonly suggestedEditsViewType = 'napSuggestedEdits';
+  private static readonly preferencesKey = 'nap.chatPreferences';
 
   static registerSuggestedEditsSerializer(): vscode.Disposable {
     return vscode.window.registerWebviewPanelSerializer(NapChatViewProvider.suggestedEditsViewType, {
@@ -52,12 +62,15 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   private conversationTurnDiff: string | undefined;
   private conversationTurnDiffsByMessageId = new Map<string, string>();
   private workspaceChangeGeneration = 0;
+  private preferences: NapUiPreferences;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly cliService: INapCliService,
-    private readonly output: vscode.OutputChannel
+    private readonly output: vscode.OutputChannel,
+    private readonly globalState: vscode.Memento
   ) {
+    this.preferences = this.readPreferences();
     this.state = this.createInitialState();
   }
 
@@ -241,7 +254,10 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
         this.setMode(message.mode);
         return;
       case 'setModel':
-        this.setModel(message.modelId);
+        await this.setModel(message.modelId);
+        return;
+      case 'setApprovalMode':
+        await this.setApprovalMode(message.approvalMode);
         return;
       case 'refreshPlugins':
         await this.refreshEnvironment();
@@ -480,6 +496,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
           prompt,
           mode: this.state.mode,
           modelId: this.state.modelId,
+          approvalMode: this.state.approvalMode,
           debugMode: this.state.debugMode,
           securityMode: this.state.securityMode
         },
@@ -743,6 +760,11 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   }
 
   private setMode(mode: NapMode): void {
+    this.preferences = {
+      ...this.preferences,
+      mode
+    };
+    void this.writePreferences();
     this.state = {
       ...this.state,
       mode,
@@ -752,12 +774,37 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     this.publishState();
   }
 
-  private setModel(modelId: string): void {
+  private async setModel(modelId: string): Promise<void> {
+    this.preferences = {
+      ...this.preferences,
+      modelId
+    };
+    await this.writePreferences();
+    try {
+      await this.cliService.setDefaultModel(modelId);
+    } catch (error) {
+      this.output.appendLine(`[warn] Failed to save daemon default model: ${error instanceof Error ? error.message : String(error)}`);
+    }
     this.state = {
       ...this.state,
       modelId
     };
     this.log('info', `Model set to ${modelId}.`);
+    this.publishState();
+  }
+
+  private async setApprovalMode(approvalMode: NapApprovalMode): Promise<void> {
+    this.preferences = {
+      ...this.preferences,
+      approvalMode
+    };
+    await this.writePreferences();
+    this.state = {
+      ...this.state,
+      approvalMode,
+      securityMode: approvalMode === 'bypass' ? 'standard' : this.state.securityMode
+    };
+    this.log('info', `Permissions set to ${approvalMode}.`);
     this.publishState();
   }
 
@@ -858,8 +905,9 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       sessionId: createId('session'),
       title: 'New Chat',
       status: 'idle',
-      mode: 'chat',
-      modelId: config.defaultModel,
+      mode: this.preferences.mode ?? 'chat',
+      modelId: this.preferences.modelId ?? config.defaultModel,
+      approvalMode: this.preferences.approvalMode ?? 'default',
       debugMode: config.debugMode,
       securityMode: config.securityMode,
       messages: [],
@@ -881,6 +929,19 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     };
   }
 
+  private readPreferences(): NapUiPreferences {
+    const value = this.globalState.get<Partial<NapUiPreferences>>(NapChatViewProvider.preferencesKey);
+    return {
+      mode: isNapModePreference(value?.mode) ? value.mode : 'chat',
+      modelId: typeof value?.modelId === 'string' && value.modelId.trim() ? value.modelId : undefined,
+      approvalMode: isNapApprovalPreference(value?.approvalMode) ? value.approvalMode : 'default'
+    };
+  }
+
+  private async writePreferences(): Promise<void> {
+    await this.globalState.update(NapChatViewProvider.preferencesKey, this.preferences);
+  }
+
   private toSessionState(session: NapSessionRecord): NapSessionState {
     this.rebuildConversationTurnDiffs(session.messages);
     return {
@@ -891,6 +952,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       status: 'idle',
       mode: session.mode,
       modelId: session.modelId,
+      approvalMode: session.approvalMode ?? this.preferences.approvalMode ?? 'default',
       debugMode: session.debugMode,
       securityMode: session.securityMode,
       messages: session.messages,
@@ -910,6 +972,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       title: this.state.title || generateSessionTitleFromPrompt(firstUserMessage) || 'New Chat',
       mode: this.state.mode,
       modelId: this.state.modelId,
+      approvalMode: this.state.approvalMode,
       debugMode: this.state.debugMode,
       securityMode: this.state.securityMode,
       messages: this.state.messages,
@@ -1828,4 +1891,12 @@ function truncateText(value: string, maxLength: number): string {
   }
 
   return `${value.slice(0, Math.max(0, maxLength - 3)).trimEnd()}...`;
+}
+
+function isNapModePreference(value: unknown): value is NapMode {
+  return typeof value === 'string' && NAP_MODES.includes(value as NapMode);
+}
+
+function isNapApprovalPreference(value: unknown): value is NapApprovalMode {
+  return typeof value === 'string' && NAP_APPROVAL_MODES.includes(value as NapApprovalMode);
 }

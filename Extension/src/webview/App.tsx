@@ -22,13 +22,12 @@ import {
   Trash2
 } from 'lucide-react';
 import { ChangeEvent, DragEvent, Fragment, FormEvent, KeyboardEvent, MouseEvent, PointerEvent, SyntheticEvent, UIEvent, WheelEvent, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { NapActivityItem, NapAuthState, NapMode, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
+import { NapActivityItem, NapApprovalMode, NapAuthState, NapMode, NapWorkspaceChangeSummary, WebviewToExtensionMessage } from '../shared/protocol';
 import { getVsCodeApi } from './vscodeApi';
 import { initialViewState, napViewReducer } from './state';
 import { renderMarkdown } from './markdown';
 
-const approvalModes = ['default', 'bypass'] as const;
-type ApprovalMode = typeof approvalModes[number];
+const approvalModes: NapApprovalMode[] = ['default', 'bypass'];
 type OpenMenu = 'account' | 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ActivePage = 'chat' | 'sessions';
 type LocalIconName = 'archive' | 'arrowUp' | 'copy' | 'defaultPermissions' | 'diff' | 'drag' | 'edit' | 'fullPermissions' | 'new' | 'settings' | 'settingsCat';
@@ -49,7 +48,7 @@ const slashCommands: Array<{ action: SlashAction; label: string; keywords: strin
   { action: 'search', label: 'Web Search', keywords: ['search', 'web', 'browse'] }
 ];
 
-const approvalLabels: Record<ApprovalMode, string> = {
+const approvalLabels: Record<NapApprovalMode, string> = {
   default: 'Default Permissions',
   bypass: 'Full Permissions'
 };
@@ -88,7 +87,6 @@ declare global {
 export function App() {
   const [state, dispatch] = useReducer(napViewReducer, initialViewState);
   const [draft, setDraft] = useState('');
-  const [approvalMode, setApprovalMode] = useState<ApprovalMode>('default');
   const [openMenu, setOpenMenu] = useState<OpenMenu>();
   const [slashQuery, setSlashQuery] = useState('');
   const [slashMatch, setSlashMatch] = useState<SlashMatch>();
@@ -513,6 +511,7 @@ export function App() {
   const visibleModelOptions = showAllModels ? modelOptions : modelOptions.slice(0, 4);
   const hasMoreModels = modelOptions.length > visibleModelOptions.length;
   const selectedModel = modelOptions.find(model => model.id === state.modelId) ?? modelOptions[0];
+  const approvalMode = state.approvalMode ?? 'default';
   const isAuthenticated = state.auth.status === 'authenticated';
   const sessions = state.sessions;
   const waitingText = state.activityText ?? (isStreaming && !latestStreamingAssistant?.content ? 'Thinking' : undefined);
@@ -1172,7 +1171,7 @@ export function App() {
                 {openMenu === 'approval' ? (
                   <div className="floating-menu permissions-menu" role="menu" data-menu="approval">
                     {approvalModes.map(mode => (
-                      <button key={mode} type="button" className={`floating-menu-item permissions-menu-item permissions-menu-item--${mode}`} role="menuitemradio" aria-label={approvalLabels[mode]} title={approvalLabels[mode]} aria-checked={approvalMode === mode} onClick={() => { setApprovalMode(mode); setOpenMenu(undefined); }}>
+                      <button key={mode} type="button" className={`floating-menu-item permissions-menu-item permissions-menu-item--${mode}`} role="menuitemradio" aria-label={approvalLabels[mode]} title={approvalLabels[mode]} aria-checked={approvalMode === mode} onClick={() => { post({ type: 'setApprovalMode', approvalMode: mode }); setOpenMenu(undefined); }}>
                         <LocalIcon name={mode === 'bypass' ? 'fullPermissions' : 'defaultPermissions'} />
                         <span>{approvalLabels[mode]}</span>
                         {approvalMode === mode ? <Check size={12} /> : null}
