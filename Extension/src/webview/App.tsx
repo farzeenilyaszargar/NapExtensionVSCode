@@ -97,6 +97,7 @@ export function App() {
   const [slashQuery, setSlashQuery] = useState('');
   const [slashMatch, setSlashMatch] = useState<SlashMatch>();
   const [showAllModels, setShowAllModels] = useState(false);
+  const [showReasoningEfforts, setShowReasoningEfforts] = useState(false);
   const [activePage, setActivePage] = useState<ActivePage>('chat');
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -359,6 +360,7 @@ export function App() {
   useEffect(() => {
     if (openMenu !== 'model') {
       setShowAllModels(false);
+      setShowReasoningEfforts(false);
     }
 
     if (!openMenu) {
@@ -553,7 +555,7 @@ export function App() {
     return () => window.clearInterval(interval);
   }, [latestStreamingAssistant?.id]);
 
-  const expandModelMenu = useCallback(() => {
+  const animateModelMenuExpansion = useCallback(() => {
     const menu = document.querySelector<HTMLElement>('.floating-menu[data-menu="model"]');
     if (menu) {
       const rect = menu.getBoundingClientRect();
@@ -562,26 +564,38 @@ export function App() {
       menu.style.height = `${rect.height}px`;
     }
 
-    setShowAllModels(true);
+    return () => {
+      window.requestAnimationFrame(() => {
+        const expandedMenu = document.querySelector<HTMLElement>('.floating-menu[data-menu="model"]');
+        if (!expandedMenu) {
+          return;
+        }
 
-    window.requestAnimationFrame(() => {
-      const expandedMenu = document.querySelector<HTMLElement>('.floating-menu[data-menu="model"]');
-      if (!expandedMenu) {
-        return;
-      }
+        const maxHeight = Number.parseFloat(expandedMenu.style.maxHeight);
+        const targetHeight = Number.isFinite(maxHeight)
+          ? Math.min(expandedMenu.scrollHeight, maxHeight)
+          : expandedMenu.scrollHeight;
+        expandedMenu.style.height = `${targetHeight}px`;
 
-      const maxHeight = Number.parseFloat(expandedMenu.style.maxHeight);
-      const targetHeight = Number.isFinite(maxHeight)
-        ? Math.min(expandedMenu.scrollHeight, maxHeight)
-        : expandedMenu.scrollHeight;
-      expandedMenu.style.height = `${targetHeight}px`;
-
-      window.setTimeout(() => {
-        expandedMenu.classList.remove('model-menu--expanding');
-        expandedMenu.style.height = '';
-      }, 210);
-    });
+        window.setTimeout(() => {
+          expandedMenu.classList.remove('model-menu--expanding');
+          expandedMenu.style.height = '';
+        }, 210);
+      });
+    };
   }, []);
+
+  const expandModelMenu = useCallback(() => {
+    const finishAnimation = animateModelMenuExpansion();
+    setShowAllModels(true);
+    finishAnimation();
+  }, [animateModelMenuExpansion]);
+
+  const expandReasoningEfforts = useCallback(() => {
+    const finishAnimation = animateModelMenuExpansion();
+    setShowReasoningEfforts(true);
+    finishAnimation();
+  }, [animateModelMenuExpansion]);
 
   const seedComposerText = useCallback((text: string) => {
     setDraft(previous => previous.trim() ? `${previous.trimEnd()}\n${text}` : text);
@@ -1155,24 +1169,38 @@ export function App() {
                       </button>
                     ) : null}
                     {showReasoningEffortOptions ? (
-                      <div className="model-reasoning-section" aria-label="Reasoning effort">
-                        <div className="model-menu-heading">Reasoning</div>
-                        {reasoningEfforts.map(option => (
-                          <button
-                            key={option.id}
-                            type="button"
-                            className="floating-menu-item model-reasoning-item"
-                            role="menuitemradio"
-                            aria-checked={reasoningEffort === option.id}
-                            onClick={() => {
-                              post({ type: 'setReasoningEffort', reasoningEffort: option.id });
-                              setOpenMenu(undefined);
-                            }}
-                          >
-                            <span>{option.label}</span>
-                            {reasoningEffort === option.id ? <Check size={12} /> : null}
-                          </button>
-                        ))}
+                      <div className={`model-reasoning-section${showReasoningEfforts ? ' model-reasoning-section--expanded' : ''}`} aria-label="Reasoning effort">
+                        <button
+                          type="button"
+                          className="floating-menu-item floating-menu-item--more model-reasoning-toggle"
+                          role="menuitem"
+                          aria-expanded={showReasoningEfforts}
+                          onClick={expandReasoningEfforts}
+                        >
+                          <span>Reasoning</span>
+                          <span className="model-reasoning-current">{reasoningEfforts.find(option => option.id === reasoningEffort)?.label ?? 'Medium'}</span>
+                          <ChevronRight size={12} strokeWidth={1.8} aria-hidden="true" />
+                        </button>
+                        {showReasoningEfforts ? (
+                          <div className="model-reasoning-options">
+                            {reasoningEfforts.map(option => (
+                              <button
+                                key={option.id}
+                                type="button"
+                                className="floating-menu-item model-reasoning-item"
+                                role="menuitemradio"
+                                aria-checked={reasoningEffort === option.id}
+                                onClick={() => {
+                                  post({ type: 'setReasoningEffort', reasoningEffort: option.id });
+                                  setOpenMenu(undefined);
+                                }}
+                              >
+                                <span>{option.label}</span>
+                                {reasoningEffort === option.id ? <Check size={12} /> : null}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
