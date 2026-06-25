@@ -619,9 +619,9 @@ export function App() {
     finishAnimation();
   }, [animateModelMenuExpansion]);
 
-  const expandReasoningEfforts = useCallback(() => {
+  const toggleReasoningEfforts = useCallback(() => {
     const finishAnimation = animateModelMenuExpansion();
-    setShowReasoningEfforts(true);
+    setShowReasoningEfforts(current => !current);
     finishAnimation();
   }, [animateModelMenuExpansion]);
 
@@ -1193,7 +1193,7 @@ export function App() {
                           className="floating-menu-item floating-menu-item--more model-reasoning-toggle"
                           role="menuitem"
                           aria-expanded={showReasoningEfforts}
-                          onClick={expandReasoningEfforts}
+                          onClick={toggleReasoningEfforts}
                         >
                           <span>Reasoning</span>
                           <span className="model-reasoning-current">{reasoningEfforts.find(option => option.id === reasoningEffort)?.label ?? 'Medium'}</span>
