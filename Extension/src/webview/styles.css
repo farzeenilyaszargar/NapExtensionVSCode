@@ -630,7 +630,7 @@ textarea::-webkit-scrollbar,
   width: 100%;
   max-height: 220px;
   object-fit: contain;
-  margin-top: 18px;
+  margin-top: 46px;
   border-radius: 14px;
   opacity: 0.96;
 }
@@ -674,6 +674,11 @@ textarea::-webkit-scrollbar,
   cursor: pointer;
   font-size: 12px;
   font-weight: 450;
+}
+
+.auth-landing-button .local-icon--redirect {
+  width: 11px;
+  height: 11px;
 }
 
 .auth-landing-button--primary {
