@@ -86,6 +86,7 @@ function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | un
 declare global {
   interface Window {
     __NAP_LOGO_URI__?: string;
+    __NAP_START_DEMO_URI__?: string;
     __NAP_ICON_URIS__?: Record<LocalIconName, string>;
   }
 }
@@ -851,14 +852,6 @@ export function App() {
       {showAuthLanding ? (
         <main className="auth-landing" aria-label="Nap sign in">
           <section className="auth-landing-content">
-            {window.__NAP_LOGO_URI__ ? (
-              <span
-                className="auth-landing-logo"
-                role="img"
-                aria-label="Nap"
-                style={{ WebkitMaskImage: `url("${window.__NAP_LOGO_URI__}")`, maskImage: `url("${window.__NAP_LOGO_URI__}")` }}
-              />
-            ) : null}
             <div className="auth-landing-copy">
               <h1>Nap in your environment</h1>
               <p>Nap can index codebase, edit code, run commands, review changes and fix vulnerabilities.</p>
@@ -871,6 +864,9 @@ export function App() {
                 <span>Login</span>
               </button>
             </div>
+            {window.__NAP_START_DEMO_URI__ ? (
+              <img className="auth-landing-demo" src={window.__NAP_START_DEMO_URI__} alt="" aria-hidden="true" />
+            ) : null}
           </section>
         </main>
       ) : null}

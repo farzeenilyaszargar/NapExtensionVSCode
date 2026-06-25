@@ -1151,6 +1151,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
 
     let html = fs.readFileSync(indexPath, 'utf8');
     const logoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'logo.svg'));
+    const startDemoUri = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'start-demo.png'));
     const iconUris = {
       archive: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'archive.svg')).toString(),
       arrowUp: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'arrow-up.svg')).toString(),
@@ -1171,7 +1172,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
     html = html.replace(/%CSP_SOURCE%/g, webview.cspSource);
     html = html.replace(/%NONCE%/g, nonce);
     html = html.replace(/<script /g, `<script nonce="${nonce}" `);
-    html = html.replace('<div id="root"></div>', `<script nonce="${nonce}">window.__NAP_LOGO_URI__ = ${JSON.stringify(logoUri.toString())}; window.__NAP_ICON_URIS__ = ${JSON.stringify(iconUris)};</script><div id="root"></div>`);
+    html = html.replace('<div id="root"></div>', `<script nonce="${nonce}">window.__NAP_LOGO_URI__ = ${JSON.stringify(logoUri.toString())}; window.__NAP_START_DEMO_URI__ = ${JSON.stringify(startDemoUri.toString())}; window.__NAP_ICON_URIS__ = ${JSON.stringify(iconUris)};</script><div id="root"></div>`);
     return html;
   }
 
