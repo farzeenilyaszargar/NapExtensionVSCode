@@ -895,7 +895,7 @@ export function App() {
         </main>
       ) : null}
       {activePage === 'sessions' && isAuthenticated ? (
-        <section className="sessions-page" aria-label="Nap sessions">
+        <section className="sessions-page" aria-label="Nap tasks">
           {window.__NAP_LOGO_URI__ ? (
             <span
               className="sessions-page-logo"
@@ -904,9 +904,9 @@ export function App() {
             />
           ) : null}
           <header className="app-page-header app-page-header--sessions">
-            <span>Sessions</span>
-            <div className="header-actions" aria-label="Nap session actions">
-              <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
+            <span>Tasks</span>
+            <div className="header-actions" aria-label="Nap task actions">
+              <button type="button" title="Tasks" aria-label="Tasks" onClick={openSessionsPage}>
                 <LocalIcon name="archive" />
               </button>
               <HeaderSettingsDropdown
@@ -949,7 +949,7 @@ export function App() {
                 <button
                   type="button"
                   className="session-delete-button"
-                  title="Delete session"
+                  title="Delete task"
                   aria-label={`Delete ${session.title}`}
                   onClick={() => post({ type: 'deleteSession', sessionId: session.id })}
                 >
@@ -963,12 +963,12 @@ export function App() {
 
       {activePage === 'chat' && isAuthenticated ? (
         <header className="app-page-header">
-          <button type="button" className="header-nav-button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
+          <button type="button" className="header-nav-button" title="Tasks" aria-label="Tasks" onClick={openSessionsPage}>
             <ArrowLeft size={14} strokeWidth={1.8} />
           </button>
           <span>{state.title || 'New Chat'}</span>
           <div className="header-actions" aria-label="Nap chat actions">
-            <button type="button" title="Sessions" aria-label="Sessions" onClick={openSessionsPage}>
+            <button type="button" title="Tasks" aria-label="Tasks" onClick={openSessionsPage}>
               <LocalIcon name="archive" />
             </button>
             <HeaderSettingsDropdown
