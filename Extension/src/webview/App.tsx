@@ -36,7 +36,7 @@ const reasoningEfforts: Array<{ id: NapReasoningEffort; label: string }> = [
 ];
 type OpenMenu = 'account' | 'add' | 'approval' | 'model' | 'slash' | undefined;
 type ActivePage = 'chat' | 'sessions';
-type LocalIconName = 'archive' | 'arrowUp' | 'copy' | 'defaultPermissions' | 'diff' | 'drag' | 'edit' | 'fullPermissions' | 'new' | 'settings' | 'settingsCat';
+type LocalIconName = 'archive' | 'arrowUp' | 'copy' | 'defaultPermissions' | 'diff' | 'drag' | 'edit' | 'fullPermissions' | 'new' | 'redirect' | 'settings' | 'settingsCat';
 type SlashAction = 'review' | 'goal' | 'mcp' | 'plan' | 'doctor' | 'apply' | 'resume' | 'fork' | 'cloud' | 'search';
 type SlashMatch = { query: string; start: number; end: number };
 type ReviewSummaryByMessageId = Record<string, NapWorkspaceChangeSummary>;
@@ -881,6 +881,7 @@ export function App() {
             </div>
             <div className="auth-landing-actions">
               <button type="button" className="auth-landing-button auth-landing-button--secondary" onClick={openDocs}>
+                <LocalIcon name="redirect" />
                 <span>Docs</span>
               </button>
               <button type="button" className="auth-landing-button auth-landing-button--primary" onClick={startAuthLogin}>

@@ -626,10 +626,10 @@ textarea::-webkit-scrollbar,
 
 .auth-landing-demo {
   display: block;
-  width: min(100%, 360px);
+  width: 100%;
   max-height: 220px;
   object-fit: contain;
-  margin-top: 4px;
+  margin-top: 18px;
   border-radius: 14px;
   opacity: 0.96;
 }
@@ -637,9 +637,9 @@ textarea::-webkit-scrollbar,
 .auth-landing-copy h1 {
   margin: 0;
   color: var(--vscode-foreground);
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1.12;
-  font-weight: 650;
+  font-weight: 600;
   letter-spacing: 0;
 }
 
@@ -672,7 +672,7 @@ textarea::-webkit-scrollbar,
   border-radius: 999px;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 520;
+  font-weight: 450;
 }
 
 .auth-landing-button--primary {
@@ -682,8 +682,9 @@ textarea::-webkit-scrollbar,
 }
 
 .auth-landing-button--secondary {
-  color: var(--vscode-foreground);
-  background: var(--nap-panel);
+  color: #d9d9d9;
+  border-color: transparent;
+  background: #1e1e1e;
 }
 
 .auth-landing-button--primary:hover {
@@ -691,7 +692,7 @@ textarea::-webkit-scrollbar,
 }
 
 .auth-landing-button--secondary:hover {
-  background: var(--nap-hover);
+  background: #272727;
 }
 
 .auth-landing-button:focus-visible {

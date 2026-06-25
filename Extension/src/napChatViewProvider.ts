@@ -1162,6 +1162,7 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
       edit: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'edit.svg')).toString(),
       fullPermissions: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'full-permissions.svg')).toString(),
       new: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'new.svg')).toString(),
+      redirect: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'redirect.svg')).toString(),
       settings: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'settings.svg')).toString(),
       settingsCat: webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'resources', 'icons', 'settings-cat.svg')).toString()
     };
