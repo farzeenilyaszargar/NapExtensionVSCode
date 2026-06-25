@@ -1197,7 +1197,7 @@ export function App() {
                         >
                           <span>Reasoning</span>
                           <span className="model-reasoning-current">{reasoningEfforts.find(option => option.id === reasoningEffort)?.label ?? 'Medium'}</span>
-                          <ChevronRight size={12} strokeWidth={1.8} aria-hidden="true" />
+                          <ChevronRight className="model-reasoning-chevron" size={12} strokeWidth={1.8} aria-hidden="true" />
                         </button>
                         {showReasoningEfforts ? (
                           <div className="model-reasoning-options">

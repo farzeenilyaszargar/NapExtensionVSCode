@@ -2333,6 +2333,14 @@ textarea:disabled {
   font-size: 9.5px;
 }
 
+.model-reasoning-chevron {
+  transition: transform 170ms ease;
+}
+
+.model-reasoning-section--expanded .model-reasoning-chevron {
+  transform: rotate(90deg);
+}
+
 .model-reasoning-options {
   display: grid;
   gap: 2px;
