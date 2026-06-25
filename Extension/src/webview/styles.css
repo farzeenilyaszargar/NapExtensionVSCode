@@ -309,6 +309,11 @@ button {
   color: inherit;
 }
 
+.local-icon--settings {
+  width: 12px;
+  height: 12px;
+}
+
 .local-icon--settingsCat {
   width: 15px;
   height: 15px;
