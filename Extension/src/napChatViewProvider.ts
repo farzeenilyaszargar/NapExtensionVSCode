@@ -1186,8 +1186,8 @@ export class NapChatViewProvider implements vscode.WebviewViewProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nap</title>
 </head>
-<body>
-  <main style="font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 16px;">
+<body style="margin: 0; background: #141414;">
+  <main style="min-height: 100vh; font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 16px; background: #141414;">
     <h1 style="font-size: 16px;">Nap</h1>
     <p>Run <code>npm run build:webview</code> to build the Nap chat surface.</p>
   </main>

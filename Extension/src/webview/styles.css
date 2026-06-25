@@ -6,7 +6,7 @@
   --nap-surface-alt: var(--nap-surface);
   --nap-panel: var(--nap-surface);
   --nap-hover: var(--vscode-list-hoverBackground, color-mix(in srgb, var(--nap-surface) 88%, var(--vscode-foreground) 12%));
-  --nap-overlay: color-mix(in srgb, var(--nap-surface) 88%, transparent);
+  --nap-overlay: var(--nap-surface);
 }
 
 * {
@@ -21,6 +21,7 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background: var(--nap-surface);
 }
 
 body {
