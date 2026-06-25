@@ -103,9 +103,6 @@ export function App() {
   const [copiedMessageId, setCopiedMessageId] = useState<string>();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isAuthVerifying, setIsAuthVerifying] = useState(true);
-  const [hasSeenAuthLanding, setHasSeenAuthLanding] = useState(() =>
-    window.localStorage.getItem('nap.authLandingSeen') === 'true'
-  );
   const [draggedQueuedPromptId, setDraggedQueuedPromptId] = useState<string>();
   const [elapsedNow, setElapsedNow] = useState(() => Date.now());
   const [reviewSummariesByMessageId, setReviewSummariesByMessageId] = useState<ReviewSummaryByMessageId>({});
@@ -144,8 +141,7 @@ export function App() {
         setIsInitialLoading(false);
         setIsAuthVerifying(event.data.auth?.status === 'unknown');
         if (event.data.auth?.status === 'authenticated') {
-          window.localStorage.setItem('nap.authLandingSeen', 'true');
-          setHasSeenAuthLanding(true);
+          setIsAuthVerifying(false);
         } else {
           setActivePage('chat');
         }
@@ -821,8 +817,6 @@ export function App() {
   }, [draggedQueuedPromptId, post]);
 
   const startAuthLogin = useCallback(() => {
-    window.localStorage.setItem('nap.authLandingSeen', 'true');
-    setHasSeenAuthLanding(true);
     setIsAuthVerifying(true);
     post({ type: 'authLogin' });
   }, [post]);
@@ -835,11 +829,10 @@ export function App() {
   const loadingLabel = isInitialLoading ? 'Loading Nap' : 'Verifying auth';
   const showAuthLanding = activePage === 'chat'
     && !showLoadingOverlay
-    && state.auth.status === 'signedOut'
-    && !hasSeenAuthLanding;
+    && state.auth.status === 'signedOut';
   const showAuthLoading = activePage === 'chat'
     && !showAuthLanding
-    && !isAuthenticated;
+    && state.auth.status === 'unknown';
 
   return (
     <div className="nap-shell">
@@ -896,8 +889,6 @@ export function App() {
                 onLogout={() => {
                   setOpenMenu(undefined);
                   setActivePage('chat');
-                  window.localStorage.removeItem('nap.authLandingSeen');
-                  setHasSeenAuthLanding(false);
                   post({ type: 'authLogout' });
                 }}
               />
@@ -960,8 +951,6 @@ export function App() {
               onLogout={() => {
                 setOpenMenu(undefined);
                 setActivePage('chat');
-                window.localStorage.removeItem('nap.authLandingSeen');
-                setHasSeenAuthLanding(false);
                 post({ type: 'authLogout' });
               }}
             />
