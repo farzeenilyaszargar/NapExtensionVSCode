@@ -289,11 +289,15 @@ button {
   height: 12px;
 }
 
-.local-icon--copy,
 .local-icon--defaultPermissions,
 .local-icon--fullPermissions {
   width: 14px;
   height: 14px;
+}
+
+.local-icon--copy {
+  width: 12px;
+  height: 12px;
 }
 
 .permissions-select .local-icon {
@@ -1994,7 +1998,7 @@ textarea::-webkit-scrollbar,
   inset: 0;
   z-index: 0;
   border-radius: inherit;
-  background: color-mix(in srgb, var(--nap-panel) 50%, transparent);
+  background: rgba(27, 27, 27, 0.9);
   -webkit-backdrop-filter: blur(22px) saturate(1.15);
   backdrop-filter: blur(22px) saturate(1.15);
   pointer-events: none;
