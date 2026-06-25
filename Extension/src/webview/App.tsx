@@ -145,6 +145,8 @@ export function App() {
         if (event.data.auth?.status === 'authenticated') {
           window.localStorage.setItem('nap.authLandingSeen', 'true');
           setHasSeenAuthLanding(true);
+        } else {
+          setActivePage('chat');
         }
       }
       if (event.data?.type === 'error') {
@@ -874,7 +876,7 @@ export function App() {
           </section>
         </main>
       ) : null}
-      {activePage === 'sessions' ? (
+      {activePage === 'sessions' && isAuthenticated ? (
         <section className="sessions-page" aria-label="Nap sessions">
           {window.__NAP_LOGO_URI__ ? (
             <span
@@ -899,6 +901,7 @@ export function App() {
                 }}
                 onLogout={() => {
                   setOpenMenu(undefined);
+                  setActivePage('chat');
                   window.localStorage.removeItem('nap.authLandingSeen');
                   setHasSeenAuthLanding(false);
                   post({ type: 'authLogout' });
@@ -962,6 +965,7 @@ export function App() {
               }}
               onLogout={() => {
                 setOpenMenu(undefined);
+                setActivePage('chat');
                 window.localStorage.removeItem('nap.authLandingSeen');
                 setHasSeenAuthLanding(false);
                 post({ type: 'authLogout' });
