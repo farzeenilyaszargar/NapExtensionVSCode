@@ -66,6 +66,7 @@ const SCROLL_LOCK_THRESHOLD = 6;
 const PROGRAMMATIC_SCROLL_GRACE_MS = 420;
 const SMOOTH_SCROLL_DURATION_MS = 180;
 const COMPOSER_TEXT_STOP_OFFSET = 20;
+const AUTH_VERIFY_TIMEOUT_MS = 5000;
 
 function getActiveSlashMatch(value: string, caretIndex: number): SlashMatch | undefined {
   const tokenStart = Math.max(value.lastIndexOf(' ', caretIndex - 1), value.lastIndexOf('\n', caretIndex - 1), value.lastIndexOf('\t', caretIndex - 1)) + 1;
@@ -117,6 +118,7 @@ export function App() {
   const userScrollIntentRef = useRef(false);
   const ignoreScrollUntilRef = useRef(0);
   const scrollFrameRef = useRef<number>();
+  const authVerifyTimedOutRef = useRef(false);
   const vscode = useMemo(() => getVsCodeApi(), []);
 
   const post = useCallback((message: WebviewToExtensionMessage) => {
@@ -130,7 +132,13 @@ export function App() {
       }
       if (event.data?.type === 'sessionState') {
         setIsInitialLoading(false);
-        setIsAuthVerifying(event.data.state?.auth?.status === 'unknown');
+        const authStatus = event.data.state?.auth?.status;
+        if (authStatus === 'unknown') {
+          setIsAuthVerifying(!authVerifyTimedOutRef.current);
+        } else {
+          authVerifyTimedOutRef.current = false;
+          setIsAuthVerifying(false);
+        }
         const sessionId = event.data.state?.sessionId;
         if (sessionId && sessionId !== reviewSummarySessionId.current) {
           reviewSummarySessionId.current = sessionId;
@@ -139,7 +147,13 @@ export function App() {
       }
       if (event.data?.type === 'authStateChanged') {
         setIsInitialLoading(false);
-        setIsAuthVerifying(event.data.auth?.status === 'unknown');
+        const authStatus = event.data.auth?.status;
+        if (authStatus === 'unknown') {
+          setIsAuthVerifying(!authVerifyTimedOutRef.current);
+        } else {
+          authVerifyTimedOutRef.current = false;
+          setIsAuthVerifying(false);
+        }
         if (event.data.auth?.status === 'authenticated') {
           setIsAuthVerifying(false);
         } else {
@@ -171,6 +185,21 @@ export function App() {
       }
     };
   }, [post]);
+
+  useEffect(() => {
+    if (!isAuthVerifying || state.auth.status !== 'unknown') {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      authVerifyTimedOutRef.current = true;
+      setIsInitialLoading(false);
+      setIsAuthVerifying(false);
+      setActivePage('chat');
+    }, AUTH_VERIFY_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeout);
+  }, [isAuthVerifying, state.auth.status]);
 
   const markProgrammaticScroll = useCallback((duration = PROGRAMMATIC_SCROLL_GRACE_MS) => {
     ignoreScrollUntilRef.current = Date.now() + duration;
@@ -817,6 +846,7 @@ export function App() {
   }, [draggedQueuedPromptId, post]);
 
   const startAuthLogin = useCallback(() => {
+    authVerifyTimedOutRef.current = false;
     setIsAuthVerifying(true);
     post({ type: 'authLogin' });
   }, [post]);
@@ -829,7 +859,7 @@ export function App() {
   const loadingLabel = isInitialLoading ? 'Loading Nap' : 'Verifying auth';
   const showAuthLanding = activePage === 'chat'
     && !showLoadingOverlay
-    && state.auth.status === 'signedOut';
+    && (state.auth.status === 'signedOut' || state.auth.status === 'unknown');
   const showAuthLoading = activePage === 'chat'
     && !showAuthLanding
     && state.auth.status === 'unknown';
