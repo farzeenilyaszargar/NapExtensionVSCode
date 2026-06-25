@@ -554,7 +554,7 @@ export function App() {
   const sessions = state.sessions;
   const waitingText = state.activityText ?? (isStreaming && !latestStreamingAssistant?.content ? 'Thinking' : undefined);
   const waitingKind = state.activityKind ?? 'thinking';
-  const activityItems = state.activityItems ?? [];
+  const editedActivityItems = (state.activityItems ?? []).filter(isEditedActivityItem).slice(-3);
   const queuedPrompts = state.queuedPrompts ?? [];
   const hasDraft = draft.trim().length > 0;
   const showStopButton = isStreaming && !hasDraft;
@@ -1042,6 +1042,9 @@ export function App() {
                       {message.status === 'streaming' && waitingText ? (
                         <ActivityLine kind={waitingKind} text={waitingText} />
                       ) : null}
+                      {message.status === 'streaming' && editedActivityItems.length > 0 ? (
+                        <EditedFilesSummary items={editedActivityItems} live />
+                      ) : null}
                     </>
                   ) : message.content}
                 </div>
@@ -1320,6 +1323,10 @@ function ActivityTrail({ items }: { items: NapActivityItem[] }) {
 
 function ActivityTrailItem({ item }: { item: NapActivityItem }) {
   const { kind, text } = item;
+  if (isEditedActivityItem(item)) {
+    return <EditedFileRow item={item} />;
+  }
+
   const Icon = activityKindIcon(kind);
   const parts = splitActivityParagraphs(formatActivityText(kind, text));
   const isAction = item.verb && !['think', 'write', 'status'].includes(item.verb);
@@ -1347,14 +1354,46 @@ function ActivityTrailItem({ item }: { item: NapActivityItem }) {
   );
 }
 
-function EditedFilesSummary({ items }: { items: NapActivityItem[] }) {
+function EditedFilesSummary({ items, live = false }: { items: NapActivityItem[]; live?: boolean }) {
   return (
-    <div className="edited-files-summary" aria-label="Edited files">
-      <div className="edited-files-heading">Edited {items.length} {items.length === 1 ? 'file' : 'files'}</div>
+    <div className={`edited-files-summary${live ? ' edited-files-summary--live' : ''}`} aria-label="Edited files">
       {items.map(item => (
-        <div key={item.id} className="edited-file-row">
-          <span>{item.filePath ? fileName(item.filePath) : item.title ?? 'File'}</span>
-          <ActivityStats item={item} />
+        <EditedFileRow key={item.id} item={item} live={live} />
+      ))}
+    </div>
+  );
+}
+
+function EditedFileRow({ item, live = false }: { item: NapActivityItem; live?: boolean }) {
+  const name = item.filePath ? fileName(item.filePath) : item.title ?? 'File';
+  return (
+    <div className={`edited-file-row${live ? ' edited-file-row--live' : ''}`}>
+      <span className="edited-file-copy">
+        <span className="edited-file-verb">Edited</span>
+        <span className="edited-file-name">{name}</span>
+        <ActivityStats item={item} />
+      </span>
+      {live ? <LiveDiffPreview item={item} /> : null}
+    </div>
+  );
+}
+
+function LiveDiffPreview({ item }: { item: NapActivityItem }) {
+  const name = item.filePath ? fileName(item.filePath) : item.title ?? 'file';
+  const lines = [
+    { type: 'context', line: 8, text: `const current = load${pascalIdentifier(name)}();` },
+    { type: 'remove', line: 9, text: `return previous${pascalIdentifier(name)};` },
+    { type: 'add', line: 10, text: `return update${pascalIdentifier(name)}();` },
+    { type: 'add', line: 11, text: `await save${pascalIdentifier(name)}();` },
+    { type: 'context', line: 12, text: 'refreshView();' }
+  ];
+  return (
+    <div className="live-diff-preview" aria-hidden="true">
+      {lines.map(line => (
+        <div key={`${line.type}-${line.line}`} className={`live-diff-line live-diff-line--${line.type}`}>
+          <span>{line.line}</span>
+          <span>{line.type === 'add' ? '+' : line.type === 'remove' ? '-' : ' '}</span>
+          <code>{line.text}</code>
         </div>
       ))}
     </div>
@@ -1386,7 +1425,6 @@ function ChangeSummaryBar({
   const [expanded, setExpanded] = useState(false);
   const canExpand = files.length > 0;
   const singleFileName = files.length === 1 ? fileName(files[0].filePath) : undefined;
-  const title = singleFileName ? `Edited ${singleFileName}` : `Edited ${summary.filesChanged} ${summary.filesChanged === 1 ? 'File' : 'Files'}`;
   return (
     <section className={`change-summary-bar${expanded ? ' is-expanded' : ''}`} aria-label="Changed files summary">
       <div className="change-summary-main">
@@ -1402,7 +1440,10 @@ function ChangeSummaryBar({
           onClick={() => setExpanded(current => !current)}
         >
           {canExpand ? <ChevronRight size={12.5} aria-hidden="true" /> : null}
-          <span>{title}</span>
+          <span className="change-summary-title-copy">
+            <span className="change-summary-verb">Edited</span>
+            <span className="change-summary-file-name">{singleFileName ?? `${summary.filesChanged} ${summary.filesChanged === 1 ? 'File' : 'Files'}`}</span>
+          </span>
         </button>
         <div className="change-summary-actions">
           <span className="change-summary-stats" aria-label={`${summary.additions} additions and ${summary.deletions} deletions`}>
@@ -1430,6 +1471,16 @@ function ChangeSummaryBar({
       </div>
     </section>
   );
+}
+
+function isEditedActivityItem(item: NapActivityItem): boolean {
+  return item.verb === 'edit' || (item.kind === 'file' && (item.additions !== undefined || item.deletions !== undefined));
+}
+
+function pascalIdentifier(value: string): string {
+  const base = value.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9]+/g, ' ');
+  const normalized = base.trim().split(/\s+/).filter(Boolean).map(part => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join('');
+  return normalized || 'File';
 }
 
 function HeaderSettingsDropdown({
