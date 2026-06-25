@@ -7,6 +7,8 @@
   --nap-panel: var(--nap-surface);
   --nap-hover: var(--vscode-list-hoverBackground, color-mix(in srgb, var(--nap-surface) 88%, var(--vscode-foreground) 12%));
   --nap-overlay: var(--nap-surface);
+  --nap-font-sans: "Funnel Sans", var(--vscode-font-family), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --nap-font-mono: "IBM Plex Mono", var(--vscode-editor-font-family), ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 
 * {
@@ -28,7 +30,7 @@ body {
   padding-inline: 15px;
   background: var(--nap-surface);
   color: var(--vscode-foreground);
-  font-family: var(--vscode-font-family);
+  font-family: var(--nap-font-sans);
   font-size: var(--vscode-font-size);
 }
 
@@ -787,7 +789,7 @@ textarea::-webkit-scrollbar,
 
 .message--user .message-body {
   color: #d8dee9;
-  background: var(--nap-panel);
+  background: #181818;
   border: 0;
 }
 
@@ -971,7 +973,7 @@ textarea::-webkit-scrollbar,
   border-radius: 4px;
   color: var(--vscode-textPreformat-foreground, var(--vscode-foreground));
   background: var(--vscode-textCodeBlock-background, var(--vscode-editorWidget-background));
-  font-family: var(--vscode-editor-font-family, monospace);
+  font-family: var(--nap-font-mono);
   font-size: 0.92em;
 }
 
@@ -1074,7 +1076,7 @@ textarea::-webkit-scrollbar,
 
 .activity-trail-item--command,
 .activity-trail-item--tool {
-  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-family: var(--nap-font-mono);
 }
 
 .activity-trail-item--action {
@@ -1101,7 +1103,7 @@ textarea::-webkit-scrollbar,
   align-items: center;
   gap: 4px;
   flex: 0 0 auto;
-  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-family: var(--nap-font-mono);
   font-size: 10.5px;
 }
 
@@ -1202,7 +1204,7 @@ textarea::-webkit-scrollbar,
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-family: var(--nap-font-mono);
 }
 
 .edited-file-row > span:first-child {
@@ -1266,7 +1268,7 @@ textarea::-webkit-scrollbar,
 .activity-line--file {
   color: #9a9a9a;
   background: none;
-  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-family: var(--nap-font-mono);
   font-size: 11px;
   animation: none;
 }
@@ -1519,7 +1521,7 @@ textarea::-webkit-scrollbar,
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-family: var(--nap-font-mono);
   font-size: 10.5px;
   line-height: 1.2;
 }
@@ -1628,7 +1630,7 @@ textarea::-webkit-scrollbar,
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-family: var(--vscode-editor-font-family, var(--vscode-font-family));
+  font-family: var(--nap-font-mono);
 }
 
 .change-summary-bar + .prompt-queue {
