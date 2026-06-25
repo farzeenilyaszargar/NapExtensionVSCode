@@ -865,11 +865,9 @@ export function App() {
             </div>
             <div className="auth-landing-actions">
               <button type="button" className="auth-landing-button auth-landing-button--secondary" onClick={openDocs}>
-                <FileText size={14} aria-hidden="true" />
                 <span>Docs</span>
               </button>
               <button type="button" className="auth-landing-button auth-landing-button--primary" onClick={startAuthLogin}>
-                <Lock size={14} aria-hidden="true" />
                 <span>Login</span>
               </button>
             </div>
