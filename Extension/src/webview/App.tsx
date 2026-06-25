@@ -1909,9 +1909,11 @@ function formatElapsedTime(milliseconds: number): string {
 }
 
 function formatClockTime(timestamp: number): string {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false
-  }).format(timestamp);
+  }).format(timestamp).replace(' at ', ', ');
 }
