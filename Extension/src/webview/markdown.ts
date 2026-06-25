@@ -17,14 +17,6 @@ markdown.renderer.rules.code_inline = (tokens, index) => {
   }
   return `<code>${markdown.utils.escapeHtml(content)}</code>`;
 };
-markdown.renderer.rules.fence = (tokens, index) => {
-  const token = tokens[index];
-  const language = normalizeFenceLanguage(token.info);
-  const code = markdown.utils.escapeHtml(token.content);
-  const languageClass = language ? ` language-${escapeAttribute(language)}` : '';
-  const label = language ? markdown.utils.escapeHtml(language) : 'command';
-  return `<div class="nap-command-block"><div class="nap-command-floating-label">${label}</div><pre><code class="${languageClass.trim()}">${code}</code></pre></div>`;
-};
 
 export function renderMarkdown(source: string): string {
   return markdown.render(stripNapActivityMarkers(source)).replace(/==([^=\n][\s\S]*?[^=\n])==/g, '<mark>$1</mark>');
@@ -53,15 +45,4 @@ function escapeAttribute(value: string): string {
 
 function stripNapActivityMarkers(source: string): string {
   return source.replace(/(?:^|\n):::nap-activity[ \t]+[A-Za-z0-9+/_=-]+(?:\r?\n:::)?[ \t]*(?:\r?\n)?/g, '\n');
-}
-
-function normalizeFenceLanguage(info: string): string {
-  const language = info.trim().split(/\s+/, 1)[0]?.toLowerCase() ?? '';
-  if (!language) {
-    return 'command';
-  }
-  if (['bash', 'shell', 'sh', 'zsh', 'terminal', 'console'].includes(language)) {
-    return 'shell';
-  }
-  return language;
 }
